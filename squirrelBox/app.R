@@ -5,6 +5,7 @@ library(cowplot)
 library(magrittr)
 library(readr)
 library(stringr)
+library(shinyjs)
 
 # define state colors and order, region order
 state_cols <-  c(
@@ -34,13 +35,38 @@ combined %<>% mutate(state = factor(state, levels = state_order), region = facto
 bed <- read_tsv("final_annot_bed12_20_sort.bed12", col_names = F) %>% select(1:6)
 colnames(bed) <- c("chrom", "start", "end", "unique_gene_symbol", "score", "strand")
 
+# empty history list to start
+historytab <- c()
+
+# some other code for webpage functions
+jscode <- '
+$(function() {
+  var $els = $("[data-proxy-click]");
+  $.each(
+    $els,
+    function(idx, el) {
+      var $el = $(el);
+      var $proxy = $("#" + $el.data("proxyClick"));
+      $el.keydown(function (e) {
+        if (e.keyCode == 13) {
+          $proxy.click();
+        }
+      });
+    }
+  );
+});
+'
+
 # Define UI for application that draws the boxplot
 ui <- fluidPage(
-  
+  useShinyjs(),
+  tags$head(tags$script(HTML(jscode))),
   titlePanel("13-lined ground squirrel gene-level RNA-seq expression by tissue"),
   sidebarLayout(
-    sidebarPanel(textInput("geneID",label = "Gene ID", value = "ENSSTOG00000002411"),
-                 uiOutput("tab")),
+    sidebarPanel(div(style="display: inline-block;vertical-align:top; width: 200px;",tagAppendAttributes(textInput("geneID", label = NULL, value = "ENSSTOG00000002411"), `data-proxy-click` = "Find")), 
+                 div(style="display: inline-block;vertical-align:top; width: 10px;",actionButton("Find", "Find")),
+                 uiOutput("tab"), br(), br(),
+                 uiOutput("history1"),uiOutput("history2"),uiOutput("history3"),uiOutput("history4"),uiOutput("history5")),
     mainPanel(plotOutput("boxPlot", width = 800, height = 600),
               br(), br(),
               tableOutput("results"))
@@ -48,10 +74,14 @@ ui <- fluidPage(
 )
 
 # Define server logic required to draw the boxplot and render metadata table
-server <- function(input, output) {
+server <- function(input, output, session) {
+  
+  inid <- eventReactive(input$Find, {
+    input$geneID
+  }, ignoreNULL = FALSE)
   
   output$boxPlot <- renderPlot({
-    ggplot(combined %>% filter(gene_id == input$geneID | unique_gene_symbol == input$geneID), aes(state, log2_counts)) +
+    ggplot(combined %>% filter(gene_id == inid() | unique_gene_symbol == inid()), aes(state, log2_counts)) +
       geom_boxplot(aes(fill = state), outlier.shape = NA) +
       geom_jitter() +
       scale_fill_manual(values = state_cols) +
@@ -63,12 +93,12 @@ server <- function(input, output) {
   outputtab <- reactive({
     filtered <-
       combined %>%
-      filter(gene_id == input$geneID | unique_gene_symbol == input$geneID) %>% 
+      filter(gene_id == inid() | unique_gene_symbol == inid()) %>% 
       select(1:6) %>%
       unique()
     filtered2 <-
       bed %>%
-      filter(unique_gene_symbol == filtered$unique_gene_symbol[1] | unique_gene_symbol == input$geneID) %>%
+      filter(unique_gene_symbol == filtered$unique_gene_symbol[1] | unique_gene_symbol == inid()) %>%
       select(c(1,2,3,6))
     cbind(filtered, filtered2)
   })
@@ -77,10 +107,54 @@ server <- function(input, output) {
     outputtab()
   })
   
+  historytab <- reactiveValues()
+  
   output$tab <- renderUI({
     outputtab <- outputtab()
+    tempvec <- unique(c(outputtab$unique_gene_symbol, isolate(historytab$vec)))
+    if (length(tempvec) > 5) {
+      tempvec  <- tempvec[1:5]
+    }
+    historytab$vec <- tempvec
     url <- a(outputtab$unique_gene_symbol, href=str_c("http://genome.ucsc.edu/cgi-bin/hgTracks?db=hub_209779_KG_HiC&position=", outputtab$chrom, ":", outputtab$start, "-", outputtab$end))
     tagList("trackhub link:", url)
+  })
+  
+  output$history1 <- renderUI({
+    actionButton("history1", label = historytab$vec[1])
+  })
+  output$history2 <- renderUI({
+    actionButton("history2", label = historytab$vec[2])
+  })
+  output$history3 <- renderUI({
+    actionButton("history3", label = historytab$vec[3])
+  })
+  output$history4 <- renderUI({
+    actionButton("history4", label = historytab$vec[4])
+  })
+  output$history5 <- renderUI({
+    actionButton("history5", label = historytab$vec[5])
+  })
+  
+  observeEvent(input$history1, {
+    updateTextInput(session, inputId = "geneID", value = historytab$vec[1])
+    click("Find")
+  })
+  observeEvent(input$history2, {
+    updateTextInput(session, inputId = "geneID", value = historytab$vec[2])
+    click("Find")
+  })
+  observeEvent(input$history3, {
+    updateTextInput(session, inputId = "geneID", value = historytab$vec[3])
+    click("Find")
+  })
+  observeEvent(input$history4, {
+    updateTextInput(session, inputId = "geneID", value = historytab$vec[4])
+    click("Find")
+  })
+  observeEvent(input$history5, {
+    updateTextInput(session, inputId = "geneID", value = historytab$vec[5])
+    click("Find")
   })
 }
 
