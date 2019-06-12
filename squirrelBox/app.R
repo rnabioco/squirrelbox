@@ -65,8 +65,9 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(div(style="display: inline-block;vertical-align:top; width: 200px;",tagAppendAttributes(textInput("geneID", label = NULL, value = "ENSSTOG00000002411"), `data-proxy-click` = "Find")), 
                  div(style="display: inline-block;vertical-align:top; width: 10px;",actionButton("Find", "Find")),
-                 uiOutput("tab"), br(), br(),
-                 uiOutput("history1"),uiOutput("history2"),uiOutput("history3"),uiOutput("history4"),uiOutput("history5")),
+                 uiOutput("tab"), uiOutput("tab2"), br(), br(),
+                 uiOutput("history1"),uiOutput("history2"),uiOutput("history3"),uiOutput("history4"),uiOutput("history5"),
+                 tableOutput("print")),
     mainPanel(plotOutput("boxPlot", width = 800, height = 600),
               br(), br(),
               tableOutput("results"))
@@ -80,7 +81,13 @@ server <- function(input, output, session) {
     input$geneID
   }, ignoreNULL = FALSE)
   
+  rv <- reactiveValues()
+  rv$run2 <- 0
+  
+  historytab <- c()
+  
   output$boxPlot <- renderPlot({
+    set.seed(1)
     ggplot(combined %>% filter(gene_id == inid() | unique_gene_symbol == inid()), aes(state, log2_counts)) +
       geom_boxplot(aes(fill = state), outlier.shape = NA) +
       geom_jitter() +
@@ -100,6 +107,13 @@ server <- function(input, output, session) {
       bed %>%
       filter(unique_gene_symbol == filtered$unique_gene_symbol[1] | unique_gene_symbol == inid()) %>%
       select(c(1,2,3,6))
+    
+    tempvec <- unique(c(filtered$unique_gene_symbol, historytab))
+    if (length(tempvec) > 5) {
+      tempvec <- tempvec[1:5]
+    }
+    historytab <<- tempvec
+    
     cbind(filtered, filtered2)
   })
   
@@ -107,54 +121,64 @@ server <- function(input, output, session) {
     outputtab()
   })
   
-  historytab <- reactiveValues()
-  
   output$tab <- renderUI({
     outputtab <- outputtab()
-    tempvec <- unique(c(outputtab$unique_gene_symbol, isolate(historytab$vec)))
-    if (length(tempvec) > 5) {
-      tempvec  <- tempvec[1:5]
-    }
-    historytab$vec <- tempvec
     url <- a(outputtab$unique_gene_symbol, href=str_c("http://genome.ucsc.edu/cgi-bin/hgTracks?db=hub_209779_KG_HiC&position=", outputtab$chrom, ":", outputtab$start, "-", outputtab$end))
-    tagList("trackhub link:", url)
+    tagList("trackhub:", url)
+  })
+  
+  output$tab2 <- renderUI({
+    outputtab <- outputtab()
+    clean <- a(outputtab$unique_gene_symbol, href=str_c("https://www.genecards.org/cgi-bin/carddisp.pl?gene=", outputtab$clean_gene_symbol))
+    tagList("genecard:", clean)
   })
   
   output$history1 <- renderUI({
-    actionButton("history1", label = historytab$vec[1])
+    outputtab()
+    actionLink("history1", label = historytab[1])
   })
   output$history2 <- renderUI({
-    actionButton("history2", label = historytab$vec[2])
+    outputtab()
+    actionLink("history2", label = historytab[2])
   })
   output$history3 <- renderUI({
-    actionButton("history3", label = historytab$vec[3])
+    outputtab()
+    actionLink("history3", label = historytab[3])
   })
   output$history4 <- renderUI({
-    actionButton("history4", label = historytab$vec[4])
+    outputtab()
+    actionLink("history4", label = historytab[4])
   })
   output$history5 <- renderUI({
-    actionButton("history5", label = historytab$vec[5])
+    outputtab()
+    actionLink("history5", label = historytab[5])
   })
-  
+
   observeEvent(input$history1, {
-    updateTextInput(session, inputId = "geneID", value = historytab$vec[1])
-    click("Find")
+    updateTextInput(session, inputId = "geneID", value = historytab[1])
+    rv$run2 <- 1
   })
   observeEvent(input$history2, {
-    updateTextInput(session, inputId = "geneID", value = historytab$vec[2])
-    click("Find")
+    updateTextInput(session, inputId = "geneID", value = historytab[2])
+    rv$run2 <- 1
   })
   observeEvent(input$history3, {
-    updateTextInput(session, inputId = "geneID", value = historytab$vec[3])
-    click("Find")
+    updateTextInput(session, inputId = "geneID", value = historytab[3])
+    rv$run2 <- 1
   })
   observeEvent(input$history4, {
-    updateTextInput(session, inputId = "geneID", value = historytab$vec[4])
-    click("Find")
+    updateTextInput(session, inputId = "geneID", value = historytab[4])
+    rv$run2 <- 1
   })
   observeEvent(input$history5, {
-    updateTextInput(session, inputId = "geneID", value = historytab$vec[5])
-    click("Find")
+    updateTextInput(session, inputId = "geneID", value = historytab[5])
+    rv$run2 <- 1
+  })
+  observeEvent(input$geneID, {
+    if (rv$run2 == 1) {
+      click("Find")
+      rv$run2 <- 0
+    }
   })
 }
 
