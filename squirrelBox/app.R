@@ -6,6 +6,8 @@ library(magrittr)
 library(readr)
 library(stringr)
 library(shinyjs)
+library(visNetwork)
+library(valr)
 
 # define state colors and order, region order
 state_cols <-  c(
@@ -26,7 +28,11 @@ region_order = c(
 )
 
 # read database
-combined <- read_tsv("combined.tsv.gz")
+if (file.exists("combined.tsv")) {
+  combined <- read_tsv("combined.tsv")
+} else {
+  combined <- read_tsv("combined.tsv.gz")
+}
 
 # reorder factors for correct display order
 combined %<>% mutate(state = factor(state, levels = state_order), region = factor(region, levels = region_order))
@@ -37,6 +43,16 @@ colnames(bed) <- c("chrom", "start", "end", "unique_gene_symbol", "score", "stra
 
 # empty history list to start
 historytab <- c()
+
+# read node igraph object
+hy_ig <- readRDS("201906hy_conn_list")
+hy_net <- toVisNetworkData(hy_ig)
+
+# read go terms
+gos <- readRDS("sq_hm_mart")
+refs <- combined %>% distinct(unique_gene_symbol, clean_gene_symbol)
+TFs <- gos %>% filter(str_detect(name_1006, "DNA-binding transcription activator activity")) %>% pull(hgnc_symbol) %>% unique()
+refTFs <- refs %>% mutate(clean_gene_symbol = str_to_upper(clean_gene_symbol)) %>% filter(clean_gene_symbol %in% TFs) %>% pull(unique_gene_symbol)
 
 # some other code for webpage functions
 jscode <- '
@@ -66,11 +82,12 @@ ui <- fluidPage(
     sidebarPanel(div(style="display: inline-block;vertical-align:top; width: 200px;",tagAppendAttributes(textInput("geneID", label = NULL, value = "ENSSTOG00000002411"), `data-proxy-click` = "Find")), 
                  div(style="display: inline-block;vertical-align:top; width: 10px;",actionButton("Find", "Find")),
                  uiOutput("tab"), uiOutput("tab2"), br(), br(),
-                 uiOutput("history1"),uiOutput("history2"),uiOutput("history3"),uiOutput("history4"),uiOutput("history5"),
-                 tableOutput("print")),
+                 uiOutput("history1"),uiOutput("history2"),uiOutput("history3"),uiOutput("history4"),uiOutput("history5"),uiOutput("history6"),uiOutput("history7"),uiOutput("history8"),uiOutput("history9"),uiOutput("history10")),
     mainPanel(plotOutput("boxPlot", width = 800, height = 600),
               br(), br(),
-              tableOutput("results"))
+              tableOutput("results"),
+              br(), br(),
+              visNetworkOutput("connPlot"))
   )
 )
 
@@ -97,6 +114,26 @@ server <- function(input, output, session) {
       theme(legend.position = "none")
   })
   
+  output$connPlot <- renderVisNetwork({
+    queryid <- inid()
+    edgeq <- hy_net$edges %>% filter(from == queryid | to == queryid)
+    nodeq <- c(edgeq$from, edgeq$to) %>% unique()
+    edgeq2 <- hy_net$edges %>% filter(from %in% nodeq | to %in% nodeq) %>% mutate(color = "gray", opacity = 0, width = 0)
+    nodeq2 <- hy_net$nodes[nodeq,] %>% left_join(table(c(edgeq2$from, edgeq2$to)) %>% data.frame(), by = c("id" = "Var1")) %>% mutate(value = Freq, color = ifelse(id == queryid, "red", "lightblue"), shape = ifelse(id %in% refTFs, "square", "triangle"), border.color = "black")
+    visNetwork(nodes = nodeq2, edges = edgeq2, height = "1200px") %>%
+      visLayout(randomSeed = 23) %>% 
+      visNodes(borderWidth = 2, color = list(border = "green", highlight = "yellow"), font = list(size = 9)) %>% 
+      visPhysics(stabilization = F, solver = "repulsion", enabled = F) %>%
+      visEdges(smooth = F) %>%
+      visEvents(select = "function(nodes) {
+                Shiny.onInputChange('current_node_id', nodes.nodes);
+                ;}")
+  })
+  
+  observeEvent(input$current_node_id, {
+    updateTextInput(session, inputId = "geneID", value = input$current_node_id)
+  })
+  
   outputtab <- reactive({
     filtered <-
       combined %>%
@@ -107,10 +144,13 @@ server <- function(input, output, session) {
       bed %>%
       filter(unique_gene_symbol == filtered$unique_gene_symbol[1] | unique_gene_symbol == inid()) %>%
       select(c(1,2,3,6))
+    if (nrow(filtered2) > 1) {
+      filtered2 <- cbind(bed_merge(filtered2), filtered2[1,4])
+    }
     
     tempvec <- unique(c(filtered$unique_gene_symbol, historytab))
-    if (length(tempvec) > 5) {
-      tempvec <- tempvec[1:5]
+    if (length(tempvec) > 10) {
+      tempvec <- tempvec[1:10]
     }
     historytab <<- tempvec
     
@@ -153,7 +193,26 @@ server <- function(input, output, session) {
     outputtab()
     actionLink("history5", label = historytab[5])
   })
-
+  output$history6 <- renderUI({
+    outputtab()
+    actionLink("history6", label = historytab[6])
+  })
+  output$history7 <- renderUI({
+    outputtab()
+    actionLink("history7", label = historytab[7])
+  })
+  output$history8 <- renderUI({
+    outputtab()
+    actionLink("history8", label = historytab[8])
+  })
+  output$history9 <- renderUI({
+    outputtab()
+    actionLink("history9", label = historytab[9])
+  })
+  output$history10 <- renderUI({
+    outputtab()
+    actionLink("history10", label = historytab[10])
+  })
   observeEvent(input$history1, {
     updateTextInput(session, inputId = "geneID", value = historytab[1])
     rv$run2 <- 1
@@ -172,6 +231,26 @@ server <- function(input, output, session) {
   })
   observeEvent(input$history5, {
     updateTextInput(session, inputId = "geneID", value = historytab[5])
+    rv$run2 <- 1
+  })
+  observeEvent(input$history6, {
+    updateTextInput(session, inputId = "geneID", value = historytab[6])
+    rv$run2 <- 1
+  })
+  observeEvent(input$history7, {
+    updateTextInput(session, inputId = "geneID", value = historytab[7])
+    rv$run2 <- 1
+  })
+  observeEvent(input$history8, {
+    updateTextInput(session, inputId = "geneID", value = historytab[8])
+    rv$run2 <- 1
+  })
+  observeEvent(input$history9, {
+    updateTextInput(session, inputId = "geneID", value = historytab[9])
+    rv$run2 <- 1
+  })
+  observeEvent(input$history10, {
+    updateTextInput(session, inputId = "geneID", value = historytab[10])
     rv$run2 <- 1
   })
   observeEvent(input$geneID, {
