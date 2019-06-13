@@ -47,6 +47,11 @@ historytab <- c()
 # read node igraph object
 hy_ig <- readRDS("201906hy_conn_list")
 hy_net <- toVisNetworkData(hy_ig)
+temp2 <- as_edgelist(hy_ig) 
+temp3 <- c(temp2[,1],temp2[,2]) %>% table() %>% as.tibble()
+colnames(temp3) <- c("gene", "n")
+modules <- read.csv("201905_hy_modules.csv")
+temp4 <- temp3 %>% left_join(modules, by = "gene") %>% select(-X) %>% group_by(module) %>% mutate(rank = rank(n)) %>% ungroup()
 
 # read go terms
 gos <- readRDS("sq_hm_mart")
@@ -81,6 +86,8 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(div(style="display: inline-block;vertical-align:top; width: 200px;",tagAppendAttributes(textInput("geneID", label = NULL, value = "ENSSTOG00000002411"), `data-proxy-click` = "Find")), 
                  div(style="display: inline-block;vertical-align:top; width: 10px;",actionButton("Find", "Find")),
+                 checkboxInput("doNet", "plot network", value = T, width = NULL),
+                 uiOutput("conn"),
                  uiOutput("tab"), uiOutput("tab2"), br(), br(),
                  uiOutput("history1"),uiOutput("history2"),uiOutput("history3"),uiOutput("history4"),uiOutput("history5"),uiOutput("history6"),uiOutput("history7"),uiOutput("history8"),uiOutput("history9"),uiOutput("history10")),
     mainPanel(plotOutput("boxPlot", width = 800, height = 600),
@@ -100,6 +107,8 @@ server <- function(input, output, session) {
   
   rv <- reactiveValues()
   rv$run2 <- 0
+  rv$mod <- 0
+  rv$conn <- 0
   
   historytab <- c()
   
@@ -115,11 +124,22 @@ server <- function(input, output, session) {
   })
   
   output$connPlot <- renderVisNetwork({
-    queryid <- inid()
+    outputtab <- outputtab()
+    queryid <- outputtab$unique_gene_symbol
     edgeq <- hy_net$edges %>% filter(from == queryid | to == queryid)
     nodeq <- c(edgeq$from, edgeq$to) %>% unique()
-    edgeq2 <- hy_net$edges %>% filter(from %in% nodeq | to %in% nodeq) %>% mutate(color = "gray", opacity = 0, width = 0)
-    nodeq2 <- hy_net$nodes[nodeq,] %>% left_join(table(c(edgeq2$from, edgeq2$to)) %>% data.frame(), by = c("id" = "Var1")) %>% mutate(value = Freq, color = ifelse(id == queryid, "red", "lightblue"), shape = ifelse(id %in% refTFs, "square", "triangle"), border.color = "black")
+    edgeq2 <- tryCatch({hy_net$edges %>% filter(from %in% nodeq | to %in% nodeq) %>% mutate(color = "gray", opacity = 0, width = 0)}, error = function(err) {
+      return(data.frame())
+    })
+    nodeq2 <- tryCatch({hy_net$nodes[nodeq,] %>% left_join(table(c(edgeq2$from, edgeq2$to)) %>% data.frame(), by = c("id" = "Var1")) %>% mutate(value = Freq, color = ifelse(id == queryid, "red", "lightblue"), shape = ifelse(id %in% refTFs, "square", "triangle"), border.color = "black")}, error = function(err) {
+    return(data.frame())
+  })
+    rv$conn <<- tryCatch({nodeq2 %>% filter(id == queryid) %>% pull(value)}, error = function(err) {
+      return(0)
+    })
+    if (input$doNet != T | nrow(nodeq2) == 0) {
+      return()
+    }
     visNetwork(nodes = nodeq2, edges = edgeq2, height = "1200px") %>%
       visLayout(randomSeed = 23) %>% 
       visNodes(borderWidth = 2, color = list(border = "green", highlight = "yellow"), font = list(size = 9)) %>% 
@@ -128,6 +148,21 @@ server <- function(input, output, session) {
       visEvents(select = "function(nodes) {
                 Shiny.onInputChange('current_node_id', nodes.nodes);
                 ;}")
+  })
+  
+  output$conn <- renderUI({
+    outputtab <- outputtab()
+    inid <- outputtab$unique_gene_symbol
+    rank <- temp4 %>% filter(gene == inid) %>% pull(rank)
+    if (length(rank) == 0) {
+      rank <- "NA"
+    }
+    mod <- modules %>% filter(gene == inid) %>% pull(module)
+    if (length(mod) == 0) {
+      mod <- "low expression"
+    }
+    maxrank <- modules %>% filter(module == mod) %>% nrow()
+    HTML(str_c("# of connections (hy): ", rv$conn, "<br>", rank, " out of ", maxrank, " in module ", mod))
   })
   
   observeEvent(input$current_node_id, {
