@@ -7,6 +7,7 @@ library(readr)
 library(stringr)
 library(shinyjs)
 library(visNetwork)
+library(valr)
 
 # define state colors and order, region order
 state_cols <-  c(
@@ -27,7 +28,11 @@ region_order = c(
 )
 
 # read database
-combined <- read_tsv("combined.tsv.gz")
+if (file.exists("combined.tsv")) {
+  combined <- read_tsv("combined.tsv")
+} else {
+  combined <- read_tsv("combined.tsv.gz")
+}
 
 # reorder factors for correct display order
 combined %<>% mutate(state = factor(state, levels = state_order), region = factor(region, levels = region_order))
@@ -47,7 +52,7 @@ hy_net <- toVisNetworkData(hy_ig)
 gos <- readRDS("sq_hm_mart")
 refs <- combined %>% distinct(unique_gene_symbol, clean_gene_symbol)
 TFs <- gos %>% filter(str_detect(name_1006, "DNA-binding transcription activator activity")) %>% pull(hgnc_symbol) %>% unique()
-refTFs <- refs %>% mutate(clean_gene_symbol = str_to_upper(str_remove(clean_gene_symbol, "_.*"))) %>% filter(clean_gene_symbol %in% TFs) %>% pull(unique_gene_symbol)
+refTFs <- refs %>% mutate(clean_gene_symbol = str_to_upper(clean_gene_symbol)) %>% filter(clean_gene_symbol %in% TFs) %>% pull(unique_gene_symbol)
 
 # some other code for webpage functions
 jscode <- '
@@ -113,12 +118,12 @@ server <- function(input, output, session) {
     queryid <- inid()
     edgeq <- hy_net$edges %>% filter(from == queryid | to == queryid)
     nodeq <- c(edgeq$from, edgeq$to) %>% unique()
-    edgeq2 <- hy_net$edges %>% filter(from %in% nodeq | to %in% nodeq) %>% mutate(color = "black")
-    nodeq2 <- hy_net$nodes[nodeq,] %>% left_join(table(c(edgeq2$from, edgeq2$to)) %>% data.frame(), by = c("id" = "Var1")) %>% mutate(value = round(log2(Freq)) + 1, color = ifelse(id == queryid, "red", "yellow"), shape = ifelse(id %in% refTFs, "box", "ellipse"), color.border = "black")
-    visNetwork(nodes = nodeq2, edges = edgeq2, height = "1000px") %>%
+    edgeq2 <- hy_net$edges %>% filter(from %in% nodeq | to %in% nodeq) %>% mutate(color = "gray", opacity = 0, width = 0)
+    nodeq2 <- hy_net$nodes[nodeq,] %>% left_join(table(c(edgeq2$from, edgeq2$to)) %>% data.frame(), by = c("id" = "Var1")) %>% mutate(value = Freq, color = ifelse(id == queryid, "red", "lightblue"), shape = ifelse(id %in% refTFs, "square", "triangle"), border.color = "black")
+    visNetwork(nodes = nodeq2, edges = edgeq2, height = "1200px") %>%
       visLayout(randomSeed = 23) %>% 
-      visNodes(borderWidth = 1.5, color = list(border = "black")) %>% 
-      visPhysics(stabilization = F, solver = "repulsion", enabled = T, maxVelocity = 1, enabled = F) %>%
+      visNodes(borderWidth = 2, color = list(border = "green", highlight = "yellow"), font = list(size = 9)) %>% 
+      visPhysics(stabilization = F, solver = "repulsion", enabled = F) %>%
       visEdges(smooth = F) %>%
       visEvents(select = "function(nodes) {
                 Shiny.onInputChange('current_node_id', nodes.nodes);
@@ -139,6 +144,9 @@ server <- function(input, output, session) {
       bed %>%
       filter(unique_gene_symbol == filtered$unique_gene_symbol[1] | unique_gene_symbol == inid()) %>%
       select(c(1,2,3,6))
+    if (nrow(filtered2) > 1) {
+      filtered2 <- cbind(bed_merge(filtered2), filtered2[1,4])
+    }
     
     tempvec <- unique(c(filtered$unique_gene_symbol, historytab))
     if (length(tempvec) > 10) {
