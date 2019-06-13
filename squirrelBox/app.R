@@ -8,6 +8,8 @@ library(stringr)
 library(shinyjs)
 library(visNetwork)
 library(valr)
+library(igraph)
+library(tibble)
 
 # define state colors and order, region order
 state_cols <-  c(
@@ -36,6 +38,7 @@ if (file.exists("combined.tsv")) {
 
 # reorder factors for correct display order
 combined %<>% mutate(state = factor(state, levels = state_order), region = factor(region, levels = region_order))
+autocomplete_list <- str_sort(c(combined$unique_gene_symbol, combined$gene_id) %>% unique(), decreasing = T)
 
 # read annotation file to find ucsc track
 bed <- read_tsv("final_annot_bed12_20_sort.bed12", col_names = F) %>% select(1:6)
@@ -51,7 +54,7 @@ temp2 <- as_edgelist(hy_ig)
 temp3 <- c(temp2[,1],temp2[,2]) %>% table() %>% as.tibble()
 colnames(temp3) <- c("gene", "n")
 modules <- read.csv("201905_hy_modules.csv")
-temp4 <- temp3 %>% left_join(modules, by = "gene") %>% select(-X) %>% group_by(module) %>% mutate(rank = rank(n)) %>% ungroup()
+temp4 <- temp3 %>% left_join(modules, by = "gene") %>% select(-X) %>% group_by(module) %>% mutate(rank = rank(-n)) %>% ungroup()
 
 # read go terms
 gos <- readRDS("sq_hm_mart")
@@ -84,31 +87,41 @@ ui <- fluidPage(
   tags$head(tags$script(HTML(jscode))),
   titlePanel("13-lined ground squirrel gene-level RNA-seq expression by tissue"),
   sidebarLayout(
-    sidebarPanel(div(style="display: inline-block;vertical-align:top; width: 200px;",tagAppendAttributes(textInput("geneID", label = NULL, value = "ENSSTOG00000002411"), `data-proxy-click` = "Find")), 
+    sidebarPanel(style = "position:fixed;width:inherit;",
+                 div(style="display: inline-block;vertical-align:top; width: 200px;",tagAppendAttributes(selectizeInput("geneID", label = NULL, selected = "ENSSTOG00000002411", choices = NULL), `data-proxy-click` = "Find")), 
                  div(style="display: inline-block;vertical-align:top; width: 10px;",actionButton("Find", "Find")),
+                 tags$hr(style="border-color: green;"),
                  checkboxInput("doNet", "plot network", value = T, width = NULL),
                  uiOutput("conn"),
+                 tags$hr(style="border-color: green;"),
                  uiOutput("tab"), uiOutput("tab2"), br(), br(),
                  uiOutput("history1"),uiOutput("history2"),uiOutput("history3"),uiOutput("history4"),uiOutput("history5"),uiOutput("history6"),uiOutput("history7"),uiOutput("history8"),uiOutput("history9"),uiOutput("history10")),
     mainPanel(plotOutput("boxPlot", width = 800, height = 600),
-              br(), br(),
+              tags$hr(style="border-color: green;"),
               tableOutput("results"),
-              br(), br(),
+              tags$hr(style="border-color: green;"),
               visNetworkOutput("connPlot"))
   )
 )
 
 # Define server logic required to draw the boxplot and render metadata table
 server <- function(input, output, session) {
-  
-  inid <- eventReactive(input$Find, {
-    input$geneID
-  }, ignoreNULL = FALSE)
-  
+
   rv <- reactiveValues()
   rv$run2 <- 0
   rv$mod <- 0
   rv$conn <- 0
+  rv$init <- 0
+  rv$old <- ""
+  
+  inid <- eventReactive(input$Find, {
+    if (rv$init == 0) {
+      rv$init <- 1
+    }
+    rv$old <- input$geneID
+    shinyjs::runjs("window.scrollTo(0, 0)")
+    input$geneID
+  }, ignoreNULL = F)
   
   historytab <- c()
   
@@ -166,7 +179,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$current_node_id, {
-    updateTextInput(session, inputId = "geneID", value = input$current_node_id)
+    updateSelectizeInput(session, inputId = "geneID", selected = input$current_node_id, choices = autocomplete_list, server = T)
   })
   
   outputtab <- reactive({
@@ -249,51 +262,58 @@ server <- function(input, output, session) {
     actionLink("history10", label = historytab[10])
   })
   observeEvent(input$history1, {
-    updateTextInput(session, inputId = "geneID", value = historytab[1])
     rv$run2 <- 1
+    updateSelectizeInput(session, inputId = "geneID", selected = historytab[1], choices = autocomplete_list, server = T)
   })
   observeEvent(input$history2, {
-    updateTextInput(session, inputId = "geneID", value = historytab[2])
     rv$run2 <- 1
+    updateSelectizeInput(session, inputId = "geneID", selected = historytab[2], choices = autocomplete_list, server = T)
   })
   observeEvent(input$history3, {
-    updateTextInput(session, inputId = "geneID", value = historytab[3])
     rv$run2 <- 1
+    updateSelectizeInput(session, inputId = "geneID", selected = historytab[3], choices = autocomplete_list, server = T)
   })
   observeEvent(input$history4, {
-    updateTextInput(session, inputId = "geneID", value = historytab[4])
     rv$run2 <- 1
+    updateSelectizeInput(session, inputId = "geneID", selected = historytab[4], choices = autocomplete_list, server = T)
   })
   observeEvent(input$history5, {
-    updateTextInput(session, inputId = "geneID", value = historytab[5])
     rv$run2 <- 1
+    updateSelectizeInput(session, inputId = "geneID", selected = historytab[5], choices = autocomplete_list, server = T)
   })
   observeEvent(input$history6, {
-    updateTextInput(session, inputId = "geneID", value = historytab[6])
     rv$run2 <- 1
+    updateSelectizeInput(session, inputId = "geneID", selected = historytab[6], choices = autocomplete_list, server = T)
   })
   observeEvent(input$history7, {
-    updateTextInput(session, inputId = "geneID", value = historytab[7])
     rv$run2 <- 1
+    updateSelectizeInput(session, inputId = "geneID", selected = historytab[7], choices = autocomplete_list, server = T)
   })
   observeEvent(input$history8, {
-    updateTextInput(session, inputId = "geneID", value = historytab[8])
     rv$run2 <- 1
+    updateSelectizeInput(session, inputId = "geneID", selected = historytab[8], choices = autocomplete_list, server = T)
   })
   observeEvent(input$history9, {
-    updateTextInput(session, inputId = "geneID", value = historytab[9])
     rv$run2 <- 1
+    updateSelectizeInput(session, inputId = "geneID", selected = historytab[9], choices = autocomplete_list, server = T)
   })
   observeEvent(input$history10, {
-    updateTextInput(session, inputId = "geneID", value = historytab[10])
     rv$run2 <- 1
+    updateSelectizeInput(session, inputId = "geneID", selected = historytab[10], choices = autocomplete_list, server = T)
   })
   observeEvent(input$geneID, {
-    if (rv$run2 == 1) {
+    if (rv$run2 == 1 & input$geneID != "") {
       click("Find")
       rv$run2 <- 0
     }
   })
+  observeEvent(rv$init == 1, {
+    updateSelectizeInput(session, inputId = "geneID", selected = "Zfp36", choices = autocomplete_list, server = T)
+    rv$run2 <- 1
+  })
+  onclick("geneID", 
+          updateSelectizeInput(session, inputId = "geneID", selected = "", choices = autocomplete_list, server = T)
+  )
 }
 
 # Run the application 
