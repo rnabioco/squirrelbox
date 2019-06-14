@@ -159,7 +159,6 @@ server <- function(input, output, session) {
   rv$old <- ""
   rv$blast <- ""
   rv$pval <- data.frame()
-  rv$pvalcol <- data.frame()
   
   inid <- eventReactive(input$Find, {
     if (rv$init == 0) {
@@ -179,8 +178,8 @@ server <- function(input, output, session) {
       plot_temp <- plot_temp %>% filter(region %in% c("Forebrain", "Hypothalamus", "Medulla"))
     }
     if (nrow(rv$pval) != 0) {
-      padj2 <- rv$pval %>% select(ends_with("_wald_padj")) %>% t()
-      padj2 <- str_c(rownames(padj2), format(padj2[,1], digits = 2), sep = " : ")
+      padj2 <<- rv$pval %>% select(ends_with("_wald_padj")) %>% t()
+      padj2 <<- str_c(rownames(padj2), format(padj2[,1], digits = 2), sep = " : ")
       plot_temp <- plot_temp %>% mutate(text = mapply(find_padj, as.character(region), as.character(state)))
     } else {
       plot_temp <- plot_temp %>% mutate(text = "NA")
@@ -209,7 +208,6 @@ server <- function(input, output, session) {
   
   boxPlotlyr <- reactive({
     g <- boxPlot1()
-    # output$boxPlot2 <- renderPlotly(style(g + facet_wrap(~region), text = rv$pvalcol))
     output$boxPlot2 <- renderPlotly(ggplotly(g + facet_wrap(~region), tooltip = "text"))
     
     if (input$doTis == T) {
