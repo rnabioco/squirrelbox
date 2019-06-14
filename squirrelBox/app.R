@@ -10,6 +10,8 @@ library(visNetwork)
 library(valr)
 library(igraph)
 library(tibble)
+options(stringsAsFactors = FALSE)
+theme_set(theme_cowplot())
 
 # define state colors and order, region order
 state_cols <-  c(
@@ -37,12 +39,15 @@ if (file.exists("combined.tsv")) {
 }
 
 # reorder factors for correct display order
-combined %<>% mutate(state = factor(state, levels = state_order), region = factor(region, levels = region_order))
-autocomplete_list <- str_sort(c(combined$unique_gene_symbol, combined$gene_id) %>% unique(), decreasing = T)
+combined %<>% mutate(state = factor(state, levels = state_order),
+                     region = factor(region, levels = region_order))
+autocomplete_list <- str_sort(c(combined$unique_gene_symbol, combined$gene_id) %>%
+                                unique(), decreasing = T)
 
 # read annotation file to find ucsc track
-bed <- read_tsv("final_annot_bed12_20_sort.bed12", col_names = F) %>% select(1:6)
-colnames(bed) <- c("chrom", "start", "end", "unique_gene_symbol", "score", "strand")
+bed <- read_tsv("final_annot_bed12_20_sort.bed12", col_names = F) %>%
+  select(1:6,13)
+colnames(bed) <- c("chrom", "start", "end", "unique_gene_symbol", "score", "strand", "gene_id")
 
 # empty history list to start
 historytab <- c()
@@ -51,16 +56,31 @@ historytab <- c()
 hy_ig <- readRDS("201906hy_conn_list")
 hy_net <- toVisNetworkData(hy_ig)
 temp2 <- as_edgelist(hy_ig) 
-temp3 <- c(temp2[,1],temp2[,2]) %>% table() %>% as.tibble()
+temp3 <- c(temp2[,1],temp2[,2]) %>%
+  table() %>%
+  as.tibble()
 colnames(temp3) <- c("gene", "n")
 modules <- read.csv("201905_hy_modules.csv")
-temp4 <- temp3 %>% left_join(modules, by = "gene") %>% select(-X) %>% group_by(module) %>% mutate(rank = rank(-n)) %>% ungroup()
+temp4 <- temp3 %>%
+  left_join(modules, by = "gene") %>%
+  select(-X) %>% group_by(module) %>%
+  mutate(rank = rank(-n)) %>%
+  ungroup()
 
 # read go terms
 gos <- readRDS("sq_hm_mart")
 refs <- combined %>% distinct(unique_gene_symbol, clean_gene_symbol)
-TFs <- gos %>% filter(str_detect(name_1006, "DNA-binding transcription activator activity")) %>% pull(hgnc_symbol) %>% unique()
-refTFs <- refs %>% mutate(clean_gene_symbol = str_to_upper(clean_gene_symbol)) %>% filter(clean_gene_symbol %in% TFs) %>% pull(unique_gene_symbol)
+TFs <- gos %>% filter(str_detect(name_1006, "DNA-binding transcription activator activity")) %>%
+  pull(hgnc_symbol) %>%
+  unique()
+refTFs <- refs %>% mutate(clean_gene_symbol = str_to_upper(clean_gene_symbol)) %>%
+  filter(clean_gene_symbol %in% TFs) %>%
+  pull(unique_gene_symbol)
+
+# load orf predictions
+orf_lc <- read_csv("orf_like_contain.csv") %>% select(2:7)
+orf_g <- read_csv("orf_still_G.csv") %>% select(2:7)
+orfs <- rbind(orf_lc, orf_g) %>% select(gene_id, orf_len = len, exons, rna_len = transcript, orf, gene_symbol)
 
 # some other code for webpage functions
 jscode <- '
@@ -91,14 +111,20 @@ ui <- fluidPage(
                  div(style="display: inline-block;vertical-align:top; width: 200px;",tagAppendAttributes(selectizeInput("geneID", label = NULL, selected = "ENSSTOG00000002411", choices = NULL), `data-proxy-click` = "Find")), 
                  div(style="display: inline-block;vertical-align:top; width: 10px;",actionButton("Find", "Find")),
                  tags$hr(style="border-color: green;"),
+                 checkboxInput("doTis", "plot non-brain", value = T, width = NULL),
+                 checkboxInput("doMod", "find module", value = T, width = NULL),
                  checkboxInput("doNet", "plot network", value = T, width = NULL),
                  uiOutput("conn"),
                  tags$hr(style="border-color: green;"),
-                 uiOutput("tab"), uiOutput("tab2"), br(), br(),
+                 uiOutput("tab"), uiOutput("tab2"), uiOutput("blastlink"), 
+                 # br(),
+                 tags$hr(style="border-color: green;"),
                  uiOutput("history1"),uiOutput("history2"),uiOutput("history3"),uiOutput("history4"),uiOutput("history5"),uiOutput("history6"),uiOutput("history7"),uiOutput("history8"),uiOutput("history9"),uiOutput("history10")),
-    mainPanel(plotOutput("boxPlot", width = 800, height = 600),
+    mainPanel(uiOutput('boxPlotUI'),
+              #plotOutput("boxPlot", width = 800, height = 600),
               tags$hr(style="border-color: green;"),
               tableOutput("results"),
+              tableOutput("orfinfo"),
               tags$hr(style="border-color: green;"),
               visNetworkOutput("connPlot"))
   )
@@ -113,6 +139,7 @@ server <- function(input, output, session) {
   rv$conn <- 0
   rv$init <- 0
   rv$old <- ""
+  rv$blast <- ""
   
   inid <- eventReactive(input$Find, {
     if (rv$init == 0) {
@@ -125,18 +152,37 @@ server <- function(input, output, session) {
   
   historytab <- c()
   
-  output$boxPlot <- renderPlot({
-    set.seed(1)
-    ggplot(combined %>% filter(gene_id == inid() | unique_gene_symbol == inid()), aes(state, log2_counts)) +
-      geom_boxplot(aes(fill = state), outlier.shape = NA) +
-      geom_jitter() +
-      scale_fill_manual(values = state_cols) +
-      ylab("rlog(counts)") +
-      facet_wrap(~region, scales = "free") +
-      theme(legend.position = "none")
+  boxPlotr <- reactive({
+    output$boxPlot <- renderPlot({
+      inid <- inid()
+      plot_temp <- combined %>% filter(gene_id == inid | unique_gene_symbol == inid)
+      if (input$doTis != T) {
+        plot_temp <- plot_temp %>% filter(region %in% c("Forebrain", "Hypothalamus", "Medulla"))
+      }
+      set.seed(1)
+      ggplot(plot_temp, aes(state, log2_counts)) +
+        geom_boxplot(aes(fill = state), outlier.shape = NA) +
+        geom_jitter() +
+        scale_fill_manual(values = state_cols) +
+        ylab("rlog(counts)") +
+        facet_wrap(~region, scales = "free") +
+        theme(legend.position = "none")
+    })
+    if (input$doTis == T) {
+      plotOutput('boxPlot', width = 800, height = 600)
+    } else {
+      plotOutput('boxPlot', width = 800, height = 300)
+    }
+  })
+  
+  output$boxPlotUI <- renderUI({
+    boxPlotr()
   })
   
   output$connPlot <- renderVisNetwork({
+    if (input$doMod != T) {
+      return()
+    }
     outputtab <- outputtab()
     queryid <- outputtab$unique_gene_symbol
     edgeq <- hy_net$edges %>% filter(from == queryid | to == queryid)
@@ -144,7 +190,7 @@ server <- function(input, output, session) {
     edgeq2 <- tryCatch({hy_net$edges %>% filter(from %in% nodeq | to %in% nodeq) %>% mutate(color = "gray", opacity = 0, width = 0)}, error = function(err) {
       return(data.frame())
     })
-    nodeq2 <- tryCatch({hy_net$nodes[nodeq,] %>% left_join(table(c(edgeq2$from, edgeq2$to)) %>% data.frame(), by = c("id" = "Var1")) %>% mutate(value = Freq, color = ifelse(id == queryid, "red", "lightblue"), shape = ifelse(id %in% refTFs, "square", "triangle"), border.color = "black")}, error = function(err) {
+    nodeq2 <- tryCatch({hy_net$nodes[nodeq,] %>% left_join(table(c(edgeq2$from, edgeq2$to)) %>% as.data.frame(stringsAsFactors = F), by = c("id" = "Var1")) %>% mutate(value = Freq, color = ifelse(id == queryid, "red", "lightblue"), shape = ifelse(id %in% refTFs, "square", ifelse(id %in% orfs$gene_symbol, "star", "triangle")), border.color = "black")}, error = function(err) {
     return(data.frame())
   })
     rv$conn <<- tryCatch({nodeq2 %>% filter(id == queryid) %>% pull(value)}, error = function(err) {
@@ -164,6 +210,9 @@ server <- function(input, output, session) {
   })
   
   output$conn <- renderUI({
+    if (input$doMod != T) {
+      return()
+    }
     outputtab <- outputtab()
     inid <- outputtab$unique_gene_symbol
     rank <- temp4 %>% filter(gene == inid) %>% pull(rank)
@@ -183,14 +232,11 @@ server <- function(input, output, session) {
   })
   
   outputtab <- reactive({
-    filtered <-
-      combined %>%
-      filter(gene_id == inid() | unique_gene_symbol == inid()) %>% 
+    inid <- inid()
+    filtered <- combined %>% filter(gene_id == inid | unique_gene_symbol == inid) %>% 
       select(1:6) %>%
       unique()
-    filtered2 <-
-      bed %>%
-      filter(unique_gene_symbol == filtered$unique_gene_symbol[1] | unique_gene_symbol == inid()) %>%
+    filtered2 <- bed %>% filter(gene_id == filtered$gene_id[1]) %>%
       select(c(1,2,3,6))
     if (nrow(filtered2) > 1) {
       filtered2 <- cbind(bed_merge(filtered2), filtered2[1,4])
@@ -207,7 +253,23 @@ server <- function(input, output, session) {
   
   output$results <- renderTable({
     outputtab()
-  })
+  }, digits = 0)
+  
+  output$orfinfo <- renderTable({
+    inid <- outputtab()$gene_id
+    if (str_detect(inid, "^G[0-9]*")) {
+      temp_orfs <- orfs %>% filter(gene_id == inid)
+      rv$blast <<- temp_orfs$orf[1]
+      if (nrow(temp_orfs) == 0) {
+        rv$blast <<- ""
+        temp_orfs <- data.frame()
+      }
+    } else {
+      rv$blast <<- ""
+      temp_orfs <- data.frame()
+    }
+    temp_orfs
+  }, digits = 0)
   
   output$tab <- renderUI({
     outputtab <- outputtab()
@@ -219,6 +281,15 @@ server <- function(input, output, session) {
     outputtab <- outputtab()
     clean <- a(outputtab$unique_gene_symbol, href=str_c("https://www.genecards.org/cgi-bin/carddisp.pl?gene=", outputtab$clean_gene_symbol))
     tagList("genecard:", clean)
+  })
+  
+  output$blastlink <- renderUI({
+    if (rv$blast != "") {
+      outputtab <- outputtab()
+      orf <- rv$blast
+      url <- a(outputtab$unique_gene_symbol, href=str_c("https://blast.ncbi.nlm.nih.gov/blast/Blast.cgi?CMD=Put&PROGRAM=blastp&DATABASE=nr&QUERY=", orf))
+      tagList("blast orf:", url)
+      } else {return()}
   })
   
   output$history1 <- renderUI({
@@ -308,7 +379,7 @@ server <- function(input, output, session) {
     }
   })
   observeEvent(rv$init == 1, {
-    updateSelectizeInput(session, inputId = "geneID", selected = "Zfp36", choices = autocomplete_list, server = T)
+    updateSelectizeInput(session, inputId = "geneID", selected = "G8462", choices = autocomplete_list, server = T)
     rv$run2 <- 1
   })
   onclick("geneID", 
@@ -318,3 +389,6 @@ server <- function(input, output, session) {
 
 # Run the application 
 shinyApp(ui = ui, server = server)
+
+# library(profvis)
+# profvis(runApp())
