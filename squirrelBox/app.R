@@ -10,8 +10,17 @@ library(visNetwork)
 library(valr)
 library(igraph)
 library(tibble)
+library(plotly)
 options(stringsAsFactors = FALSE)
 theme_set(theme_cowplot())
+
+find_padj <- function(region, state) {
+  temp <- str_c(padj2[str_sub(padj2,1,1) == str_to_lower(str_sub(region,1,1)) & str_detect(padj2, state)], collapse = "\n")
+  if (length(temp) == 0){
+    temp <- "NA"
+  }
+  temp
+}
 
 # define state colors and order, region order
 state_cols <-  c(
@@ -78,9 +87,9 @@ refTFs <- refs %>% mutate(clean_gene_symbol = str_to_upper(clean_gene_symbol)) %
   pull(unique_gene_symbol)
 
 # load orf predictions
-orf_lc <- read_csv("orf_like_contain.csv") %>% select(2:7)
-orf_g <- read_csv("orf_still_G.csv") %>% select(2:7)
-orfs <- rbind(orf_lc, orf_g) %>% select(gene_id, orf_len = len, exons, rna_len = transcript, orf, gene_symbol)
+orf_lc <- read_csv("orf_like_contain.csv")
+orf_g <- read_csv("orf_still_G.csv")
+orfs <- rbind(orf_lc, orf_g) %>% select(gene_id, orf_len = len, exons, rna_len = transcript, orf, gene_symbol, everything())
 
 # some other code for webpage functions
 jscode <- '
@@ -103,6 +112,13 @@ $(function() {
 
 # Define UI for application that draws the boxplot
 ui <- fluidPage(
+  tags$style("
+      .checkbox { /* checkbox is a div class*/
+        line-height: 20px;
+        margin-top: -15px;
+        margin-bottom: -15px; /*set the margin, so boxes don't overlap*/
+      }
+  "),
   useShinyjs(),
   tags$head(tags$script(HTML(jscode))),
   titlePanel("13-lined ground squirrel gene-level RNA-seq expression by tissue"),
@@ -111,9 +127,11 @@ ui <- fluidPage(
                  div(style="display: inline-block;vertical-align:top; width: 200px;",tagAppendAttributes(selectizeInput("geneID", label = NULL, selected = "ENSSTOG00000002411", choices = NULL), `data-proxy-click` = "Find")), 
                  div(style="display: inline-block;vertical-align:top; width: 10px;",actionButton("Find", "Find")),
                  tags$hr(style="border-color: green;"),
+                 checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
                  checkboxInput("doTis", "plot non-brain", value = T, width = NULL),
                  checkboxInput("doMod", "find module", value = T, width = NULL),
                  checkboxInput("doNet", "plot network", value = T, width = NULL),
+                 br(),
                  uiOutput("conn"),
                  tags$hr(style="border-color: green;"),
                  uiOutput("tab"), uiOutput("tab2"), uiOutput("blastlink"), 
@@ -140,6 +158,8 @@ server <- function(input, output, session) {
   rv$init <- 0
   rv$old <- ""
   rv$blast <- ""
+  rv$pval <- data.frame()
+  rv$pvalcol <- data.frame()
   
   inid <- eventReactive(input$Find, {
     if (rv$init == 0) {
@@ -152,22 +172,34 @@ server <- function(input, output, session) {
   
   historytab <- c()
   
+  boxPlot1 <- reactive({
+    inid <- inid()
+    plot_temp <- combined %>% filter(gene_id == inid | unique_gene_symbol == inid)
+    if (input$doTis != T) {
+      plot_temp <- plot_temp %>% filter(region %in% c("Forebrain", "Hypothalamus", "Medulla"))
+    }
+    if (nrow(rv$pval) != 0) {
+      padj2 <- rv$pval %>% select(ends_with("_wald_padj")) %>% t()
+      padj2 <- str_c(rownames(padj2), format(padj2[,1], digits = 2), sep = " : ")
+      plot_temp <- plot_temp %>% mutate(text = mapply(find_padj, as.character(region), as.character(state)))
+    } else {
+      plot_temp <- plot_temp %>% mutate(text = "NA")
+    }
+    
+    set.seed(1)
+    g <- ggplot(plot_temp, aes(state, log2_counts, text = text)) +
+      geom_boxplot(aes(fill = state), outlier.shape = NA) +
+      geom_jitter() +
+      scale_fill_manual(values = state_cols) +
+      ylab("rlog(counts)") +
+      facet_wrap(~region, scales = "free") +
+      theme(legend.position = "none")
+    g
+  })
+  
   boxPlotr <- reactive({
-    output$boxPlot <- renderPlot({
-      inid <- inid()
-      plot_temp <- combined %>% filter(gene_id == inid | unique_gene_symbol == inid)
-      if (input$doTis != T) {
-        plot_temp <- plot_temp %>% filter(region %in% c("Forebrain", "Hypothalamus", "Medulla"))
-      }
-      set.seed(1)
-      ggplot(plot_temp, aes(state, log2_counts)) +
-        geom_boxplot(aes(fill = state), outlier.shape = NA) +
-        geom_jitter() +
-        scale_fill_manual(values = state_cols) +
-        ylab("rlog(counts)") +
-        facet_wrap(~region, scales = "free") +
-        theme(legend.position = "none")
-    })
+    g <- boxPlot1()
+    output$boxPlot <- renderPlot(g)
     if (input$doTis == T) {
       plotOutput('boxPlot', width = 800, height = 600)
     } else {
@@ -175,8 +207,24 @@ server <- function(input, output, session) {
     }
   })
   
+  boxPlotlyr <- reactive({
+    g <- boxPlot1()
+    # output$boxPlot2 <- renderPlotly(style(g + facet_wrap(~region), text = rv$pvalcol))
+    output$boxPlot2 <- renderPlotly(ggplotly(g + facet_wrap(~region), tooltip = "text"))
+    
+    if (input$doTis == T) {
+      plotlyOutput('boxPlot2', width = 800, height = 600)
+    } else {
+      plotlyOutput('boxPlot2', width = 800, height = 300)
+    }
+  })
+  
   output$boxPlotUI <- renderUI({
-    boxPlotr()
+    if (input$doPlotly == T) {
+      boxPlotlyr()
+    } else {
+      boxPlotr()
+    }
   })
   
   output$connPlot <- renderVisNetwork({
@@ -259,16 +307,19 @@ server <- function(input, output, session) {
     inid <- outputtab()$gene_id
     if (str_detect(inid, "^G[0-9]*")) {
       temp_orfs <- orfs %>% filter(gene_id == inid)
+      rv$pval <<- temp_orfs
       rv$blast <<- temp_orfs$orf[1]
       if (nrow(temp_orfs) == 0) {
         rv$blast <<- ""
+        rv$pval <<- data.frame()
         temp_orfs <- data.frame()
       }
     } else {
       rv$blast <<- ""
+      rv$pval <<- data.frame()
       temp_orfs <- data.frame()
     }
-    temp_orfs
+    temp_orfs %>% select(1:6)
   }, digits = 0)
   
   output$tab <- renderUI({
@@ -389,6 +440,3 @@ server <- function(input, output, session) {
 
 # Run the application 
 shinyApp(ui = ui, server = server)
-
-# library(profvis)
-# profvis(runApp())
