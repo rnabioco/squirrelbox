@@ -87,9 +87,8 @@ refTFs <- refs %>% mutate(clean_gene_symbol = str_to_upper(clean_gene_symbol)) %
   pull(unique_gene_symbol)
 
 # load orf predictions
-orf_lc <- read_csv("orf_like_contain.csv")
-orf_g <- read_csv("orf_still_G.csv")
-orfs <- rbind(orf_lc, orf_g) %>% select(gene_id, orf_len = len, exons, rna_len = transcript, orf, gene_symbol, everything())
+orfs <- read_csv("padj_orf.csv") %>% select(gene_id, orf_len = len, exons, rna_len = transcript, orf, unique_gene_symbol, everything())
+starorfs <- orfs %>% filter(exons > 1, str_detect(unique_gene_symbol, "^G[0-9]+|_"), orf_len > 100)
 
 # some other code for webpage functions
 jscode <- '
@@ -134,7 +133,8 @@ ui <- fluidPage(
                  br(),
                  uiOutput("conn"),
                  tags$hr(style="border-color: green;"),
-                 uiOutput("tab"), uiOutput("tab2"), uiOutput("blastlink"), 
+                 uiOutput("tab"), uiOutput("blastlink"), 
+                 uiOutput("tab2"), uiOutput("tab3"), uiOutput("tab4"),
                  # br(),
                  tags$hr(style="border-color: green;"),
                  uiOutput("history1"),uiOutput("history2"),uiOutput("history3"),uiOutput("history4"),uiOutput("history5"),uiOutput("history6"),uiOutput("history7"),uiOutput("history8"),uiOutput("history9"),uiOutput("history10")),
@@ -178,7 +178,7 @@ server <- function(input, output, session) {
       plot_temp <- plot_temp %>% filter(region %in% c("Forebrain", "Hypothalamus", "Medulla"))
     }
     if (nrow(rv$pval) != 0) {
-      padj2 <<- rv$pval %>% select(ends_with("_wald_padj")) %>% t()
+      padj2 <- rv$pval %>% select(ends_with("_wald_padj")) %>% t()
       padj2 <<- str_c(rownames(padj2), format(padj2[,1], digits = 2), sep = " : ")
       plot_temp <- plot_temp %>% mutate(text = mapply(find_padj, as.character(region), as.character(state)))
     } else {
@@ -236,7 +236,7 @@ server <- function(input, output, session) {
     edgeq2 <- tryCatch({hy_net$edges %>% filter(from %in% nodeq | to %in% nodeq) %>% mutate(color = "gray", opacity = 0, width = 0)}, error = function(err) {
       return(data.frame())
     })
-    nodeq2 <- tryCatch({hy_net$nodes[nodeq,] %>% left_join(table(c(edgeq2$from, edgeq2$to)) %>% as.data.frame(stringsAsFactors = F), by = c("id" = "Var1")) %>% mutate(value = Freq, color = ifelse(id == queryid, "red", "lightblue"), shape = ifelse(id %in% refTFs, "square", ifelse(id %in% orfs$gene_symbol, "star", "triangle")), border.color = "black")}, error = function(err) {
+    nodeq2 <- tryCatch({hy_net$nodes[nodeq,] %>% left_join(table(c(edgeq2$from, edgeq2$to)) %>% as.data.frame(stringsAsFactors = F), by = c("id" = "Var1")) %>% mutate(value = Freq, color = ifelse(id == queryid, "red", "lightblue"), shape = ifelse(id %in% refTFs, "square", ifelse(id %in% starorfs$unique_gene_symbol, "star", "triangle")), border.color = "black")}, error = function(err) {
     return(data.frame())
   })
     rv$conn <<- tryCatch({nodeq2 %>% filter(id == queryid) %>% pull(value)}, error = function(err) {
@@ -303,7 +303,7 @@ server <- function(input, output, session) {
   
   output$orfinfo <- renderTable({
     inid <- outputtab()$gene_id
-    if (str_detect(inid, "^G[0-9]*")) {
+    if (inid %in% orfs$gene_id) {
       temp_orfs <- orfs %>% filter(gene_id == inid)
       rv$pval <<- temp_orfs
       rv$blast <<- temp_orfs$orf[1]
@@ -327,6 +327,18 @@ server <- function(input, output, session) {
   })
   
   output$tab2 <- renderUI({
+    outputtab <- outputtab()
+    clean <- a(outputtab$unique_gene_symbol, href=str_c("https://www.ncbi.nlm.nih.gov/gene/?term=", outputtab$clean_gene_symbol, "[sym]+AND+human[ORGN]"))
+    tagList("genbank:", clean)
+  })
+  
+  output$tab3 <- renderUI({
+    outputtab <- outputtab()
+    clean <- a(outputtab$unique_gene_symbol, href=str_c("https://www.genenames.org/data/gene-symbol-report/#!/symbol/", outputtab$clean_gene_symbol))
+    tagList("hgnc:", clean)
+  })
+  
+  output$tab4 <- renderUI({
     outputtab <- outputtab()
     clean <- a(outputtab$unique_gene_symbol, href=str_c("https://www.genecards.org/cgi-bin/carddisp.pl?gene=", outputtab$clean_gene_symbol))
     tagList("genecard:", clean)
