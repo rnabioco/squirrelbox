@@ -123,7 +123,7 @@ ui <- fluidPage(
   titlePanel("13-lined ground squirrel gene-level RNA-seq expression by tissue"),
   sidebarLayout(
     sidebarPanel(style = "position:fixed;width:inherit;",
-                 div(style="display: inline-block;vertical-align:top; width: 200px;",tagAppendAttributes(selectizeInput("geneID", label = NULL, selected = "ENSSTOG00000002411", choices = NULL), `data-proxy-click` = "Find")), 
+                 div(style="display: inline-block;vertical-align:top; width: 200px;",tagAppendAttributes(selectizeInput("geneID", label = NULL, selected = "ENSSTOG00000002411", choices = "ENSSTOG00000002411"), `data-proxy-click` = "Find")), 
                  div(style="display: inline-block;vertical-align:top; width: 10px;",actionButton("Find", "Find")),
                  tags$hr(style="border-color: green;"),
                  checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
@@ -305,17 +305,20 @@ server <- function(input, output, session) {
     inid <- outputtab()$gene_id
     if (inid %in% orfs$gene_id) {
       temp_orfs <- orfs %>% filter(gene_id == inid)
-      rv$pval <<- temp_orfs
-      rv$blast <<- temp_orfs$orf[1]
       if (nrow(temp_orfs) == 0) {
         rv$blast <<- ""
         rv$pval <<- data.frame()
         temp_orfs <- data.frame()
+        return(temp_orfs)
+      } else {
+        rv$pval <<- temp_orfs
+        rv$blast <<- temp_orfs$orf[1]
       }
     } else {
       rv$blast <<- ""
       rv$pval <<- data.frame()
       temp_orfs <- data.frame()
+      return(temp_orfs)
     }
     temp_orfs %>% select(1:6)
   }, digits = 0)
