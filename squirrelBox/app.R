@@ -88,7 +88,7 @@ refTFs <- refs %>% mutate(clean_gene_symbol = str_to_upper(clean_gene_symbol)) %
 
 # load orf predictions
 orfs <- read_csv("padj_orf.csv") %>% select(gene_id, orf_len = len, exons, rna_len = transcript, orf, unique_gene_symbol, everything())
-starorfs <- orfs %>% filter(exons > 1, str_detect(unique_gene_symbol, "^G[0-9]+|_"), orf_len > 100)
+starorfs <- orfs %>% group_by(unique_gene_symbol) %>% arrange(desc(orf)) %>% dplyr::slice(1) %>% filter(exons > 1, str_detect(unique_gene_symbol, "^G[0-9]+|_"), orf_len >= 100)
 
 # some other code for webpage functions
 jscode <- '
@@ -123,7 +123,7 @@ ui <- fluidPage(
   titlePanel("13-lined ground squirrel gene-level RNA-seq expression by tissue"),
   sidebarLayout(
     sidebarPanel(style = "position:fixed;width:inherit;",
-                 div(style="display: inline-block;vertical-align:top; width: 200px;",tagAppendAttributes(selectizeInput("geneID", label = NULL, selected = "ENSSTOG00000002411", choices = "ENSSTOG00000002411"), `data-proxy-click` = "Find")), 
+                 div(style="display: inline-block;vertical-align:top; width: 200px;",tagAppendAttributes(selectizeInput("geneID", label = NULL, selected = "G8462", choices = "G8462"), `data-proxy-click` = "Find")), 
                  div(style="display: inline-block;vertical-align:top; width: 10px;",actionButton("Find", "Find")),
                  tags$hr(style="border-color: green;"),
                  checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
@@ -135,6 +135,7 @@ ui <- fluidPage(
                  tags$hr(style="border-color: green;"),
                  uiOutput("tab"), uiOutput("blastlink"), 
                  uiOutput("tab2"), uiOutput("tab3"), uiOutput("tab4"),
+                 downloadButton('savePlot', label = "Download plot"),
                  # br(),
                  tags$hr(style="border-color: green;"),
                  uiOutput("history1"),uiOutput("history2"),uiOutput("history3"),uiOutput("history4"),uiOutput("history5"),uiOutput("history6"),uiOutput("history7"),uiOutput("history8"),uiOutput("history9"),uiOutput("history10")),
@@ -348,13 +349,30 @@ server <- function(input, output, session) {
   })
   
   output$blastlink <- renderUI({
-    if (rv$blast != "") {
+    if (rv$blast != "" & !(is.na(rv$blast))) {
       outputtab <- outputtab()
       orf <- rv$blast
       url <- a(outputtab$unique_gene_symbol, href=str_c("https://blast.ncbi.nlm.nih.gov/blast/Blast.cgi?CMD=Put&PROGRAM=blastp&DATABASE=nr&QUERY=", orf))
       tagList("blast orf:", url)
       } else {return()}
   })
+  
+  output$savePlot <- downloadHandler(
+    filename = function() {
+      sym <- tryCatch(outputtab()$unique_gene_symbol, error = function(err) {return("wrong")})
+      paste0(sym,".pdf",sep = "")
+    },
+    content = function(file) {
+      if (input$doTis == T) {
+        w = 8
+        h = 6
+      } else {
+        w = 8
+        h= 3
+      }
+      ggplot2::ggsave(file, plot = boxPlot1(), device = "pdf", width = w, height = h)
+    }
+  )
   
   output$history1 <- renderUI({
     outputtab()
