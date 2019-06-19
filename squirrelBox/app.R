@@ -128,6 +128,7 @@ ui <- fluidPage(
                  tags$hr(style="border-color: green;"),
                  checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
                  checkboxInput("doTis", "plot non-brain", value = T, width = NULL),
+                 checkboxInput("doUcsc", "download track", value = T, width = NULL),
                  checkboxInput("doMod", "find module", value = T, width = NULL),
                  checkboxInput("doNet", "plot network", value = T, width = NULL),
                  br(),
@@ -145,6 +146,7 @@ ui <- fluidPage(
               tableOutput("results"),
               tableOutput("orfinfo"),
               tags$hr(style="border-color: green;"),
+              htmlOutput("ucscPlot"),
               visNetworkOutput("connPlot"))
   )
 )
@@ -324,9 +326,20 @@ server <- function(input, output, session) {
     temp_orfs %>% select(1:6)
   }, digits = 0)
   
+  output$ucscPlot <- renderUI({
+    if (input$doUcsc != T) {
+      return()
+    }
+    outputtab <- outputtab()
+    l <- as.integer((outputtab$end - outputtab$start) * 0.2)
+    url <- str_c("http://genome.ucsc.edu/cgi-bin/hgTracks?db=hub_209779_KG_HiC&hubUrl=http://amc-sandbox.ucdenver.edu/User11/tls10k/hub.txt&position=", outputtab$chrom, ":", outputtab$start - l, "-", outputtab$end + l)
+    src <- str_c("http://genome.ucsc.edu/cgi-bin/hgRenderTracks?db=hub_209779_KG_HiC&hubUrl=http://amc-sandbox.ucdenver.edu/User11/tls10k/hub.txt&ignoreCookie=1&position=", outputtab$chrom, ":", outputtab$start - l, "-", outputtab$end + l)
+    HTML(str_c('<a href ="', url, '">,', '<img src="',src,'">', '<a/>'))
+  })
+  
   output$tab <- renderUI({
     outputtab <- outputtab()
-    url <- a(outputtab$unique_gene_symbol, href=str_c("http://genome.ucsc.edu/cgi-bin/hgTracks?db=hub_209779_KG_HiC&position=", outputtab$chrom, ":", outputtab$start, "-", outputtab$end))
+    url <- a(outputtab$unique_gene_symbol, href=str_c("http://genome.ucsc.edu/cgi-bin/hgTracks?db=hub_209779_KG_HiC&hubUrl=http://amc-sandbox.ucdenver.edu/User11/tls10k/hub.txt&position=", outputtab$chrom, ":", outputtab$start, "-", outputtab$end))
     tagList("trackhub:", url)
   })
   
