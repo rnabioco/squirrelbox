@@ -113,6 +113,7 @@ refTFs <- refs %>% mutate(clean_gene_symbol = str_to_upper(clean_gene_symbol)) %
 # load orf predictions
 orfs <- read_csv("padj_orf.csv") %>% select(gene_id, orf_len = len, exons, rna_len = transcript, orf, unique_gene_symbol, everything())
 starorfs <- orfs %>% group_by(unique_gene_symbol) %>% arrange(desc(orf)) %>% dplyr::slice(1) %>% filter(exons > 1, str_detect(unique_gene_symbol, "^G[0-9]+|_"), orf_len >= 100)
+domains <- read_csv("novel_domains.csv")
 
 # some other code for webpage functions
 jscode <- '
@@ -359,7 +360,11 @@ server <- function(input, output, session) {
       return()
     }
     outputtab <- outputtab()
-    gmt %>% filter(genes == str_to_upper(outputtab$clean_gene_symbol)) #%>% arrange(namespace_1003) %>% select(clean_gene_symbol, go_term = name_1006, go_type = namespace_1003, go_id)
+    temp1 <- gmt %>% filter(genes == str_to_upper(outputtab$clean_gene_symbol)) #%>% arrange(namespace_1003) %>% select(clean_gene_symbol, go_term = name_1006, go_type = namespace_1003, go_id)
+    if (nrow(temp1) == 0) {
+      temp1 <- domains %>% filter(gene_id == outputtab$gene_id)
+    }
+    temp1
   })
   
   output$ucscPlot <- renderUI({
