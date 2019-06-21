@@ -11,6 +11,7 @@ library(valr)
 library(igraph)
 library(tibble)
 library(plotly)
+library(tidyr)
 options(stringsAsFactors = FALSE)
 theme_set(theme_cowplot())
 
@@ -77,13 +78,36 @@ temp4 <- temp3 %>%
   ungroup()
 
 # read go terms
-gos <- readRDS("sq_hm_mart")
+# gos <- read_tsv("/Users/rf/Downloads/goa_human.gaf", comment = "!", col_names = F) %>% dplyr::select(clean_gene_symbol = X3, go_id = X5)
+# gos <- readRDS("sq_hm_mart") %>% mutate(clean_gene_symbol = str_to_title(hgnc_symbol))
+gmt_to_list <- function(path,
+                        cutoff = 0,
+                        sep = "\thttp://www.broadinstitute.org/gsea/msigdb/cards/.*?\t",
+                        rm = "REACTOME_") {
+  df <- readr::read_csv(path,
+                        col_names = F)
+  df <- tidyr::separate(df,
+                        X1,
+                        sep = sep,
+                        into = c("path", "genes"))
+  df <- dplyr::mutate(df, 
+                      path = stringr::str_replace(df$path,
+                                                      rm,
+                                                      ""),
+                      genes = stringr::str_split(genes,
+                                                    "\t"))
+  tidyr::unnest(df, genes)
+}
+gmt <- gmt_to_list("c5.all.v6.2.symbols.gmt", rm = "^GO_")
+
 refs <- combined %>% distinct(unique_gene_symbol, clean_gene_symbol)
-TFs <- gos %>% filter(str_detect(name_1006, "DNA-binding transcription activator activity")) %>%
-  pull(hgnc_symbol) %>%
+TFs <- gmt %>% filter(str_detect(path, str_to_upper("transcription_repressor_activity|transcription_factor_activity")), 
+                      path != "VIRAL_TRANSCRIPTION") %>%
+  pull(genes) %>%
   unique()
+
 refTFs <- refs %>% mutate(clean_gene_symbol = str_to_upper(clean_gene_symbol)) %>%
-  filter(clean_gene_symbol %in% TFs) %>%
+  filter(clean_gene_symbol %in% str_to_upper(TFs)) %>%
   pull(unique_gene_symbol)
 
 # load orf predictions
@@ -131,6 +155,7 @@ ui <- fluidPage(
                  checkboxInput("doUcsc", "download track", value = T, width = NULL),
                  checkboxInput("doMod", "find module", value = T, width = NULL),
                  checkboxInput("doNet", "plot network", value = T, width = NULL),
+                 checkboxInput("doKegg", "GO terms", value = T, width = NULL),
                  br(),
                  uiOutput("conn"),
                  tags$hr(style="border-color: green;"),
@@ -147,7 +172,10 @@ ui <- fluidPage(
               tableOutput("orfinfo"),
               tags$hr(style="border-color: green;"),
               htmlOutput("ucscPlot"),
-              visNetworkOutput("connPlot"))
+              tags$hr(style="border-color: green;"),
+              visNetworkOutput("connPlot"),
+              tags$hr(style="border-color: green;"),
+              tableOutput("gotab"))
   )
 )
 
@@ -325,6 +353,14 @@ server <- function(input, output, session) {
     }
     temp_orfs %>% select(1:6)
   }, digits = 0)
+  
+  output$gotab <- renderTable({
+    if (input$doKegg != T) {
+      return()
+    }
+    outputtab <- outputtab()
+    gmt %>% filter(genes == str_to_upper(outputtab$clean_gene_symbol)) #%>% arrange(namespace_1003) %>% select(clean_gene_symbol, go_term = name_1006, go_type = namespace_1003, go_id)
+  })
   
   output$ucscPlot <- renderUI({
     if (input$doUcsc != T) {
