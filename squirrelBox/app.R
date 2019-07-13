@@ -63,19 +63,29 @@ colnames(bed) <- c("chrom", "start", "end", "unique_gene_symbol", "score", "stra
 historytab <- c()
 
 # read node igraph object
-hy_ig <- readRDS("201906hy_conn_list")
+hy_ig <- readRDS("201907hy_conn_list")
+med_ig <-readRDS("201907med_conn_list")
+fore_ig <- readRDS("201907fore_conn_list")
 hy_net <- toVisNetworkData(hy_ig)
 temp2 <- as_edgelist(hy_ig) 
 temp3 <- c(temp2[,1],temp2[,2]) %>%
   table() %>%
   as.tibble()
 colnames(temp3) <- c("gene", "n")
-modules <- read.csv("201905_hy_modules.csv")
+hy_modules <- read.csv("201907_hy_modules.csv")
+med_modules <- read.csv("201907_med_modules.csv")
+fore_modules <- read.csv("201907_fore_modules.csv")
+
 temp4 <- temp3 %>%
-  left_join(modules, by = "gene") %>%
-  select(-X) %>% group_by(module) %>%
+  left_join(hy_modules, by = "gene") %>%
+  select(-X) %>% group_by(module_n) %>%
   mutate(rank = rank(-n)) %>%
   ungroup()
+
+# eigengene plots
+hy_gg <- readRDS("hy_gg")
+fore_gg <- readRDS("fore_gg")
+med_gg <- readRDS("med_gg")
 
 # read go terms
 # gos <- read_tsv("/Users/rf/Downloads/goa_human.gaf", comment = "!", col_names = F) %>% dplyr::select(clean_gene_symbol = X3, go_id = X5)
@@ -153,6 +163,7 @@ ui <- fluidPage(
                  tags$hr(style="border-color: green;"),
                  checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
                  checkboxInput("doTis", "plot non-brain", value = T, width = NULL),
+                 checkboxInput("doEigen", "plot eigengenes", value = T, width = NULL),
                  checkboxInput("doUcsc", "download track", value = T, width = NULL),
                  checkboxInput("doMod", "find module", value = T, width = NULL),
                  checkboxInput("doNet", "plot network", value = T, width = NULL),
@@ -168,6 +179,7 @@ ui <- fluidPage(
                  uiOutput("history1"),uiOutput("history2"),uiOutput("history3"),uiOutput("history4"),uiOutput("history5"),uiOutput("history6"),uiOutput("history7"),uiOutput("history8"),uiOutput("history9"),uiOutput("history10")),
     mainPanel(uiOutput('boxPlotUI'),
               #plotOutput("boxPlot", width = 800, height = 600),
+              plotOutput('hyEigenPlot', width = 800, height = 300),
               tags$hr(style="border-color: green;"),
               tableOutput("results"),
               tableOutput("orfinfo"),
@@ -257,6 +269,19 @@ server <- function(input, output, session) {
     }
   })
   
+  output$hyEigenPlot <- renderPlot({
+    if (input$doEigen != T) {
+      return()
+    }
+    outputtab <- outputtab()
+    inid <- outputtab$unique_gene_symbol
+    hy_mod <- hy_modules %>% filter(gene == inid) %>% pull(module_n)
+    med_mod <- med_modules %>% filter(gene == inid) %>% pull(module_n)
+    fore_mod <- fore_modules %>% filter(gene == inid) %>% pull(module_n)
+    
+    cowplot::plot_grid(fore_gg[[as.numeric(fore_mod) + 1]], hy_gg[[as.numeric(hy_mod) + 1]], med_gg[[as.numeric(med_mod) + 1]], ncol = 3)
+  })
+  
   output$connPlot <- renderVisNetwork({
     if (input$doMod != T) {
       return()
@@ -297,11 +322,11 @@ server <- function(input, output, session) {
     if (length(rank) == 0) {
       rank <- "NA"
     }
-    mod <- modules %>% filter(gene == inid) %>% pull(module)
+    mod <- hy_modules %>% filter(gene == inid) %>% pull(module_n)
     if (length(mod) == 0) {
       mod <- "low expression"
     }
-    maxrank <- modules %>% filter(module == mod) %>% nrow()
+    maxrank <- hy_modules %>% filter(module_n == mod) %>% nrow()
     HTML(str_c("# of connections (hy): ", rv$conn, "<br>", rank, " out of ", maxrank, " in module ", mod))
   })
   
