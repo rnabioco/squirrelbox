@@ -43,7 +43,11 @@ region_order = c(
 
 # read database
 if (file.exists("combined.tsv")) {
-  combined <- read_tsv("combined.tsv")
+  if (!require(vroom)) {
+    combined <- read_tsv("combined.tsv")
+  } else {
+    combined <- vroom::vroom("combined.tsv")
+  }
 } else {
   combined <- read_tsv("combined.tsv.gz")
 }
@@ -179,7 +183,7 @@ ui <- fluidPage(
                  uiOutput("history1"),uiOutput("history2"),uiOutput("history3"),uiOutput("history4"),uiOutput("history5"),uiOutput("history6"),uiOutput("history7"),uiOutput("history8"),uiOutput("history9"),uiOutput("history10")),
     mainPanel(uiOutput('boxPlotUI'),
               #plotOutput("boxPlot", width = 800, height = 600),
-              plotOutput('hyEigenPlot', width = 800, height = 300),
+              uiOutput('hyEigenPlot'),
               tags$hr(style="border-color: green;"),
               tableOutput("results"),
               tableOutput("orfinfo"),
@@ -269,17 +273,26 @@ server <- function(input, output, session) {
     }
   })
   
-  output$hyEigenPlot <- renderPlot({
+  output$hyEigenPlot <- renderUI({
+    eigenplotr()
+  })
+  
+  eigenplotr <- reactive({
     if (input$doEigen != T) {
-      return()
+      g <- ""
+      output$boxPlot3 <- renderPlot(g)
+      plotOutput("boxPlot3", height = 1)
+    } else {
+      outputtab <- outputtab()
+      inid <- outputtab$unique_gene_symbol
+      hy_mod <- hy_modules %>% filter(gene == inid) %>% pull(module_n)
+      med_mod <- med_modules %>% filter(gene == inid) %>% pull(module_n)
+      fore_mod <- fore_modules %>% filter(gene == inid) %>% pull(module_n)
+      
+      g <- cowplot::plot_grid(fore_gg[[as.numeric(fore_mod) + 1]], hy_gg[[as.numeric(hy_mod) + 1]], med_gg[[as.numeric(med_mod) + 1]], ncol = 3)
+      output$boxPlot3 <- renderPlot(g)
+      plotOutput("boxPlot3", width = 800, height = 300)
     }
-    outputtab <- outputtab()
-    inid <- outputtab$unique_gene_symbol
-    hy_mod <- hy_modules %>% filter(gene == inid) %>% pull(module_n)
-    med_mod <- med_modules %>% filter(gene == inid) %>% pull(module_n)
-    fore_mod <- fore_modules %>% filter(gene == inid) %>% pull(module_n)
-    
-    cowplot::plot_grid(fore_gg[[as.numeric(fore_mod) + 1]], hy_gg[[as.numeric(hy_mod) + 1]], med_gg[[as.numeric(med_mod) + 1]], ncol = 3)
   })
   
   output$connPlot <- renderVisNetwork({
@@ -546,6 +559,8 @@ server <- function(input, output, session) {
   onclick("geneID", 
           updateSelectizeInput(session, inputId = "geneID", selected = "", choices = autocomplete_list, server = T)
   )
+  # onclick("hyEigenPlot",
+  #         )
 }
 
 # Run the application 
