@@ -71,17 +71,40 @@ hy_ig <- readRDS("201907hy_conn_list")
 med_ig <-readRDS("201907med_conn_list")
 fore_ig <- readRDS("201907fore_conn_list")
 hy_net <- toVisNetworkData(hy_ig)
-temp2 <- as_edgelist(hy_ig) 
-temp3 <- c(temp2[,1],temp2[,2]) %>%
+med_net <- toVisNetworkData(med_ig)
+fore_net <- toVisNetworkData(fore_ig)
+hy_temp2 <- as_edgelist(hy_ig) 
+hy_temp3 <- c(hy_temp2[,1],hy_temp2[,2]) %>%
   table() %>%
   as.tibble()
-colnames(temp3) <- c("gene", "n")
+colnames(hy_temp3) <- c("gene", "n")
+med_temp2 <- as_edgelist(med_ig) 
+med_temp3 <- c(med_temp2[,1],med_temp2[,2]) %>%
+  table() %>%
+  as.tibble()
+colnames(med_temp3) <- c("gene", "n")
+fore_temp2 <- as_edgelist(fore_ig) 
+fore_temp3 <- c(fore_temp2[,1],fore_temp2[,2]) %>%
+  table() %>%
+  as.tibble()
+colnames(fore_temp3) <- c("gene", "n")
+
 hy_modules <- read.csv("201907_hy_modules.csv")
 med_modules <- read.csv("201907_med_modules.csv")
 fore_modules <- read.csv("201907_fore_modules.csv")
 
-temp4 <- temp3 %>%
+hy_temp4 <- hy_temp3 %>%
   left_join(hy_modules, by = "gene") %>%
+  select(-X) %>% group_by(module_n) %>%
+  mutate(rank = rank(-n)) %>%
+  ungroup()
+med_temp4 <- med_temp3 %>%
+  left_join(med_modules, by = "gene") %>%
+  select(-X) %>% group_by(module_n) %>%
+  mutate(rank = rank(-n)) %>%
+  ungroup()
+fore_temp4 <- fore_temp3 %>%
+  left_join(fore_modules, by = "gene") %>%
   select(-X) %>% group_by(module_n) %>%
   mutate(rank = rank(-n)) %>%
   ungroup()
@@ -173,6 +196,7 @@ ui <- fluidPage(
                  checkboxInput("doNet", "plot network", value = T, width = NULL),
                  checkboxInput("doKegg", "GO terms", value = T, width = NULL),
                  br(),
+                 selectInput("region", label = NULL, choices = list("fore","hy","med"), selected = "hy"),
                  uiOutput("conn"),
                  tags$hr(style="border-color: green;"),
                  uiOutput("tab"), uiOutput("blastlink"), 
@@ -207,6 +231,25 @@ server <- function(input, output, session) {
   rv$old <- ""
   rv$blast <- ""
   rv$pval <- data.frame()
+  rv$act_modules <- hy_modules
+  rv$act_temp4 <- hy_temp4
+  rv$act_net <- hy_net
+  
+  observeEvent(input$region, {
+    if (input$region == "fore") {
+      rv$act_modules <- fore_modules
+      rv$act_temp4 <- fore_temp4
+      rv$act_net <- fore_net
+    } else if (input$region == "hy") {
+      rv$act_modules <- hy_modules
+      rv$act_temp4 <- hy_temp4
+      rv$act_net <- hy_net
+    } else if (input$region == "med") {
+      rv$act_modules <- med_modules
+      rv$act_temp4 <- med_temp4
+      rv$act_net <- med_net
+    }
+  })
   
   inid <- eventReactive(input$Find, {
     if (rv$init == 0) {
@@ -301,12 +344,12 @@ server <- function(input, output, session) {
     }
     outputtab <- outputtab()
     queryid <- outputtab$unique_gene_symbol
-    edgeq <- hy_net$edges %>% filter(from == queryid | to == queryid)
+    edgeq <- rv$act_net$edges %>% filter(from == queryid | to == queryid)
     nodeq <- c(edgeq$from, edgeq$to) %>% unique()
-    edgeq2 <- tryCatch({hy_net$edges %>% filter(from %in% nodeq | to %in% nodeq) %>% mutate(color = "gray", opacity = 0, width = 0)}, error = function(err) {
+    edgeq2 <- tryCatch({rv$act_net$edges %>% filter(from %in% nodeq | to %in% nodeq) %>% mutate(color = "gray", opacity = 0, width = 0)}, error = function(err) {
       return(data.frame())
     })
-    nodeq2 <- tryCatch({hy_net$nodes[nodeq,] %>% left_join(table(c(edgeq2$from, edgeq2$to)) %>% as.data.frame(stringsAsFactors = F), by = c("id" = "Var1")) %>% mutate(value = Freq, color = ifelse(id == queryid, "red", "lightblue"), shape = ifelse(id %in% refTFs, "square", ifelse(id %in% starorfs$unique_gene_symbol, "star", "triangle")), border.color = "black")}, error = function(err) {
+    nodeq2 <- tryCatch({rv$act_net$nodes[nodeq,] %>% left_join(table(c(edgeq2$from, edgeq2$to)) %>% as.data.frame(stringsAsFactors = F), by = c("id" = "Var1")) %>% mutate(value = Freq, color = ifelse(id == queryid, "red", "lightblue"), shape = ifelse(id %in% refTFs, "square", ifelse(id %in% starorfs$unique_gene_symbol, "star", "triangle")), border.color = "black")}, error = function(err) {
     return(data.frame())
   })
     rv$conn <<- tryCatch({nodeq2 %>% filter(id == queryid) %>% pull(value)}, error = function(err) {
@@ -331,16 +374,16 @@ server <- function(input, output, session) {
     }
     outputtab <- outputtab()
     inid <- outputtab$unique_gene_symbol
-    rank <- temp4 %>% filter(gene == inid) %>% pull(rank)
+    rank <- rv$act_temp4 %>% filter(gene == inid) %>% pull(rank)
     if (length(rank) == 0) {
       rank <- "NA"
     }
-    mod <- hy_modules %>% filter(gene == inid) %>% pull(module_n)
+    mod <- rv$act_modules %>% filter(gene == inid) %>% pull(module_n)
     if (length(mod) == 0) {
       mod <- "low expression"
     }
-    maxrank <- hy_modules %>% filter(module_n == mod) %>% nrow()
-    HTML(str_c("# of connections (hy): ", rv$conn, "<br>", rank, " out of ", maxrank, " in module ", mod))
+    maxrank <- rv$act_modules %>% filter(module_n == mod) %>% nrow()
+    HTML(str_c("# of connections (", input$region, "): ", rv$conn, "<br>", rank, " out of ", maxrank, " in module ", mod))
   })
   
   observeEvent(input$current_node_id, {
@@ -371,6 +414,7 @@ server <- function(input, output, session) {
     outputtab()
   }, digits = 0)
   
+  # orf call table
   output$orfinfo <- renderTable({
     inid <- outputtab()$gene_id
     if (inid %in% orfs$gene_id) {
@@ -393,6 +437,7 @@ server <- function(input, output, session) {
     temp_orfs %>% select(1:6)
   }, digits = 0)
   
+  # goterm table
   output$gotab <- renderTable({
     if (input$doKegg != T) {
       return()
@@ -405,6 +450,7 @@ server <- function(input, output, session) {
     temp1
   })
   
+  # download ucscplot
   output$ucscPlot <- renderUI({
     if (input$doUcsc != T) {
       return()
@@ -416,6 +462,7 @@ server <- function(input, output, session) {
     HTML(str_c('<a href ="', url, '">,', '<img src="',src,'">', '<a/>'))
   })
   
+  # various links in sidebar
   output$tab <- renderUI({
     outputtab <- outputtab()
     url <- a(outputtab$unique_gene_symbol, href=str_c("http://genome.ucsc.edu/cgi-bin/hgTracks?db=hub_209779_KG_HiC&hubUrl=http://amc-sandbox.ucdenver.edu/User11/tls10k/hub.txt&position=", outputtab$chrom, ":", outputtab$start, "-", outputtab$end))
@@ -449,6 +496,7 @@ server <- function(input, output, session) {
       } else {return()}
   })
   
+  # save plot as pdf
   output$savePlot <- downloadHandler(
     filename = function() {
       sym <- tryCatch(outputtab()$unique_gene_symbol, error = function(err) {return("wrong")})
@@ -466,6 +514,7 @@ server <- function(input, output, session) {
     }
   )
   
+  # history
   output$history1 <- renderUI({
     outputtab()
     actionLink("history1", label = historytab[1])
@@ -546,6 +595,8 @@ server <- function(input, output, session) {
     rv$run2 <- 1
     updateSelectizeInput(session, inputId = "geneID", selected = historytab[10], choices = autocomplete_list, server = T)
   })
+  
+  # handling enter and initialization
   observeEvent(input$geneID, {
     if (rv$run2 == 1 & input$geneID != "") {
       click("Find")
