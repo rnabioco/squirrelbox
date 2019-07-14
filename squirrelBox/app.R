@@ -12,6 +12,7 @@ library(igraph)
 library(tibble)
 library(plotly)
 library(tidyr)
+library(shinyBS)
 options(stringsAsFactors = FALSE)
 theme_set(theme_cowplot())
 
@@ -206,6 +207,7 @@ ui <- fluidPage(
                  tags$hr(style="border-color: green;"),
                  uiOutput("history1"),uiOutput("history2"),uiOutput("history3"),uiOutput("history4"),uiOutput("history5"),uiOutput("history6"),uiOutput("history7"),uiOutput("history8"),uiOutput("history9"),uiOutput("history10")),
     mainPanel(uiOutput('boxPlotUI'),
+              bsModal('modalPDF', title = "module-trait", trigger = "conn", size = "large", htmlOutput("pdfview")),
               #plotOutput("boxPlot", width = 800, height = 600),
               uiOutput('hyEigenPlot'),
               tags$hr(style="border-color: green;"),
@@ -610,8 +612,17 @@ server <- function(input, output, session) {
   onclick("geneID", 
           updateSelectizeInput(session, inputId = "geneID", selected = "", choices = autocomplete_list, server = T)
   )
-  # onclick("hyEigenPlot",
-  #         )
+  
+  onclick("conn",{
+    filename <- str_c("201907_", input$region, "_trait.pdf")
+    # output$pdfview <- renderUI({
+    #   tags$iframe(style="height:800px; width:100%", src=filename)
+    # })
+    output$pdfview <-renderText({
+      return(paste('<iframe style="height:800px; width:100%" src="',filename, '"></iframe>', sep = ""))
+    })
+  }
+          )
 }
 
 # Run the application 
