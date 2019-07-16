@@ -94,9 +94,9 @@ colnames(bed) <- c("chrom", "start", "end", "unique_gene_symbol", "score", "stra
 # empty history list to start
 historytab <- c()
 
-hy_modules <- read_csv("201907_hy_modules.csv", col_types = cols())
-med_modules <- read_csv("201907_med_modules.csv", col_types = cols())
-fore_modules <- read_csv("201907_fore_modules.csv", col_types = cols())
+hy_modules <- suppressWarnings(read_csv("201907_hy_modules.csv", col_types = cols()))
+med_modules <- suppressWarnings(read_csv("201907_med_modules.csv", col_types = cols()))
+fore_modules <- suppressWarnings(read_csv("201907_fore_modules.csv", col_types = cols()))
 
 # read node igraph object
 hy_ig <- readRDS("201907hy_conn_list")
