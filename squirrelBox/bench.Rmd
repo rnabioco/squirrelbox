@@ -1,0 +1,29 @@
+```{r}
+library(microbenchmark)
+vroom_mat <- function(path) {
+  combined <- vroom::vroom(path)
+  combined %<>% mutate(state = factor(state, levels = state_order),
+                     region = factor(region, levels = region_order))
+}
+
+readr_mut <- function(path) {
+  combined <- readr::read_tsv("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined.tsv", progress = F)
+  combined %<>% mutate(state = factor(state, levels = state_order),
+                     region = factor(region, levels = region_order))
+}
+benchmark <- microbenchmark(vroom = vroom::vroom("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined.tsv"), 
+                            vroom_mat = vroom_mat("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined.tsv"), 
+               read_tsv = readr_mut("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined.tsv"),
+               #read_gz = readr::read_tsv("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined.tsv.gz", progress = F), 
+               times = 1)
+print(benchmark, signif = 2)
+```
+```{r}
+library(profvis)
+p <- profvis(shiny::runApp())
+```
+```{r}
+
+```
+
+
