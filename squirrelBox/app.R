@@ -2,7 +2,7 @@ library(shiny)
 library(dplyr)
 library(ggplot2)
 library(cowplot)
-library(magrittr)
+# library(magrittr)
 library(readr)
 library(stringr)
 library(shinyjs)
@@ -42,30 +42,59 @@ region_order = c(
   "Forebrain", "Hypothalamus", "Medulla", "Adrenal", "Kidney", "Liver"
 )
 
+usevroom <- F #!require(vroom)
 # read database
 if (file.exists("combined.tsv")) {
-  if (!require(vroom)) {
-    combined <- read_tsv("combined.tsv")
+  if (!usevroom) {
+    #combined <- read_tsv("combined.tsv", col_types = cols())
+    combined2 <- read_csv("combined2.csv", col_types = cols())
+    combined3 <- read_csv("combined3.csv", col_types = cols())
+    combined <- combined3 %>% left_join(combined2, by = "gene_id")
   } else {
-    combined <- vroom::vroom("combined.tsv")
+    combined <- vroom::vroom("combined.tsv", altrep_opts = T)
   }
 } else {
-  combined <- read_tsv("combined.tsv.gz")
+  combined <- read_tsv("combined.tsv.gz", col_types = cols())
 }
 
+# combined2 <- combined %>% select(gene_id, sample:region)
+# combined3 <- combined %>% select(1:6) %>% distinct()
+# c3 <- combined %>% unite(comb, sample, state, region) %>% spread(comb, log2_counts)
+# write_csv(c3, "combined_wide.csv")
+# combined <- read_csv("combined_wide.csv")
+# combined <- combined %>% gather(key = "comb", value = "log2_counts", -(gene_id:source))
+# combined <- combined %>% filter(!(is.na(log2_counts))) %>% separate("comb", into = c("sample", "state", "region"))
+
 # reorder factors for correct display order
-combined %<>% mutate(state = factor(state, levels = state_order),
+combined <- combined %>% mutate(state = factor(state, levels = state_order),
                      region = factor(region, levels = region_order))
+
+# stash smaller files
+# if (file.exists("env.rdata")) {
+#   load("env.rdata")
+# } else {
+  
 autocomplete_list <- str_sort(c(combined$unique_gene_symbol, combined$gene_id) %>%
                                 unique(), decreasing = T)
 
 # read annotation file to find ucsc track
-bed <- read_tsv("final_annot_bed12_20_sort.bed12", col_names = F) %>%
-  select(1:6,13)
+if (!usevroom) {
+  bed <- read_tsv("final_annot_bed12_20_sort.bed12", col_names = F, col_types = cols()) %>%
+    select(1:6,13)
+} else {
+  bed <- vroom::vroom("final_annot_bed12_20_sort.bed12", col_names = F, altrep_opts = T)
+  bed <- bed %>% select(1:6,13)
+  vroom:::vroom_materialize(bed)
+}
+
 colnames(bed) <- c("chrom", "start", "end", "unique_gene_symbol", "score", "strand", "gene_id")
 
 # empty history list to start
 historytab <- c()
+
+hy_modules <- read_csv("201907_hy_modules.csv", col_types = cols())
+med_modules <- read_csv("201907_med_modules.csv", col_types = cols())
+fore_modules <- read_csv("201907_fore_modules.csv", col_types = cols())
 
 # read node igraph object
 hy_ig <- readRDS("201907hy_conn_list")
@@ -74,39 +103,35 @@ fore_ig <- readRDS("201907fore_conn_list")
 hy_net <- toVisNetworkData(hy_ig)
 med_net <- toVisNetworkData(med_ig)
 fore_net <- toVisNetworkData(fore_ig)
-hy_temp2 <- as_edgelist(hy_ig) 
-hy_temp3 <- c(hy_temp2[,1],hy_temp2[,2]) %>%
+hy_temp4 <- as_edgelist(hy_ig) 
+hy_temp4 <- c(hy_temp4[,1],hy_temp4[,2]) %>%
   table() %>%
   as.tibble()
-colnames(hy_temp3) <- c("gene", "n")
-med_temp2 <- as_edgelist(med_ig) 
-med_temp3 <- c(med_temp2[,1],med_temp2[,2]) %>%
+colnames(hy_temp4) <- c("gene", "n")
+med_temp4 <- as_edgelist(med_ig) 
+med_temp4 <- c(med_temp4[,1],med_temp4[,2]) %>%
   table() %>%
   as.tibble()
-colnames(med_temp3) <- c("gene", "n")
-fore_temp2 <- as_edgelist(fore_ig) 
-fore_temp3 <- c(fore_temp2[,1],fore_temp2[,2]) %>%
+colnames(med_temp4) <- c("gene", "n")
+fore_temp4 <- as_edgelist(fore_ig) 
+fore_temp4 <- c(fore_temp4[,1],fore_temp4[,2]) %>%
   table() %>%
   as.tibble()
-colnames(fore_temp3) <- c("gene", "n")
+colnames(fore_temp4) <- c("gene", "n")
 
-hy_modules <- read.csv("201907_hy_modules.csv")
-med_modules <- read.csv("201907_med_modules.csv")
-fore_modules <- read.csv("201907_fore_modules.csv")
-
-hy_temp4 <- hy_temp3 %>%
+hy_temp4 <- hy_temp4 %>%
   left_join(hy_modules, by = "gene") %>%
-  select(-X) %>% group_by(module_n) %>%
+  select(-X1) %>% group_by(module_n) %>%
   mutate(rank = rank(-n)) %>%
   ungroup()
-med_temp4 <- med_temp3 %>%
+med_temp4 <- med_temp4 %>%
   left_join(med_modules, by = "gene") %>%
-  select(-X) %>% group_by(module_n) %>%
+  select(-X1) %>% group_by(module_n) %>%
   mutate(rank = rank(-n)) %>%
   ungroup()
-fore_temp4 <- fore_temp3 %>%
+fore_temp4 <- fore_temp4 %>%
   left_join(fore_modules, by = "gene") %>%
-  select(-X) %>% group_by(module_n) %>%
+  select(-X1) %>% group_by(module_n) %>%
   mutate(rank = rank(-n)) %>%
   ungroup()
 
@@ -123,7 +148,7 @@ gmt_to_list <- function(path,
                         sep = "\thttp://www.broadinstitute.org/gsea/msigdb/cards/.*?\t",
                         rm = "REACTOME_") {
   df <- readr::read_csv(path,
-                        col_names = F)
+                        col_names = F, col_types = cols())
   df <- tidyr::separate(df,
                         X1,
                         sep = sep,
@@ -149,9 +174,18 @@ refTFs <- refs %>% mutate(clean_gene_symbol = str_to_upper(clean_gene_symbol)) %
   pull(unique_gene_symbol)
 
 # load orf predictions
-orfs <- read_csv("padj_orf.csv") %>% select(gene_id, orf_len = len, exons, rna_len = transcript, orf, unique_gene_symbol, everything())
+if (!usevroom) {
+  orfs <- read_csv("padj_orf.csv", col_types = cols()) %>% select(gene_id, orf_len = len, exons, rna_len = transcript, orf, unique_gene_symbol, everything())
+} else {
+  orfs <- vroom::vroom("padj_orf.csv", altrep_opts = T) %>% select(gene_id, orf_len = len, exons, rna_len = transcript, orf, unique_gene_symbol, everything())
+  vroom:::vroom_materialize(orfs)
+}
 starorfs <- orfs %>% group_by(unique_gene_symbol) %>% arrange(desc(orf)) %>% dplyr::slice(1) %>% filter(exons > 1, str_detect(unique_gene_symbol, "^G[0-9]+|_"), orf_len >= 100)
-domains <- read_csv("novel_domains.csv")
+domains <- read_csv("novel_domains.csv", col_types = cols())
+
+# lists <- ls(all.names = TRUE)
+# save(list = lists[lists != "combined"], file = "env.rdata", envir = environment(), compress = F)
+# }
 
 # some other code for webpage functions
 jscode <- '
@@ -190,12 +224,12 @@ ui <- fluidPage(
                  div(style="display: inline-block;vertical-align:top; width: 10px;",actionButton("Find", "Find")),
                  tags$hr(style="border-color: green;"),
                  checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
-                 checkboxInput("doTis", "plot non-brain", value = T, width = NULL),
+                 checkboxInput("doTis", "plot non-brain", value = F, width = NULL),
                  checkboxInput("doEigen", "plot eigengenes", value = T, width = NULL),
-                 checkboxInput("doUcsc", "download track", value = T, width = NULL),
+                 checkboxInput("doUcsc", "download track", value = F, width = NULL),
                  checkboxInput("doMod", "find module", value = T, width = NULL),
-                 checkboxInput("doNet", "plot network", value = T, width = NULL),
-                 checkboxInput("doKegg", "GO terms", value = T, width = NULL),
+                 checkboxInput("doNet", "plot network", value = F, width = NULL),
+                 checkboxInput("doKegg", "GO terms", value = F, width = NULL),
                  br(),
                  selectInput("region", label = NULL, choices = list("fore","hy","med"), selected = "hy"),
                  uiOutput("conn"),
@@ -254,9 +288,7 @@ server <- function(input, output, session) {
   })
   
   inid <- eventReactive(input$Find, {
-    if (rv$init == 0) {
-      rv$init <- 1
-    }
+    #rv$init <- rv$init + 1
     rv$old <- input$geneID
     shinyjs::runjs("window.scrollTo(0, 0)")
     input$geneID
@@ -302,7 +334,6 @@ server <- function(input, output, session) {
   boxPlotlyr <- reactive({
     g <- boxPlot1()
     output$boxPlot2 <- renderPlotly(ggplotly(g + facet_wrap(~region), tooltip = "text"))
-    
     if (input$doTis == T) {
       plotlyOutput('boxPlot2', width = 800, height = 600)
     } else {
@@ -597,22 +628,25 @@ server <- function(input, output, session) {
     rv$run2 <- 1
     updateSelectizeInput(session, inputId = "geneID", selected = historytab[10], choices = autocomplete_list, server = T)
   })
-  
-  # handling enter and initialization
   observeEvent(input$geneID, {
-    if (rv$run2 == 1 & input$geneID != "") {
+    if (rv$run2 == 1 & input$geneID != "" & !is.null(input$geneID)) {
       click("Find")
       rv$run2 <- 0
     }
   })
-  observeEvent(rv$init == 1, {
-    updateSelectizeInput(session, inputId = "geneID", selected = "G8462", choices = autocomplete_list, server = T)
-    rv$run2 <- 1
+  
+  # handling enter and initialization
+  observeEvent(rv$init, {
+    if (rv$init == 0) {
+      updateSelectizeInput(session, inputId = "geneID", selected = "G8462", choices = autocomplete_list, server = T)
+    }
+    rv$init <- 2
   })
   onclick("geneID", 
           updateSelectizeInput(session, inputId = "geneID", selected = "", choices = autocomplete_list, server = T)
   )
   
+  # link to trait pdf
   onclick("conn",{
     filename <- str_c("201907_", input$region, "_trait.pdf")
     # output$pdfview <- renderUI({
