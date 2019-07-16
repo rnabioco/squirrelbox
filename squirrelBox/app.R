@@ -44,12 +44,14 @@ region_order = c(
 
 usevroom <- F #!require(vroom)
 # read database
-if (file.exists("combined.tsv")) {
+
+if (file.exists("combined2.csv")) {
+  combined2 <- read_csv("combined2.csv", col_types = cols())
+  combined3 <- read_csv("combined3.csv", col_types = cols())
+  combined <- combined3 %>% left_join(combined2, by = "gene_id")
+} else if (file.exists("combined.tsv")) {
   if (!usevroom) {
-    #combined <- read_tsv("combined.tsv", col_types = cols())
-    combined2 <- read_csv("combined2.csv", col_types = cols())
-    combined3 <- read_csv("combined3.csv", col_types = cols())
-    combined <- combined3 %>% left_join(combined2, by = "gene_id")
+    combined <- read_tsv("combined.tsv", col_types = cols())
   } else {
     combined <- vroom::vroom("combined.tsv", altrep_opts = T)
   }
@@ -225,11 +227,11 @@ ui <- fluidPage(
                  tags$hr(style="border-color: green;"),
                  checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
                  checkboxInput("doTis", "plot non-brain", value = F, width = NULL),
-                 checkboxInput("doEigen", "plot eigengenes", value = T, width = NULL),
+                 checkboxInput("doEigen", "plot eigengenes", value = F, width = NULL),
                  checkboxInput("doUcsc", "download track", value = F, width = NULL),
                  checkboxInput("doMod", "find module", value = T, width = NULL),
-                 checkboxInput("doNet", "plot network", value = F, width = NULL),
-                 checkboxInput("doKegg", "GO terms", value = F, width = NULL),
+                 checkboxInput("doNet", "plot network", value = T, width = NULL),
+                 checkboxInput("doKegg", "GO terms", value = T, width = NULL),
                  br(),
                  selectInput("region", label = NULL, choices = list("fore","hy","med"), selected = "hy"),
                  uiOutput("conn"),
@@ -297,7 +299,7 @@ server <- function(input, output, session) {
   historytab <- c()
   
   boxPlot1 <- reactive({
-    inid <- inid()
+    inid <- isolate(inid())
     plot_temp <- combined %>% filter(gene_id == inid | unique_gene_symbol == inid)
     if (input$doTis != T) {
       plot_temp <- plot_temp %>% filter(region %in% c("Forebrain", "Hypothalamus", "Medulla"))
@@ -639,8 +641,8 @@ server <- function(input, output, session) {
   observeEvent(rv$init, {
     if (rv$init == 0) {
       updateSelectizeInput(session, inputId = "geneID", selected = "G8462", choices = autocomplete_list, server = T)
+      rv$init <- 2
     }
-    rv$init <- 2
   })
   onclick("geneID", 
           updateSelectizeInput(session, inputId = "geneID", selected = "", choices = autocomplete_list, server = T)
