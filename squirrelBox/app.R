@@ -417,8 +417,15 @@ server <- function(input, output, session) {
     if (length(mod) == 0) {
       mod <- "low expression"
     }
+    r <- rv$act_modules %>% filter(gene == inid) %>% pull(r)
+    if (length(r) == 0) {
+      r <- ""
+    }  else {
+      r <- as.character(round(r, digits = 2))
+      r <- str_c(", r = ", r)
+    }
     maxrank <- rv$act_modules %>% filter(module_n == mod) %>% nrow()
-    HTML(str_c("# of connections (", input$region, "): ", rv$conn, "<br>", rank, " out of ", maxrank, " in module ", mod))
+    HTML(str_c("# of connections (", input$region, "): ", rv$conn, "<br>", rank, " out of ", maxrank, " in module ", mod, r))
   })
   
   observeEvent(input$current_node_id, {
