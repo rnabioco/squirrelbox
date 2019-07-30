@@ -46,8 +46,8 @@ usevroom <- F #!require(vroom)
 # read database
 
 if (file.exists("combined2.csv")) {
-  combined2 <- read_csv("combined2.csv", col_types = cols())
-  combined3 <- read_csv("combined3.csv", col_types = cols())
+  combined2 <- read_csv("combined2.csv", col_types = "ccncc")
+  combined3 <- read_csv("combined3.csv", col_types = "cccccc")
   combined <- combined3 %>% left_join(combined2, by = "gene_id")
 } else if (file.exists("combined.tsv")) {
   if (!usevroom) {
@@ -81,7 +81,7 @@ autocomplete_list <- str_sort(c(combined$unique_gene_symbol, combined$gene_id) %
 
 # read annotation file to find ucsc track
 if (!usevroom) {
-  bed <- read_tsv("final_annot_bed12_20_sort.bed12", col_names = F, col_types = cols()) %>%
+  bed <- read_tsv("final_annot_bed12_20_sort.bed12", col_names = F, col_types = "cnncncnnnnncccc") %>%
     select(1:6,13)
 } else {
   bed <- vroom::vroom("final_annot_bed12_20_sort.bed12", col_names = F, altrep_opts = T)
@@ -94,14 +94,14 @@ colnames(bed) <- c("chrom", "start", "end", "unique_gene_symbol", "score", "stra
 # empty history list to start
 historytab <- c()
 
-hy_modules <- suppressWarnings(read_csv("201907_hy_modules.csv", col_types = cols()))
-med_modules <- suppressWarnings(read_csv("201907_med_modules.csv", col_types = cols()))
-fore_modules <- suppressWarnings(read_csv("201907_fore_modules.csv", col_types = cols()))
+hy_modules <- suppressWarnings(read_csv("201908_hy_modules.csv", col_types = cols()))
+med_modules <- suppressWarnings(read_csv("201908_med_modules.csv", col_types = cols()))
+fore_modules <- suppressWarnings(read_csv("201908_fore_modules.csv", col_types = cols()))
 
 # read node igraph object
-hy_ig <- readRDS("201907hy_conn_list")
-med_ig <-readRDS("201907med_conn_list")
-fore_ig <- readRDS("201907fore_conn_list")
+hy_ig <- readRDS("201908hy_conn_list")
+med_ig <-readRDS("201908med_conn_list")
+fore_ig <- readRDS("201908fore_conn_list")
 hy_net <- toVisNetworkData(hy_ig)
 med_net <- toVisNetworkData(med_ig)
 fore_net <- toVisNetworkData(fore_ig)
@@ -177,7 +177,7 @@ refTFs <- refs %>% mutate(clean_gene_symbol = str_to_upper(clean_gene_symbol)) %
 
 # load orf predictions
 if (!usevroom) {
-  orfs <- read_csv("padj_orf.csv", col_types = cols()) %>% select(gene_id, orf_len = len, exons, rna_len = transcript, orf, unique_gene_symbol, everything())
+  orfs <- read_csv("padj_orf.csv", col_types = "cnncncnncccnnnnnnnnnnnnnnnnnnnnnnnnnn") %>% select(gene_id, orf_len = len, exons, rna_len = transcript, orf, unique_gene_symbol, everything())
 } else {
   orfs <- vroom::vroom("padj_orf.csv", altrep_opts = T) %>% select(gene_id, orf_len = len, exons, rna_len = transcript, orf, unique_gene_symbol, everything())
   vroom:::vroom_materialize(orfs)
@@ -227,10 +227,10 @@ ui <- fluidPage(
                  tags$hr(style="border-color: green;"),
                  checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
                  checkboxInput("doTis", "plot non-brain", value = F, width = NULL),
-                 checkboxInput("doEigen", "plot eigengenes", value = F, width = NULL),
+                 checkboxInput("doEigen", "plot eigengenes", value = T, width = NULL),
                  checkboxInput("doUcsc", "download track", value = F, width = NULL),
                  checkboxInput("doMod", "find module", value = T, width = NULL),
-                 checkboxInput("doNet", "plot network", value = T, width = NULL),
+                 checkboxInput("doNet", "plot network", value = F, width = NULL),
                  checkboxInput("doKegg", "GO terms", value = T, width = NULL),
                  br(),
                  selectInput("region", label = NULL, choices = list("fore","hy","med"), selected = "hy"),
@@ -366,8 +366,13 @@ server <- function(input, output, session) {
       hy_mod <- hy_modules %>% filter(gene == inid) %>% pull(module_n)
       med_mod <- med_modules %>% filter(gene == inid) %>% pull(module_n)
       fore_mod <- fore_modules %>% filter(gene == inid) %>% pull(module_n)
-      
-      g <- cowplot::plot_grid(fore_gg[[as.numeric(fore_mod) + 1]], hy_gg[[as.numeric(hy_mod) + 1]], med_gg[[as.numeric(med_mod) + 1]], ncol = 3)
+      fore_fig <- tryCatch({fore_gg[[as.numeric(fore_mod) + 1]]}, error = function(err) {
+        return(ggplot() + theme_void())})
+      hy_fig <- tryCatch({hy_gg[[as.numeric(hy_mod) + 1]]}, error = function(err) {
+        return(ggplot() + theme_void())})
+      med_fig <- tryCatch({med_gg[[as.numeric(med_mod) + 1]]}, error = function(err) {
+        return(ggplot() + theme_void())})
+      g <- cowplot::plot_grid(fore_fig, hy_fig, med_fig, ncol = 3)
       output$boxPlot3 <- renderPlot(g)
       plotOutput("boxPlot3", width = 800, height = 300)
     }
@@ -657,7 +662,7 @@ server <- function(input, output, session) {
   
   # link to trait pdf
   onclick("conn",{
-    filename <- str_c("201907_", input$region, "_trait.pdf")
+    filename <- str_c("201908_", input$region, "_trait.pdf")
     # output$pdfview <- renderUI({
     #   tags$iframe(style="height:800px; width:100%", src=filename)
     # })
