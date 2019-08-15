@@ -528,7 +528,7 @@ server <- function(input, output, session) {
   output$tab <- renderUI({
     outputtab <- outputtab()
     url <- a(outputtab$unique_gene_symbol, 
-             href=str_c("http://genome.ucsc.edu/cgi-bin/hgTracks?db=", track_name, "&hubUrl", track_url, "&ignoreCookie=1&position=", 
+             href=str_c("http://genome.ucsc.edu/cgi-bin/hgTracks?db=", track_name, "&hubUrl=", track_url, "&ignoreCookie=1&position=", 
                         outputtab$chrom, 
                         ":", 
                         outputtab$start, 
