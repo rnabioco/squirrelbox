@@ -197,6 +197,7 @@ ui <- fluidPage(
                  div(style="display: inline-block;vertical-align:top; width: 10px;",actionButton("Find", "Find")),
                  tags$hr(style="border-color: green;"),
                  checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
+                 checkboxInput("doName", "label by sample", value = F, width = NULL),
                  checkboxInput("doTis", "plot non-brain", value = F, width = NULL),
                  checkboxInput("doEigen", "plot eigengenes", value = T, width = NULL),
                  checkboxInput("doUcsc", "download track", value = F, width = NULL),
@@ -290,7 +291,7 @@ server <- function(input, output, session) {
   boxPlot1 <- reactive({
     outputtab <- outputtab()
     inid <- outputtab$unique_gene_symbol
-    plot_temp <- combined %>% filter(gene_id == inid | unique_gene_symbol == inid)
+    plot_temp <- combined %>% filter(gene_id == inid | unique_gene_symbol == inid) %>% mutate(sample = (str_remove(sample, "[A-Z]+")))
     if (input$doTis != T) {
       plot_temp <- plot_temp %>% filter(region %in% c("Forebrain", "Hypothalamus", "Medulla"))
     }
@@ -304,12 +305,21 @@ server <- function(input, output, session) {
     
     set.seed(1)
     g <- ggplot(plot_temp, aes(state, log2_counts, text = text)) +
-      geom_boxplot(aes(fill = state), outlier.shape = NA) +
-      geom_jitter() +
-      scale_fill_manual(values = state_cols) +
       ylab("rlog(counts)") +
       facet_wrap(~region, scales = "free") +
       theme(legend.position = "none")
+
+    if (input$doName == T) {
+      g <- g +
+        geom_boxplot(aes(color = state), outlier.shape = NA) + 
+        scale_color_manual(values = state_cols) +
+        geom_text(position = position_jitter(seed = 1), aes(label = sample))
+    } else {
+      g <- g + 
+        geom_boxplot(aes(fill = state), outlier.shape = NA) + 
+        scale_fill_manual(values = state_cols) + 
+        geom_point(aes(color = sample), position = position_jitter(seed = 1))
+    }
     g
   })
   
@@ -325,7 +335,7 @@ server <- function(input, output, session) {
   
   boxPlotlyr <- reactive({
     g <- boxPlot1()
-    output$boxPlot2 <- renderPlotly(ggplotly(g + facet_wrap(~region), tooltip = "text"))
+    output$boxPlot2 <- renderPlotly(ggplotly(g + facet_wrap(~region), tooltip = "text") %>% layout(hovermode = "closest"))
     if (input$doTis == T) {
       plotlyOutput('boxPlot2', width = 800, height = 600)
     } else {
