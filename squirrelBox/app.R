@@ -15,6 +15,8 @@ library(shinyBS)
 options(stringsAsFactors = FALSE)
 theme_set(theme_cowplot())
 
+track_name <- "hub_1519131_KG_HiC"
+track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
 find_padj <- function(region, state) {
   temp <- str_c(qpadj[str_sub(qpadj,1,1) == str_to_lower(str_sub(region,1,1)) & 
                         str_detect(qpadj, state)], collapse = "\n")
@@ -501,13 +503,13 @@ server <- function(input, output, session) {
     }
     outputtab <- outputtab()
     l <- as.integer((outputtab$end - outputtab$start) * 0.2)
-    url <- str_c("http://genome.ucsc.edu/cgi-bin/hgTracks?db=hub_209779_KG_HiC&hubUrl=http://amc-sandbox.ucdenver.edu/User11/tls10k/hub.txt&position=", 
+    url <- str_c("http://genome.ucsc.edu/cgi-bin/hgTracks?db=", track_name, "&hubUrl=", track_url, "&ignoreCookie=1&position=", 
                  outputtab$chrom,
                  ":", 
                  outputtab$start - l,
                  "-", 
                  outputtab$end + l)
-    src <- str_c("http://genome.ucsc.edu/cgi-bin/hgRenderTracks?db=hub_209779_KG_HiC&hubUrl=http://amc-sandbox.ucdenver.edu/User11/tls10k/hub.txt&ignoreCookie=1&position=", 
+    src <- str_c("http://genome.ucsc.edu/cgi-bin/hgRenderTracks?db=", track_name, "&hubUrl=", track_url, "&ignoreCookie=1&position=", 
                  outputtab$chrom, 
                  ":", 
                  outputtab$start - l, 
@@ -526,7 +528,7 @@ server <- function(input, output, session) {
   output$tab <- renderUI({
     outputtab <- outputtab()
     url <- a(outputtab$unique_gene_symbol, 
-             href=str_c("http://genome.ucsc.edu/cgi-bin/hgTracks?db=hub_209779_KG_HiC&hubUrl=http://amc-sandbox.ucdenver.edu/User11/tls10k/hub.txt&position=", 
+             href=str_c("http://genome.ucsc.edu/cgi-bin/hgTracks?db=", track_name, "&hubUrl", track_url, "&ignoreCookie=1&position=", 
                         outputtab$chrom, 
                         ":", 
                         outputtab$start, 
