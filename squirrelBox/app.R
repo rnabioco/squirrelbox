@@ -199,24 +199,29 @@ ui <- fluidPage(
                  div(style="display: inline-block;vertical-align:top; width: 200px;",tagAppendAttributes(selectizeInput("geneID", label = NULL, selected = "", choices = ""), `data-proxy-click` = "Find")), 
                  div(style="display: inline-block;vertical-align:top; width: 10px;",actionButton("Find", "Find")),
                  tags$hr(style="border-color: green;"),
-                 checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
-                 checkboxInput("doName", "label by sample", value = F, width = NULL),
-                 checkboxInput("doTis", "plot non-brain", value = F, width = NULL),
-                 checkboxInput("doEigen", "plot eigengenes", value = T, width = NULL),
-                 checkboxInput("doUcsc", "download track", value = F, width = NULL),
-                 checkboxInput("doMod", "find module", value = T, width = NULL),
-                 checkboxInput("doNet", "plot network", value = F, width = NULL),
-                 checkboxInput("doKegg", "GO terms", value = T, width = NULL),
-                 br(),
-                 selectInput("region", label = NULL, choices = list("fore","hy","med"), selected = "hy"),
-                 uiOutput("conn"),
-                 tags$hr(style="border-color: green;"),
-                 uiOutput("tab"), uiOutput("blastlink"), 
-                 uiOutput("tab2"), uiOutput("tab3"), uiOutput("tab4"),
-                 downloadButton('savePlot', label = "Download plot"),
+                 tabsetPanel(
+                   tabPanel("options",
+                            br(),
+                     checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
+                     checkboxInput("doName", "label by sample", value = F, width = NULL),
+                     checkboxInput("doTis", "plot non-brain", value = F, width = NULL),
+                     checkboxInput("doEigen", "plot eigengenes", value = T, width = NULL),
+                     checkboxInput("doUcsc", "download track", value = F, width = NULL),
+                     checkboxInput("doMod", "find module", value = T, width = NULL),
+                     checkboxInput("doNet", "plot network", value = F, width = NULL),
+                     checkboxInput("doKegg", "GO terms", value = T, width = NULL),
+                     selectInput("region", label = NULL, choices = list("fore","hy","med"), selected = "hy")),
+                   tabPanel("links",
+                     uiOutput("conn"),
+                     tags$hr(style="border-color: green;"),
+                     uiOutput("tab"), uiOutput("blastlink"), 
+                     uiOutput("tab2"), uiOutput("tab3"), uiOutput("tab4"),
+                     downloadButton('savePlot', label = "Download plot"))),
                  # br(),
                  tags$hr(style="border-color: green;"),
-                 uiOutput("history1"),uiOutput("history2"),uiOutput("history3"),uiOutput("history4"),uiOutput("history5"),uiOutput("history6"),uiOutput("history7"),uiOutput("history8"),uiOutput("history9"),uiOutput("history10")),
+                 tabsetPanel(
+                  tabPanel("file", fileInput("file", label = NULL), actionButton("Prev", "Prev"), actionButton("Next", "Next"), uiOutput("listn")),
+                  tabPanel("history", uiOutput("history1"),uiOutput("history2"),uiOutput("history3"),uiOutput("history4"),uiOutput("history5"),uiOutput("history6"),uiOutput("history7"),uiOutput("history8"),uiOutput("history9"),uiOutput("history10")))),
     mainPanel(uiOutput('boxPlotUI'),
               bsModal('modalPDF', title = "module-trait", trigger = "conn", size = "large", htmlOutput("pdfview")),
               #plotOutput("boxPlot", width = 800, height = 600),
@@ -248,6 +253,7 @@ server <- function(input, output, session) {
   rv$act_temp4 <- hy_temp4
   rv$act_net <- hy_net
   rv$temp_orfs <- data.frame()
+  rv$listn <- 1
   
   observeEvent(rv$init == 0, {
     if (rv$init == 0) { 
@@ -290,6 +296,7 @@ server <- function(input, output, session) {
   }, ignoreNULL = T)
   
   historytab <- c()
+  historytablist <- c()
   
   boxPlot1 <- reactive({
     outputtab <- outputtab()
@@ -383,7 +390,7 @@ server <- function(input, output, session) {
   })
   
   output$connPlot <- renderVisNetwork({
-    if (input$doMod != T) {
+    if (input$doMod != T | input$doNet != T) {
       return()
     }
     outputtab <- outputtab()
@@ -404,7 +411,7 @@ server <- function(input, output, session) {
     rv$conn <<- tryCatch({nodeq2 %>% filter(id == queryid) %>% pull(value)}, error = function(err) {
       return(0)
     })
-    if (input$doNet != T | nrow(nodeq2) == 0) {
+    if (nrow(nodeq2) == 0) {
       return()
     }
     visNetwork(nodes = nodeq2, edges = edgeq2, height = "1200px") %>%
@@ -702,6 +709,35 @@ server <- function(input, output, session) {
     output$pdfview <-renderText({
       return(paste('<iframe style="height:800px; width:100%" src="',filename, '"></iframe>', sep = ""))
     })
+  })
+  
+  # loading list and viewing
+  observeEvent(input$file, {
+    rv$listn <- 0
+    path <- input$file$datapath
+    historytablist <<- read_csv(path) %>% pull(1)
+  })
+  
+  onclick("Prev", {
+    rv$listn <- rv$listn - 1
+    if (rv$listn < 1) {
+      rv$listn <- 1
+    }
+    rv$run2 <- 1
+    updateSelectizeInput(session, inputId = "geneID", selected = historytablist[rv$listn], choices = autocomplete_list, server = T)
+  })
+  
+  onclick("Next", {
+    rv$listn <- rv$listn + 1
+    if (rv$listn > length(historytablist)) {
+      rv$listn <- length(historytablist)
+    }
+    rv$run2 <- 1
+    updateSelectizeInput(session, inputId = "geneID", selected = historytablist[rv$listn], choices = autocomplete_list, server = T)
+  })
+  
+  output$listn <- renderUI({
+    HTML(str_c(rv$listn, "of ", length(historytablist)))
   })
 }
 
