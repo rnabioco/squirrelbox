@@ -15,7 +15,7 @@ library(shinyBS)
 options(stringsAsFactors = FALSE)
 theme_set(theme_cowplot())
 
-use_new <- TRUE # change to FALSE to get to old version of data
+use_folder <- "wgcna09new" # change to get to old version of data
 track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
 find_padj <- function(region, state) {
@@ -91,27 +91,16 @@ colnames(bed) <- c("chrom", "start", "end", "unique_gene_symbol", "score", "stra
 # empty history list to start
 historytab <- c()
 
-if (use_new) {
-  hy_modules <- suppressWarnings(read_csv("wgcna09/201909_hy_modules.csv", col_types = "ncncn"))
-  med_modules <- suppressWarnings(read_csv("wgcna09/201909_med_modules.csv", col_types = "ncncn"))
-  fore_modules <- suppressWarnings(read_csv("wgcna09/201909_fore_modules.csv", col_types = "ncncn"))
-} else {
-  hy_modules <- suppressWarnings(read_csv("201908_hy_modules.csv", col_types = "ncncn"))
-  med_modules <- suppressWarnings(read_csv("201908_med_modules.csv", col_types = "ncncn"))
-  fore_modules <- suppressWarnings(read_csv("201908_fore_modules.csv", col_types = "ncncn"))
-}
+hy_modules <- suppressWarnings(read_csv(paste0(use_folder, "/201909_hy_modules.csv"), col_types = "ncncn"))
+med_modules <- suppressWarnings(read_csv(paste0(use_folder, "/201909_med_modules.csv"), col_types = "ncncn"))
+fore_modules <- suppressWarnings(read_csv(paste0(use_folder, "/201909_fore_modules.csv"), col_types = "ncncn"))
 
 # read node igraph object
-if (use_new) {
-  hy_ig <- readRDS("wgcna09/201909hy_conn_list")
-  med_ig <-readRDS("wgcna09/201909med_conn_list")
-  fore_ig <- readRDS("wgcna09/201909fore_conn_list")
-} else {
-  hy_ig <- readRDS("201908hy_conn_list")
-  med_ig <-readRDS("201908med_conn_list")
-  fore_ig <- readRDS("201908fore_conn_list")
-}
 
+hy_ig <- readRDS(paste0(use_folder, "/201909hy_conn_list"))
+med_ig <-readRDS(paste0(use_folder, "/201909med_conn_list"))
+fore_ig <- readRDS(paste0(use_folder, "/201909fore_conn_list"))
+  
 hy_net <- toVisNetworkData(hy_ig)
 med_net <- toVisNetworkData(med_ig)
 fore_net <- toVisNetworkData(fore_ig)
@@ -149,15 +138,9 @@ fore_temp4 <- fore_temp4 %>%
   ungroup()
 
 # eigengene plots
-if (use_new) {
-  hy_gg <- readRDS("wgcna09/hy_gg09")
-  fore_gg <- readRDS("wgcna09/fore_gg09")
-  med_gg <- readRDS("wgcna09/med_gg09")
-} else {
-  hy_gg <- readRDS("hy_gg")
-  fore_gg <- readRDS("fore_gg")
-  med_gg <- readRDS("med_gg")
-}
+hy_gg <- readRDS(paste0(use_folder, "/hy_gg09"))
+fore_gg <- readRDS(paste0(use_folder, "/fore_gg09"))
+med_gg <- readRDS(paste0(use_folder, "/med_gg09"))
 
 # read go terms and TFs
 gmt <- gmt_to_list("c5.all.v6.2.symbols.gmt", rm = "^GO_")
@@ -715,7 +698,7 @@ server <- function(input, output, session) {
   
   # link to trait pdf
   onclick("conn",{
-    filename <- str_c("201908_", input$region, "_trait.pdf")
+    filename <- str_c("201909_", input$region, "_trait.pdf")
     output$pdfview <-renderText({
       return(paste('<iframe style="height:800px; width:100%" src="',filename, '"></iframe>', sep = ""))
     })
