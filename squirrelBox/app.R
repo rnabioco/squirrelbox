@@ -216,13 +216,16 @@ ui <- fluidPage(
                      tags$hr(style="border-color: green;"),
                      uiOutput("tab"), uiOutput("blastlink"), 
                      uiOutput("tab2"), uiOutput("tab3"), uiOutput("tab4"),
-                     downloadButton('savePlot', label = "Download plot"))),
+                     downloadButton('savePlot', label = "download plot"))),
                  # br(),
                  tags$hr(style="border-color: green;"),
                  tabsetPanel(
                   tabPanel("file", fileInput("file", label = NULL), actionButton("Prev", "Prev"), actionButton("Next", "Next"), uiOutput("listn")),
                   tabPanel("history", uiOutput("history1"),uiOutput("history2"),uiOutput("history3"),uiOutput("history4"),uiOutput("history5"),uiOutput("history6"),uiOutput("history7"),uiOutput("history8"),uiOutput("history9"),uiOutput("history10")))),
-    mainPanel(uiOutput('boxPlotUI'),
+    mainPanel(
+      tabsetPanel(
+        tabPanel("plot",
+                 uiOutput('boxPlotUI'),
               bsModal('modalPDF', title = "module-trait", trigger = "conn", size = "large", htmlOutput("pdfview")),
               #plotOutput("boxPlot", width = 800, height = 600),
               uiOutput('hyEigenPlot'),
@@ -234,7 +237,10 @@ ui <- fluidPage(
               tags$hr(style="border-color: green;"),
               visNetworkOutput("connPlot"),
               tags$hr(style="border-color: green;"),
-              tableOutput("gotab"))
+              tableOutput("gotab")),
+      tabPanel("table",
+               downloadButton(outputId = "saveFiltered", label = "download filtered data"),
+               DT::dataTableOutput('tbl'))))
   )
 )
 
@@ -739,6 +745,17 @@ server <- function(input, output, session) {
   output$listn <- renderUI({
     HTML(str_c(rv$listn, "of ", length(historytablist)))
   })
+  
+  output$tbl <- DT::renderDataTable({
+    DT::datatable(bed %>% select(unique_gene_symbol, everything()), filter = "top", escape = FALSE, selection = 'none', rownames = FALSE)
+  })
+  
+  output$saveFiltered <- downloadHandler('filtré.csv', content = function(file) {
+      s <- input$tbl_rows_all
+      write_csv((bed %>% select(unique_gene_symbol, everything()))[s,], file)
+    })    
+  
+  
 }
 
 # Run the application 
