@@ -334,7 +334,8 @@ server <- function(input, output, session) {
       g <- g + 
         geom_boxplot(aes(fill = state), outlier.shape = NA) + 
         scale_fill_manual(values = state_cols) + 
-        geom_point(aes(color = sample), position = position_jitter(seed = 1))
+        geom_point(position = position_jitter(seed = 1))
+        #geom_point(aes(color = sample), position = position_jitter(seed = 1))
     }
     g
   })
