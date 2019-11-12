@@ -15,35 +15,20 @@ library(shinyBS)
 options(stringsAsFactors = FALSE)
 theme_set(theme_cowplot())
 
+# general data settings
 use_folder <- "wgcna09new" # change to get to old version of data
 track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
-find_padj <- function(region, state) {
-  temp <- str_c(qpadj[str_sub(qpadj,1,1) == str_to_lower(str_sub(region,1,1)) & 
-                        str_detect(qpadj, state)], collapse = "\n")
-  if (length(temp) == 0){
-    temp <- "NA"
-  }
-  temp
-}
 
-gmt_to_list <- function(path,
-                        cutoff = 0,
-                        sep = "\thttp://www.broadinstitute.org/gsea/msigdb/cards/.*?\t",
-                        rm = "REACTOME_") {
-  df <- readr::read_csv(path,
-                        col_names = F, col_types = cols())
-  df <- tidyr::separate(df,
-                        X1,
-                        sep = sep,
-                        into = c("path", "genes"))
-  df <- dplyr::mutate(df, 
-                      path = stringr::str_replace(df$path,
-                                                  rm,
-                                                  ""),
-                      genes = stringr::str_split(genes,
-                                                 "\t"))
-  tidyr::unnest(df, genes)
+# read database
+if (file.exists("combined2.csv")) {
+  combined2 <- read_csv("combined2.csv", col_types = "ccncc")
+  combined3 <- read_csv("combined3.csv", col_types = "cccccc")
+  combined <- combined3 %>% left_join(combined2, by = "gene_id")
+} else if (file.exists("combined.tsv")) {
+  combined <- read_tsv("combined.tsv", col_types = cols())
+} else {
+  combined <- read_tsv("combined.tsv.gz", col_types = cols())
 }
 
 # define state colors and order, region order
@@ -55,37 +40,21 @@ state_cols <-  c(
   Ar = rgb(0, 0, 255, maxColorValue=255),
   SpD = rgb(255, 165, 0, maxColorValue=255) 
 )
-
 state_order = c(
   "SA", "IBA", "Ent", "LT", "Ar", "SpD"
 )
-
 region_order = c(
   "Forebrain", "Hypothalamus", "Medulla", "Adrenal", "Kidney", "Liver"
 )
-
-# read database
-
-if (file.exists("combined2.csv")) {
-  combined2 <- read_csv("combined2.csv", col_types = "ccncc")
-  combined3 <- read_csv("combined3.csv", col_types = "cccccc")
-  combined <- combined3 %>% left_join(combined2, by = "gene_id")
-} else if (file.exists("combined.tsv")) {
-  combined <- read_tsv("combined.tsv", col_types = cols())
-} else {
-  combined <- read_tsv("combined.tsv.gz", col_types = cols())
-}
-
-# reorder factors for correct display order
 combined <- combined %>% mutate(state = factor(state, levels = state_order),
                                 region = factor(region, levels = region_order))
-  
+
+# lists
 autocomplete_list <- str_sort(c(combined$unique_gene_symbol, combined$gene_id) %>% unique(), decreasing = T)
 
 # read annotation file to find ucsc track
 bed <- read_tsv("final_annot_bed12_20_sort.bed12", col_names = F, col_types = "cnncncnnnnncccc") %>%
   select(1:6,13)
-
 colnames(bed) <- c("chrom", "start", "end", "unique_gene_symbol", "score", "strand", "gene_id")
 
 # empty history list to start
@@ -96,7 +65,6 @@ med_modules <- suppressWarnings(read_csv(paste0(use_folder, "/201909_med_modules
 fore_modules <- suppressWarnings(read_csv(paste0(use_folder, "/201909_fore_modules.csv"), col_types = "ncncn"))
 
 # read node igraph object
-
 hy_ig <- readRDS(paste0(use_folder, "/201909hy_conn_list"))
 med_ig <-readRDS(paste0(use_folder, "/201909med_conn_list"))
 fore_ig <- readRDS(paste0(use_folder, "/201909fore_conn_list"))
@@ -143,6 +111,24 @@ fore_gg <- readRDS(paste0(use_folder, "/fore_gg09"))
 med_gg <- readRDS(paste0(use_folder, "/med_gg09"))
 
 # read go terms and TFs
+gmt_to_list <- function(path,
+                        cutoff = 0,
+                        sep = "\thttp://www.broadinstitute.org/gsea/msigdb/cards/.*?\t",
+                        rm = "REACTOME_") {
+  df <- readr::read_csv(path,
+                        col_names = F, col_types = cols())
+  df <- tidyr::separate(df,
+                        X1,
+                        sep = sep,
+                        into = c("path", "genes"))
+  df <- dplyr::mutate(df, 
+                      path = stringr::str_replace(df$path,
+                                                  rm,
+                                                  ""),
+                      genes = stringr::str_split(genes,
+                                                 "\t"))
+  tidyr::unnest_legacy(df, genes)
+}
 gmt <- gmt_to_list("c5.all.v6.2.symbols.gmt", rm = "^GO_")
 refs <- combined %>% distinct(unique_gene_symbol, clean_gene_symbol)
 TFs <- gmt %>% filter(str_detect(path, str_to_upper("transcription_repressor_activity|transcription_factor_activity")), 
@@ -162,6 +148,25 @@ starorfs <- orfs %>% group_by(unique_gene_symbol) %>%
          str_detect(unique_gene_symbol, "^G[0-9]+|_"), 
          orf_len >= 100)
 domains <- read_csv("novel_domains.csv", col_types = "cc")
+
+# padj functions
+find_padj <- function(region, state, tbl) {
+  temp <- str_c(tbl[str_sub(tbl,1,1) == str_to_lower(str_sub(region,1,1)) & 
+                      str_detect(tbl, state)], collapse = "\n")
+  if (length(temp) == 0){
+    temp <- "NA"
+  }
+  temp
+}
+
+df_therm <- data.frame(state = c("SA", "IBA", "Ent", "LT", "Ar", "SpD"), heterotherm = c(1,0,0,0,0,1))
+het <- c("SA", "SpD")
+sig_cols <- colnames(orfs)[colnames(orfs) %>% str_detect("vs")] # might want to reorder
+sig_sym <- data.frame(call = letters[1:length(sig_cols)], row.names = sig_cols)
+calls_sig <- function(padj, sig_sym) {
+  temp <- cbind(padj, sig_sym)
+  temp <- temp %>% rownames_to_column("comp") %>% mutate(call1 = ifelse(padj <= 0.05,1,0))
+}
 
 # some other code for webpage functions
 jscode <- '
@@ -203,6 +208,7 @@ ui <- fluidPage(
                    tabPanel("options",
                             br(),
                      checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
+                     checkboxInput("doPadj", "indicate sig", value = F, width = NULL),
                      checkboxInput("doName", "label by sample", value = F, width = NULL),
                      checkboxInput("doTis", "plot non-brain", value = F, width = NULL),
                      checkboxInput("doEigen", "plot eigengenes", value = T, width = NULL),
@@ -312,9 +318,9 @@ server <- function(input, output, session) {
       plot_temp <- plot_temp %>% filter(region %in% c("Forebrain", "Hypothalamus", "Medulla"))
     }
     if (nrow(rv$pval) != 0) {
-      padj2 <- rv$pval %>% select(ends_with("_wald_padj")) %>% t()
-      qpadj <<- str_c(rownames(padj2), format(padj2[,1], digits = 2), sep = " : ")
-      plot_temp <- plot_temp %>% mutate(text = mapply(find_padj, as.character(region), as.character(state)))
+      padj <- rv$pval %>% select(ends_with("_wald_padj")) %>% t()
+      tbl <- str_c(rownames(padj), format(padj[,1], digits = 2), sep = " : ")
+      plot_temp <- plot_temp %>% mutate(text = mapply(find_padj, as.character(region), as.character(state), list(tbl)))
     } else {
       plot_temp <- plot_temp %>% mutate(text = "NA")
     }
@@ -324,7 +330,7 @@ server <- function(input, output, session) {
       ylab("rlog(counts)") +
       facet_wrap(~region, scales = "free") +
       theme(legend.position = "none")
-
+    
     if (input$doName == T) {
       g <- g +
         geom_boxplot(aes(color = state), outlier.shape = NA) + 
@@ -337,6 +343,57 @@ server <- function(input, output, session) {
         geom_point(position = position_jitter(seed = 1))
         #geom_point(aes(color = sample), position = position_jitter(seed = 1))
     }
+    
+    if (input$doPadj == T & nrow(rv$pval) != 0 & input$doPlotly == F) {
+      temp2 <- calls_sig(padj, sig_sym) %>%
+        replace_na(list(call1 = list(0))) %>%
+        separate(comp, into = c("region", "state1", NA, "state2")) %>% 
+        select(-padj, -call) %>% mutate(call1 = as.numeric(call1)) %>%
+        mutate(region = case_when(
+          region == "hy" ~ "Hypothalamus",
+          region == "med" ~ "Medulla",
+          region == "fore" ~ "Forebrain"
+        ))
+      temp3 <- temp2
+      temp3$state1 <- temp2$state2
+      temp3$state2 <- temp2$state1
+      temp4 <- rbind(temp2, temp3)
+      temp5 <- temp4 %>% 
+        group_by(region, state1) %>% 
+        summarize(call1 = mean(call1)) %>% 
+        ungroup() %>% 
+        mutate(state = factor(state1, levels = state_order),
+               region = factor(region, levels = region_order)) %>%
+        arrange(region, state) %>% 
+        group_by(region) %>%
+        mutate(letter = letters[1:n()], call1 = ifelse(call1 == 1, letter, ""))
+      temp6 <- temp4 %>% 
+        filter((state1 %in% het & !(state2 %in% het)) | (state2 %in% het & !(state1 %in% het))) %>% 
+        group_by(region, state1) %>% 
+        summarize(call1 = mean(call1)) %>% 
+        ungroup() %>% 
+        mutate(state = factor(state1, levels = state_order),
+               region = factor(region, levels = region_order)) %>%
+        arrange(region, state) %>% 
+        group_by(region) %>%
+        mutate(call2 = ifelse(call1 == 1, "T", ""))
+      
+      agg <- aggregate(log2_counts ~ state + region, plot_temp, max)
+      agg2 <- agg %>% 
+        group_by(region) %>% 
+        mutate(maxy = max(log2_counts), 
+               miny = min(log2_counts), 
+               nudgey = (maxy - miny) * 0.1)
+      agg3 <- agg2 %>%
+        left_join(temp6 %>% select(region, state, call2)) %>%
+        replace_na(list(call2 = list(""))) %>% 
+        left_join(temp5 %>% select(region, state, call1)) %>% 
+        mutate(called = str_c(call2,call1))
+      
+      g <- g +
+        geom_text(data = agg3, aes(text = called, label = called, y = log2_counts + nudgey, x = state, group = NULL))
+    }
+    
     g
   })
   
