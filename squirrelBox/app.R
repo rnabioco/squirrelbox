@@ -12,8 +12,12 @@ library(tibble)
 library(plotly)
 library(tidyr)
 library(shinyBS)
+library(data.table)
+library(feather)
 options(stringsAsFactors = FALSE)
 theme_set(theme_cowplot())
+# nt <- getDTthreads()
+# print(nt)
 
 # general data settings
 use_folder <- "wgcna09new" # change to get to old version of data
@@ -21,12 +25,21 @@ track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
 
 # read database
-if (file.exists("combined2.csv")) {
-  combined2 <- read_csv("combined2.csv", col_types = "ccncc")
-  combined3 <- read_csv("combined3.csv", col_types = "cccccc")
-  combined <- combined3 %>% left_join(combined2, by = "gene_id")
+if (file.exists("combined2.feather")) {
+  combined2 <- read_feather("combined2.feather")
+  combined3 <- fread("combined3.csv")
+  combined <- combined3 %>% inner_join(combined2, by = "gene_id")
+} else if (file.exists("combined2.csv")) {
+  # combined2 <- read_csv("combined2.csv", col_types = "ccncc")
+  # combined3 <- read_csv("combined3.csv", col_types = "cccccc")
+  combined2 <- fread("combined2.csv",  nThread = nt)
+  combined3 <- fread("combined3.csv")
+  combined <- combined3 %>% inner_join(combined2, by = "gene_id")
+  # rm(combined2, combined3)
+  # gc()
 } else if (file.exists("combined.tsv")) {
-  combined <- read_tsv("combined.tsv", col_types = cols())
+  # combined <- read_tsv("combined.tsv", col_types = cols())
+  combined <- fread("combined.tsv")
 } else {
   combined <- read_tsv("combined.tsv.gz", col_types = cols())
 }
@@ -60,6 +73,7 @@ colnames(bed) <- c("chrom", "start", "end", "unique_gene_symbol", "score", "stra
 # empty history list to start
 historytab <- c()
 
+# read modules
 hy_modules <- suppressWarnings(read_csv(paste0(use_folder, "/201909_hy_modules.csv"), col_types = "ncncn"))
 med_modules <- suppressWarnings(read_csv(paste0(use_folder, "/201909_med_modules.csv"), col_types = "ncncn"))
 fore_modules <- suppressWarnings(read_csv(paste0(use_folder, "/201909_fore_modules.csv"), col_types = "ncncn"))
