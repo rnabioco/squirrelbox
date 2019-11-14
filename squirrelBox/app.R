@@ -20,14 +20,14 @@ theme_set(theme_cowplot())
 # print(nt)
 
 # general data settings
-use_folder <- "wgcna09new" # change to get to old version of data
+use_folder <- "wgcna11" # change to get to old version of data
 track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
 
 # read database
 if (file.exists("combined2.feather")) {
   combined2 <- read_feather("combined2.feather")
-  combined3 <- fread("combined3.csv")
+  combined3 <- read_feather("combined3.feather")
   combined <- combined3 %>% inner_join(combined2, by = "gene_id")
 } else if (file.exists("combined2.csv")) {
   # combined2 <- read_csv("combined2.csv", col_types = "ccncc")
@@ -66,7 +66,7 @@ combined <- combined %>% mutate(state = factor(state, levels = state_order),
 autocomplete_list <- str_sort(c(combined$unique_gene_symbol, combined$gene_id) %>% unique(), decreasing = T)
 
 # read annotation file to find ucsc track
-bed <- read_tsv("final_annot_bed12_20_sort.bed12", col_names = F, col_types = "cnncncnnnnncccc") %>%
+bed <- read_tsv("final_annot_20191112.bed12", col_names = F, col_types = "cnncncnnnnncccc") %>%
   select(1:6,13)
 colnames(bed) <- c("chrom", "start", "end", "unique_gene_symbol", "score", "strand", "gene_id")
 
@@ -74,14 +74,14 @@ colnames(bed) <- c("chrom", "start", "end", "unique_gene_symbol", "score", "stra
 historytab <- c()
 
 # read modules
-hy_modules <- suppressWarnings(read_csv(paste0(use_folder, "/201909_hy_modules.csv"), col_types = "ncncn"))
-med_modules <- suppressWarnings(read_csv(paste0(use_folder, "/201909_med_modules.csv"), col_types = "ncncn"))
-fore_modules <- suppressWarnings(read_csv(paste0(use_folder, "/201909_fore_modules.csv"), col_types = "ncncn"))
+hy_modules <- suppressWarnings(read_csv(paste0(use_folder, "/hy_modules.csv"), col_types = "ncncn"))
+med_modules <- suppressWarnings(read_csv(paste0(use_folder, "/med_modules.csv"), col_types = "ncncn"))
+fore_modules <- suppressWarnings(read_csv(paste0(use_folder, "/fore_modules.csv"), col_types = "ncncn"))
 
 # read node igraph object
-hy_ig <- readRDS(paste0(use_folder, "/201909hy_conn_list"))
-med_ig <-readRDS(paste0(use_folder, "/201909med_conn_list"))
-fore_ig <- readRDS(paste0(use_folder, "/201909fore_conn_list"))
+hy_ig <- readRDS(paste0(use_folder, "/hy_conn_list"))
+med_ig <-readRDS(paste0(use_folder, "/med_conn_list"))
+fore_ig <- readRDS(paste0(use_folder, "/fore_conn_list"))
   
 hy_net <- toVisNetworkData(hy_ig)
 med_net <- toVisNetworkData(med_ig)
@@ -120,9 +120,9 @@ fore_temp4 <- fore_temp4 %>%
   ungroup()
 
 # eigengene plots
-hy_gg <- readRDS(paste0(use_folder, "/hy_gg09"))
-fore_gg <- readRDS(paste0(use_folder, "/fore_gg09"))
-med_gg <- readRDS(paste0(use_folder, "/med_gg09"))
+hy_gg <- readRDS(paste0(use_folder, "/hy_gg"))
+fore_gg <- readRDS(paste0(use_folder, "/fore_gg"))
+med_gg <- readRDS(paste0(use_folder, "/med_gg"))
 
 # read go terms and TFs
 gmt_to_list <- function(path,
@@ -154,7 +154,7 @@ refTFs <- refs %>% mutate(clean_gene_symbol = str_to_upper(clean_gene_symbol)) %
   pull(unique_gene_symbol)
 
 # load orf predictions
-orfs <- read_csv("padj_orf.csv", col_types = "cnncncnncccnnnnnnnnnnnnnnnnnnnnnnnnnn") %>%
+orfs <- read_csv("padj_orf11.csv") %>%
   select(gene_id, orf_len = len, exons, rna_len = transcript, orf, unique_gene_symbol, everything())
 starorfs <- orfs %>% group_by(unique_gene_symbol) %>%
   arrange(desc(orf)) %>% dplyr::slice(1) %>% 
@@ -229,9 +229,9 @@ ui <- fluidPage(
                      checkboxInput("doUcsc", "download track", value = F, width = NULL),
                      checkboxInput("doMod", "find module", value = T, width = NULL),
                      checkboxInput("doNet", "plot network", value = F, width = NULL),
-                     checkboxInput("doKegg", "GO terms", value = T, width = NULL),
-                     selectInput("region", label = NULL, choices = list("fore","hy","med"), selected = "hy")),
+                     checkboxInput("doKegg", "GO terms", value = T, width = NULL)),
                    tabPanel("links",
+                     selectInput("region", label = NULL, choices = list("fore","hy","med"), selected = "hy"),
                      uiOutput("conn"),
                      tags$hr(style="border-color: green;"),
                      uiOutput("tab"), uiOutput("blastlink"), 
@@ -287,7 +287,7 @@ server <- function(input, output, session) {
       if (!is.null(query[["gene"]])) {
         updateSelectizeInput(session, inputId = "geneID", selected = query[["gene"]], choices = autocomplete_list, server = T)
       } else {
-        updateSelectizeInput(session, inputId = "geneID", selected = "G8462", choices = autocomplete_list, server = T)
+        updateSelectizeInput(session, inputId = "geneID", selected = "Mex3c", choices = autocomplete_list, server = T)
       }
       rv$init <- 1
       rv$run2 <- 1
@@ -486,9 +486,6 @@ server <- function(input, output, session) {
         mutate(value = Freq, color = ifelse(id == queryid, "red", "lightblue"), shape = ifelse(id %in% refTFs, "square", ifelse(id %in% starorfs$unique_gene_symbol, "star", "triangle")), border.color = "black")}, error = function(err) {
           return(data.frame())
     })
-    rv$conn <<- tryCatch({nodeq2 %>% filter(id == queryid) %>% pull(value)}, error = function(err) {
-      return(0)
-    })
     if (nrow(nodeq2) == 0) {
       return()
     }
@@ -508,6 +505,13 @@ server <- function(input, output, session) {
     }
     outputtab <- outputtab()
     inid <- outputtab$unique_gene_symbol
+    
+    edgeq <- rv$act_net$edges %>% filter(from == inid | to == inid)
+    nodeq <- c(edgeq$from, edgeq$to) %>% unique()
+    rv$conn <<- tryCatch({length(nodeq) - 1}, error = function(err) {
+      return(0)
+    })
+    
     rank <- rv$act_temp4 %>% filter(gene == inid) %>% pull(rank)
     if (length(rank) == 0) {
       rank <- "NA"
@@ -783,7 +787,7 @@ server <- function(input, output, session) {
   
   # link to trait pdf
   onclick("conn",{
-    filename <- str_c("201909_", input$region, "_trait.pdf")
+    filename <- str_c(input$region, "_trait.pdf")
     output$pdfview <-renderText({
       return(paste('<iframe style="height:800px; width:100%" src="',filename, '"></iframe>', sep = ""))
     })
@@ -826,8 +830,6 @@ server <- function(input, output, session) {
       s <- input$tbl_rows_all
       write_csv((bed %>% select(unique_gene_symbol, everything()))[s,], file)
     })    
-  
-  
 }
 
 # Run the application 
