@@ -15,15 +15,26 @@ benchmark <- microbenchmark(vroom = vroom::vroom("/Users/rf/newselect201905/sq_g
                             vroom_mat = vroom_mat("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined.tsv"), 
                read_tsv = readr_mut("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined.tsv"),
                #read_gz = readr::read_tsv("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined.tsv.gz", progress = F), 
-               times = 1)
+               times = 2)
 print(benchmark, signif = 2)
+
+
+benchmark <- microbenchmark(
+  read_tsv_guess = readr::read_csv("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined2.csv", col_types = cols()),
+  read_tsv_string = readr::read_csv("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined2.csv", col_types = "ccncc"),
+  fread = data.table::fread("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined2.csv",  nThread = 4),
+  times = 2)
+
+benchmark2 <- microbenchmark(
+  read_tsv_guess = readr::read_csv("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined3.csv", col_types = cols()),
+  read_tsv_string = readr::read_csv("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined3.csv"),
+  fread = data.table::fread("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined3.csv"),
+  times = 2)
 ```
+
 ```{r}
 library(profvis)
 p <- profvis(shiny::runApp())
-```
-```{r}
-
 ```
 
 

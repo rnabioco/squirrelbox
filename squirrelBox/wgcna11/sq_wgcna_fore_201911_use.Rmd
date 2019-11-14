@@ -1,0 +1,292 @@
+---
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: false
+    fig_caption: yes
+    fig_retina: 1 
+    code_folding: hide
+    df_print: paged
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(cache = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(cache.lazy = FALSE)
+```
+
+```{r libs, message=FALSE, warning=FALSE, echo=FALSE}
+library("valr")
+library("tidyverse")
+library("ggplot2")
+library("WGCNA")
+library("sva")
+```
+
+```{r loading, message=FALSE, warning=FALSE, echo=FALSE}
+options(stringsAsFactors = FALSE)
+
+dataref <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20191113/Forebrain.tsv.gz") %>%
+  distinct(unique_gene_symbol, .keep_all = TRUE)
+data <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20191113/Forebrain.tsv.gz") %>%
+  distinct(unique_gene_symbol, .keep_all = TRUE) %>% 
+  dplyr::select(c(2, 7:36)) %>% column_to_rownames("unique_gene_symbol") %>%
+  as.matrix()
+data <- data[,order(colnames(data))]
+
+cond <- read.csv("/Users/rf/sandy/brain_phenodata.csv",row.names="ids")
+cond <- cond[order(rownames(cond)),]
+
+condfull <- readxl::read_xlsx("/Users/rf/Downloads/Animal\ Info190528.xlsx")
+condfull <- condfull[-1,] %>% as.data.frame()
+namevec <- str_c("B", condfull$Animal)
+condfull <- condfull %>% mutate(weightdelta = ifelse(Group == "SA", 0, as.numeric(`Mass at move into hibernaculum (g)`) - `Mass at sacrifice (g)`)) %>% mutate(weightdelta = weightdelta/as.numeric(`Mass at move into hibernaculum (g)`))
+condfull$weightdelta[is.na(condfull$weightdelta)] <- 0
+rownames(condfull) <- namevec
+condfull <- condfull[colnames(data),]
+
+all((rownames(cond)) == colnames(data))
+all((rownames(condfull)) == colnames(data))
+```
+
+```{r combat_med, message=FALSE, warning=FALSE, echo=FALSE}
+# td <- data %>% t()
+# td <- td > 7
+# td <- td %>% as.data.frame()
+# td$group <- condfull[["Group"]]
+# td2 <- td %>% group_by(group) %>% summarize_all(sum)
+# td2 <- td2 %>% column_to_rownames("group")
+# td3 <- lapply(td2, max)
+# td4 <- names(td3[td3 >= 4])
+# 
+# # gene_list <- rownames(data)[(rowSums(data) / ncol(data)) >= 6]
+# data_fil25 <- data[rownames(data) %in% td4,] 
+# dim(data_fil25) #12855 left
+
+#remove variation from sex
+batch <- cond$sex
+modcombat <- model.matrix(~1, data = cond)
+combat <- ComBat(dat = data, batch = batch, mod = modcombat, par.prior=TRUE, prior.plots=FALSE)
+
+exp <- t(combat) #transpose data for wgcna
+```
+
+```{r WGCNA, message=FALSE, warning=FALSE, echo=FALSE}
+#exp <- t(combat) #transpose data for wgcna
+check1 <- goodSamplesGenes(exp, verbose = 3) #checks
+check1$allOK
+
+#determine power
+# powers <- c(c(1:10), seq(from = 12, to=20, by=2))
+# sft <- pickSoftThreshold(exp, powerVector = powers, verbose = 5)
+# par(mfrow = c(1,2));
+#   cex1 = 0.9;
+#   plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
+#   xlab="Soft Threshold (power)",ylab="Scale Free Topology Model Fit,signed R^2",type="n",
+#   main = paste("Scale independence"));
+#   text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
+#   labels=powers,cex=cex1,col="red");
+#   abline(h=0.90,col="red")
+#   plot(sft$fitIndices[,1], sft$fitIndices[,5],
+#   xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
+#   main = paste("Mean connectivity"))
+#   text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
+#look for when R2 reaches ~0.9, in this case, power of 10 was selected
+
+net <- blockwiseModules(exp, power = 10,
+                      TOMType = "signed", minModuleSize = 30, networkType='signed', 
+                      reassignThreshold = 1, minCoreKME = 0.5, minKMEtoStay = 0.4, deepSplit = 3,
+                      mergeCutHeight = 0.25,
+                      numericLabels = TRUE, pamRespectsDendro = FALSE,
+                      saveTOMs = F,
+                      #saveTOMFileBase = "foreTOM05",
+                      verbose = 3, maxBlockSize = 40000) #if memory is low, maxBlockSize has to be lowered, which then limits reloading and plotting
+saveRDS(net, "201911_fore_net.rds") #load as needed
+```
+
+```{r wgcna2}
+net <- readRDS("201911_fore_net.rds")
+
+#look at modules
+mergedColors <- labels2colors(net$colors)
+ntable <- table(mergedColors)
+ntable
+
+moduleLabels <- net$colors
+moduleColors <- labels2colors(net$colors)
+dict <- data.frame(module_n = net$colors, module_color = moduleColors) %>% rownames_to_column("gene")
+dictn <- dict %>% group_by(module_n, module_color) %>% tally() %>% arrange(module_n)
+l <- nrow(dictn)
+write.csv(dict, "201911_fore_modules.csv")
+MEs <- net$MEs
+geneTree <- net$dendrograms[[1]]
+
+MEs0 = moduleEigengenes(exp, moduleColors)$eigengenes
+MEsname <- str_c("ME", dictn$module_color)
+MEsname <- unique(c("MEgrey", MEsname))
+MEs <- MEs0
+# MEs = orderMEs(MEs0)
+# rownames(MEs) <- rownames(exp)
+me <- MEs[,MEsname] %>% tibble::rownames_to_column("id") %>% left_join(cond %>% tibble::rownames_to_column("id"))
+
+state_cols <-  c(
+  SA = rgb(255, 0, 0, maxColorValue=255),
+  IBA = rgb(67, 205, 128, maxColorValue=255),
+  Ent = rgb(155, 48, 255, maxColorValue=255),
+  LT = rgb(25, 25, 112, maxColorValue=255),
+  Ar = rgb(0, 0, 255, maxColorValue=255),
+  SpD = rgb(255, 165, 0, maxColorValue=255) 
+)
+state_order = c(
+  "SA", "IBA", "Ent", "LT", "Ar", "SpD"
+)
+
+gg <- list()
+for(n in c(1:ncol(MEs))){
+  me_temp <- me %>% select_(eigengenes = MEsname[n], "population")
+  me_n <- dictn[n,3] %>% as.numeric()
+  gg[[n]] <- ggplot(me_temp, aes(y = eigengenes, x = population)) + geom_boxplot(outlier.shape = NA, color = state_cols) + geom_jitter(size = 0.5, alpha = 0.23) + theme_classic() + labs(title = paste(n-1, MEsname[n], me_n, sep = "-")) + scale_x_discrete(limits = state_order)
+}
+saveRDS(gg, "fore_gg11")
+#cowplot::plot_grid(plotlist = gg, ncol = 5)
+r <- round(l/5)
+ggsave(cowplot::plot_grid(plotlist = gg, ncol = 5), file = "201911_fore_WGCNA_modules.tiff", width = 25, height = 4*r, dpi = 300, scale = 0.5)
+```
+
+```{r traits}
+traits <- condfull %>% as_tibble(rownames = "id") %>% dplyr::select(id, Sex, `heterotherm?`, `Mass at sacrifice (g)`, `Days in hibernaculum`, `Body temperature (oC) time of sac`, `weightdelta`, `Time of day at sacrifice`, `col_DATE`) %>% mutate(Sex = as.numeric(Sex), `heterotherm?` = as.numeric(`heterotherm?`)) %>% column_to_rownames("id")
+colnames(traits) <- c("sex", "heterotherm", "weight_sac", "days_hib", "temp_sac", "weight_delta", "time", "date")
+traits <- traits %>% mutate(time = as.numeric(time - min(time), units="mins"))
+traits$SA <- ifelse(condfull$Group == "SA", 1, 0)
+traits$IBA <- ifelse(condfull$Group == "IBA", 1, 0)
+traits$Ent <- ifelse(condfull$Group == "Ent", 1, 0)
+traits$LT <- ifelse(condfull$Group == "LT", 1, 0)
+traits$Ar <- ifelse(condfull$Group == "Ar", 1, 0)
+traits$SpD <- ifelse(condfull$Group == "SpD", 1, 0)
+traits$heterotherm <- ifelse(traits$heterotherm == 2, 0, 1)
+traits <- traits %>% mutate(LTandAr = ifelse(LT + Ar == 0, 0, 1))
+
+# Define numbers of genes and samples
+nGenes <- ncol(exp)
+nSamples <- nrow(exp)
+moduleTraitCor <- cor(MEs[,MEsname], traits, use = "p")
+moduleTraitPvalue <- corPvalueStudent(moduleTraitCor, nSamples)
+
+# Will display correlations and their p-values
+pdf("201911_fore_trait.pdf") 
+textMatrix = paste(signif(moduleTraitCor, 2), "\n(",
+signif(moduleTraitPvalue, 1), ")", sep = "");
+dim(textMatrix) = dim(moduleTraitCor)
+par(mar = c(6, 8.5, 3, 3));
+labeledHeatmap(Matrix = moduleTraitCor,
+  xLabels = colnames(traits),
+  yLabels = names(MEs[,MEsname]),
+  ySymbols = c(1:ncol(MEs[,MEsname])-1),
+  colorLabels = FALSE,
+  colors = greenWhiteRed(50),
+  textMatrix = textMatrix,
+  setStdMargins = FALSE,
+  cex.text = 0.3,
+  zlim = c(-1,1),
+  main = paste("Module-trait relationships"))
+dev.off() 
+```
+
+```{r go}
+# need to write something to convert unique_gene_symbol to clean_gene_symbol
+options(stringsAsFactors = FALSE)
+library(anRichment)
+modules <- read.csv("201911_fore_modules.csv")
+symbol.0 <- modules$gene
+symbol.01 <- (dataref %>% column_to_rownames("unique_gene_symbol"))[symbol.0,]$clean_gene_symbol
+
+# use as mouse
+entrez <- convert2entrez(organism = "mouse", symbol = str_to_title(symbol.01))
+entrez_m <- entrez[!is.na(entrez)]
+moduleColor_m <- modules$module_n[!is.na(entrez)]
+table(moduleColor_m)
+
+# use as human
+entrezh = convert2entrez(organism = "human", symbol = str_to_upper(symbol.01))
+entrez_h <- entrezh[!is.na(entrezh)]
+moduleColor_h <- modules$module_n[!is.na(entrezh)]
+table(moduleColor_h)
+
+moduleColor = modules$module_n
+table(moduleColor)
+
+GOcollection = buildGOcollection(organism = "mouse")
+GOenrichment = enrichmentAnalysis(
+  classLabels = moduleColor_m, identifiers = entrez_m,
+  refCollection = GOcollection,
+  useBackground = "reference",
+  threshold = 1e-2,
+  thresholdType = "FDR",
+  getOverlapEntrez = F,
+  getOverlapSymbols = T,
+  maxReportedOverlapGenes = Inf)
+GO_m <- GOenrichment$enrichmentTable %>% as_tibble() %>% filter(inGroups == "GO|GO.BP", FDR <= 0.01)
+table(GO_m$class)
+
+biosysCollection = BioSystemsCollection("human")
+KEGGenrichmenth = enrichmentAnalysis(
+  classLabels = moduleColor_h, identifiers = entrez_h,
+  refCollection = biosysCollection,
+  useBackground = "allOrgGenes",
+  threshold = 1e-2,
+  thresholdType = "FDR",
+  getOverlapEntrez = F,
+  getOverlapSymbols = T,
+  maxReportedOverlapGenes = Inf)
+KEGG_h <- KEGGenrichmenth$enrichmentTable %>% as_tibble() %>% filter(inGroups == "KEGG", FDR <= 0.01)
+table(KEGG_h$class)
+
+write.csv(GO_m, "201911_fore_GOm.csv")
+write.csv(KEGG_h, "201911_fore_KEGGh.csv")
+```
+
+```{r gg}
+KEGG_temp <- KEGGenrichmenth$enrichmentTable %>% as_tibble() %>% filter(inGroups == "KEGG", FDR <= 0.01) %>% group_by(class) %>% top_n(-10, FDR)
+
+gg <- list()
+for(n in c(1:ncol(MEs))){
+  text_temp <- KEGG_temp %>% filter(as.numeric(class) == n-1) %>% pull(shortDataSetName) %>% as.vector()
+  text_temp <- c(text_temp, rep("", 10 - length(text_temp)))
+  text_temp <- paste(text_temp, collapse = "\n")
+  
+  me_temp <- me %>% select_(eigengenes = MEsname[n], "population")
+  me_n <- dictn[n,3] %>% as.numeric()
+  gg[[n]] <- ggplot(me_temp, aes(y = eigengenes, x = population)) + geom_boxplot(outlier.shape = NA, color = state_cols) + geom_jitter(size = 0.5, alpha = 0.23) + theme_classic() + labs(title = paste("mod ", n-1, " : ", table(moduleColor_h)[n], " / ", me_n, sep = "")) + scale_x_discrete(limits = state_order) + labs(subtitle = text_temp) + theme(plot.subtitle=element_text(size=7))
+}
+ggsave(cowplot::plot_grid(plotlist = gg, ncol = 5), file = "201911_fore_WGCNA_modules_KEGG.tiff", width = 25, height = 7*r, dpi = 300, scale = 0.5)
+```
+
+```{r conn}
+source("~/wgcna2igraph_b.R")
+a <- wgcna2igraph(net, exp, modules2plot = unique(net[[1]]), colors2plot = unique(moduleColors))
+a2 <- as_edgelist(a) 
+a3 <- c(a2[,1],a2[,2]) %>% table() %>% as.tibble()
+colnames(a3) <- c("gene", "n")
+a4 <- a3 %>% left_join(modules, by = "gene") %>% dplyr::select(-X)
+
+saveRDS(a, "201911fore_conn_list")
+write.csv(a4, "201911fore_conn.csv")
+
+tophub <- chooseTopHubInEachModule(exp, moduleColors) %>% as.data.frame() %>% rownames_to_column("module_color") %>% left_join(dictn, by = "module_color") %>% arrange(module_n)
+colnames(tophub) <- c("module_color", "hubgene", "module_n", "n")
+write.csv(tophub, "201911_fore_modules_hubgenes.csv")
+
+kme <- signedKME(exp, MEs)
+kme2 <- kme %>% rownames_to_column("gene") %>% gather(key = "me", value = "r", -gene)  %>% mutate(module_color = str_remove(me, "kME")) %>% dplyr::select(-me) %>% right_join(dict)
+write.csv(kme2, "201911_fore_modules.csv")
+
+kme3 <- kme2 %>% group_by(module_color) %>% arrange(desc(r)) %>% dplyr::slice(1) %>% dplyr::rename(topcorgene = gene) %>% ungroup() %>% mutate(module_color = str_remove(module_color, "kME")) %>% left_join(tophub %>% dplyr::select(-module_n), by = "module_color") %>% arrange(module_n) %>% dplyr::select(topcorgene, hubgene, module_color, module_n, module_genes = n)
+
+write.csv(kme3, "201911_fore_modules_hubgenes_corgenes.csv")
+
+kme4 <- kme2 %>% group_by(module_color) %>% arrange(desc(r)) %>% dplyr::slice(1:20) %>% dplyr::rename(topcorgene = gene) %>% ungroup() %>% mutate(module_color = str_remove(module_color, "kME")) %>% left_join(tophub %>% dplyr::select(-module_n), by = "module_color") %>% arrange(module_n) %>% dplyr::select(topcorgene, module_color, module_n, module_genes = n, membership = r)
+
+write.csv(kme4, "201911_fore_modules_corgenestop20.csv")
+
+```
