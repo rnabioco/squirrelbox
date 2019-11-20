@@ -1,4 +1,5 @@
 # prep samples
+combined2 <- read_csv("squirrelBox/combined2.csv.gz")
 dict <- combined2 %>% distinct(sample, state)
 
 a <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20191113/Adrenal.tsv.gz") %>%
@@ -54,10 +55,18 @@ write_feather(combined3, "combined3.feather")
 bed <- read_tsv("squirrelBox/final_annot_20191112.bed12", col_names = F, col_types = "cnncncnnnnncccc") %>%
   select(1:6,13)
 colnames(bed) <- c("chrom", "start", "end", "unique_gene_symbol", "score", "strand", "gene_id")
-gene_list <- bed %>% select(gene_id, chrom) %>% distinct(gene_id, .keep_all = TRUE)
-gene_list_orf <- gene_list %>% mutate(orf = pbmcapply::pbmcmapply(findorf, gene_id)) 
-saveRDS(gene_list_orf, "gene_id_orf11.rds")
-# gene_list_orf <- readRDS("/Users/rf/sandy/gene_id_orf.rds")
+# gene_list <- bed %>% select(gene_id, chrom) %>% distinct(gene_id, .keep_all = TRUE)
+# gene_list_orf <- gene_list %>% mutate(orf = pbmcapply::pbmcmapply(findorf, gene_id)) 
+# saveRDS(gene_list_orf, "gene_id_orf11.rds")
+gene_list_orf <- readRDS("gene_id_orf11.rds")
+get_exons <- function(gene){
+  #(bed %>% filter(gene_id == gene) %>% arrange(desc(exon_number)))$exon_number[1] + 1
+  bed %>% filter(gene_id == gene) %>% nrow()
+}
+
+get_length <- function(gene){
+  sum((bed %>% filter(gene_id == gene) %>% bed_merge() %>% mutate(length = end - start))$length)
+}
 gene_list_orf2 <- gene_list_orf %>%
   mutate(orf = ifelse(sapply(gene_list_orf$orf, length) == 1, orf, "")) %>%
   mutate(orf = unlist(orf)) %>% mutate(len = str_length(orf)) %>%

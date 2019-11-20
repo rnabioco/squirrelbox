@@ -12,7 +12,6 @@ library(tibble)
 library(plotly)
 library(tidyr)
 library(shinyBS)
-#library(data.table)
 library(feather)
 options(stringsAsFactors = FALSE)
 theme_set(theme_cowplot())
@@ -328,6 +327,17 @@ server <- function(input, output, session) {
     outputtab <- outputtab()
     inid <- outputtab$unique_gene_symbol
     plot_temp <- combined %>% filter(gene_id == inid | unique_gene_symbol == inid) %>% mutate(sample = (str_remove(sample, "[A-Z]+")))
+    mis <- setdiff(c("Forebrain", "Hypothalamus", "Medulla"), plot_temp$region %>% unique() %>% as.character())
+    if (length(mis) > 0) {
+      for (element in mis) {
+        l <- as.list(plot_temp[1, 1:6])
+        l$region <- element
+        l$sample <- "0"
+        l$log2_counts <- NA
+        l$state <- "IBA"
+        plot_temp <- rbind(plot_temp, l)
+      }
+    }
     if (input$doTis != T) {
       plot_temp <- plot_temp %>% filter(region %in% c("Forebrain", "Hypothalamus", "Medulla"))
     }
