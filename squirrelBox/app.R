@@ -180,6 +180,99 @@ calls_sig <- function(padj, sig_sym) {
   temp <- cbind(padj, sig_sym)
   temp <- temp %>% rownames_to_column("comp") %>% mutate(call1 = ifelse(padj <= 0.05,1,0))
 }
+find_groups <- function(df) {
+  v <- mapply(function(x, y) c(x, y), df$state1, df$state2, SIMPLIFY = F)
+  g <- list()
+  for (i in 1:length(v)) {
+    if (i == 1) {
+      # first pair
+      g[[1]] <- v[[1]]
+    } else {
+      nextf <- 0
+      for (j in 1:length(g)) {
+        # no overlap, no need to assess further
+        if (length(intersect(v[[i]], g[[j]])) == 0) {
+          next
+        }
+        # already in the set, move onto next
+        if (length(setdiff(v[[i]],g[[j]])) == 0) {
+          nextf <- 1
+          next
+        }
+        # excruciatingly going through every other pair
+        targ <- setdiff(v[[i]],g[[j]])
+        for (element in g[[j]]) {
+          foundf <- 0
+          # common element won't be informative
+          if (element == intersect(v[[i]], g[[j]])) {
+            next
+          }
+          for (k in 1:length(v)) {
+            # ignore same entry
+            if (k == i) {
+              next
+            }
+            # unrelated entries
+            if (length(intersect(v[[i]], v[[k]])) == 0) {
+              next
+            }
+            if (length(intersect(element, v[[k]])) == 0) {
+              next
+            }
+            # find for each element
+            if (setdiff(v[[k]], element) == targ) {
+              foundf <- 1
+              next
+            }
+          }
+          # if one not found, abort
+          if (foundf != 1) {
+            next
+          }
+        }
+        if (foundf == 1) {
+            g[[j]] <- unique(c(v[[i]], g[[j]]))
+            nextf <- 1
+        }
+      }
+      if (nextf == 0) {
+        g[[length(g) + 1]] <- v[[i]]
+      }
+    }
+  }
+  g
+}
+
+sort_groups <- function(groups) {
+  all_groups <- state_order
+  leftout <- list(setdiff(state_order, unlist(groups)))
+  full <- c(groups, leftout)
+  full <- sapply(full, function(x) factor(x)[order(factor(x, levels = state_order))])
+  full2 <- sapply(full, "length<-", max(lengths(full))) %>%
+    t() %>%
+    as.data.frame() 
+  full2 <- full2 %>% 
+    mutate_all(factor, levels = state_order) %>% arrange(V1)
+  full3 <- full2 %>% mutate(letter = letters[1:n()]) %>%
+    pivot_longer(-letter, names_to = "NA", values_to = "state") %>%
+    filter(!(is.na(state))) %>%
+    arrange(state) %>%
+    group_by(state) %>%
+    summarize(letter = str_c(letter, collapse = ""))
+  full3
+}
+groups_to_letters <- function(df) {
+  reg <- df$region %>% unique()
+  df2 <- df %>% filter(call1 == 0)
+  g <- lapply(reg, function(x) {
+    g <- df2 %>% filter(region == x)
+    g2 <- find_groups(g)
+    g3 <- sort_groups(g2)
+    g3$region <- x
+    return(g3)
+  })
+  do.call(rbind, g)
+}
 
 # some other code for webpage functions
 jscode <- '
@@ -378,30 +471,8 @@ server <- function(input, output, session) {
           region == "med" ~ "Medulla",
           region == "fore" ~ "Forebrain"
         ))
-      temp3 <- temp2
-      temp3$state1 <- temp2$state2
-      temp3$state2 <- temp2$state1
-      temp4 <- rbind(temp2, temp3)
-      temp5 <- temp4 %>% 
-        group_by(region, state1) %>% 
-        summarize(call1 = mean(call1)) %>% 
-        ungroup() %>% 
-        mutate(state = factor(state1, levels = state_order),
-               region = factor(region, levels = region_order)) %>%
-        arrange(region, state) %>% 
-        group_by(region) %>%
-        mutate(letter = letters[1:n()], call1 = ifelse(call1 == 1, letter, ""))
-      temp6 <- temp4 %>% 
-        filter((state1 %in% het & !(state2 %in% het)) | (state2 %in% het & !(state1 %in% het))) %>% 
-        group_by(region, state1) %>% 
-        summarize(call1 = mean(call1)) %>% 
-        ungroup() %>% 
-        mutate(state = factor(state1, levels = state_order),
-               region = factor(region, levels = region_order)) %>%
-        arrange(region, state) %>% 
-        group_by(region) %>%
-        mutate(call2 = ifelse(call1 == 1, "T", ""))
-      
+      temp3 <- groups_to_letters(temp2)
+
       agg <- aggregate(log2_counts ~ state + region, plot_temp, max)
       agg2 <- agg %>% 
         group_by(region) %>% 
@@ -409,13 +480,11 @@ server <- function(input, output, session) {
                miny = min(log2_counts), 
                nudgey = (maxy - miny) * 0.1)
       agg3 <- agg2 %>%
-        left_join(temp6 %>% select(region, state, call2)) %>%
-        replace_na(list(call2 = list(""))) %>% 
-        left_join(temp5 %>% select(region, state, call1)) %>% 
-        mutate(called = str_c(call2,call1))
+        left_join(temp3 %>% select(region, state, letter)) %>%
+        replace_na(list(letter = list("")))
       
       g <- g +
-        geom_text(data = agg3, aes(text = called, label = called, y = log2_counts + nudgey, x = state, group = NULL))
+        geom_text(data = agg3, aes(text = letter, label = letter, y = log2_counts + nudgey, x = state, group = NULL))
     }
     
     g
