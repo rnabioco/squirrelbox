@@ -33,6 +33,22 @@ benchmark2 <- microbenchmark(
 ```
 
 ```{r}
+library(microbenchmark)
+saveRDS(temp2, "temp_mex3c.rds")
+t3 <- readRDS("temp_mex3c.rds")
+saveRDS(temp2, "temp_zfp36l2.rds")
+t2 <- readRDS("temp_zfp36l2.rds")
+benchmark2 <- microbenchmark(
+  find_for2 = groups_to_letters(t2),
+  find_graph2 = groups_to_letters_igraph(t2),
+  find_for3 = groups_to_letters(t3),
+  find_graph3 = groups_to_letters_igraph(t3),
+  times = 20)
+benchmark2
+```
+
+
+```{r}
 library(profvis)
 p <- profvis(shiny::runApp())
 ```

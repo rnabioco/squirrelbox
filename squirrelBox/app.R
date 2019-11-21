@@ -243,6 +243,13 @@ find_groups <- function(df) {
   g
 }
 
+find_groups_igraph <- function(df) {
+  df <- df %>% select(-region)
+  g <- graph_from_data_frame(df, directed = FALSE)
+  cg <- max_cliques(g)
+  lapply(cg, names)
+}
+
 sort_groups <- function(groups) {
   all_groups <- state_order
   leftout <- list(setdiff(state_order, unlist(groups)))
@@ -261,12 +268,26 @@ sort_groups <- function(groups) {
     summarize(letter = str_c(letter, collapse = ""))
   full3
 }
+
 groups_to_letters <- function(df) {
   reg <- df$region %>% unique()
   df2 <- df %>% filter(call1 == 0)
   g <- lapply(reg, function(x) {
     g <- df2 %>% filter(region == x)
     g2 <- find_groups(g)
+    g3 <- sort_groups(g2)
+    g3$region <- x
+    return(g3)
+  })
+  do.call(rbind, g)
+}
+
+groups_to_letters_igraph <- function(df) {
+  reg <- df$region %>% unique()
+  df2 <- df %>% filter(call1 == 0)
+  g <- lapply(reg, function(x) {
+    g <- df2 %>% filter(region == x)
+    g2 <- find_groups_igraph(g)
     g3 <- sort_groups(g2)
     g3$region <- x
     return(g3)
@@ -462,7 +483,7 @@ server <- function(input, output, session) {
     }
     
     if (input$doPadj == T & nrow(rv$pval) != 0 & input$doPlotly == F) {
-      temp2 <- calls_sig(padj, sig_sym) %>%
+      temp2 <<- calls_sig(padj, sig_sym) %>%
         replace_na(list(call1 = list(0))) %>%
         separate(comp, into = c("region", "state1", NA, "state2")) %>% 
         select(-padj, -call) %>% mutate(call1 = as.numeric(call1)) %>%
@@ -471,7 +492,7 @@ server <- function(input, output, session) {
           region == "med" ~ "Medulla",
           region == "fore" ~ "Forebrain"
         ))
-      temp3 <- groups_to_letters(temp2)
+      temp3 <- groups_to_letters_igraph(temp2)
 
       agg <- aggregate(log2_counts ~ state + region, plot_temp, max)
       agg2 <- agg %>% 
