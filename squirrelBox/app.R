@@ -259,6 +259,7 @@ sort_groups <- function(groups) {
   full2 <- sapply(full, "length<-", max(lengths(full))) %>%
     t() %>%
     as.data.frame() 
+  colnames(full2) <- str_c("V", 1:ncol(full2))
   full2 <- full2 %>% 
     mutate_all(factor, levels = state_order) %>% arrange(V1)
   full3 <- full2 %>% mutate(letter = letters[1:n()]) %>%
@@ -496,10 +497,12 @@ server <- function(input, output, session) {
       temp3 <- groups_to_letters_igraph(temp2)
 
       agg <- aggregate(log2_counts ~ state + region, plot_temp, max)
+      agg_min <- aggregate(log2_counts ~ state + region, plot_temp, min)
+      agg$min <- agg_min$log2_counts
       agg2 <- agg %>% 
         group_by(region) %>% 
         mutate(maxy = max(log2_counts), 
-               miny = min(log2_counts), 
+               miny = min(min), 
                nudgey = (maxy - miny) * 0.1)
       agg3 <- agg2 %>%
         left_join(temp3 %>% select(region, state, letter)) %>%
