@@ -253,6 +253,7 @@ find_groups_igraph <- function(df) {
 sort_groups <- function(groups) {
   all_groups <- state_order
   leftout <- list(setdiff(state_order, unlist(groups)))
+  leftout <- as.list(unlist(leftout))
   full <- c(groups, leftout)
   full <- sapply(full, function(x) factor(x)[order(factor(x, levels = state_order))])
   full2 <- sapply(full, "length<-", max(lengths(full))) %>%
