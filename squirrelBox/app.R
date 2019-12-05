@@ -46,6 +46,21 @@ region_order = c(
   "Kidney", 
   "Liver"
 )
+region_main = c(
+  "Forebrain", 
+  "Hypothalamus", 
+  "Medulla"
+)
+region_short = c(
+  "fore",
+  "hy",
+  "med"
+)
+region_letter = c(
+  "B",
+  "H",
+  "M"
+)
 
 # read database
 if (file.exists("combined2.feather")) {
@@ -96,21 +111,19 @@ colnames(bed) <- c(
 historytab <- c()
 
 # read modules
-hy_modules <- suppressWarnings(read_csv(paste0(use_folder, "/hy_modules.csv"), 
-                                        col_types = "ncncn"))
-med_modules <- suppressWarnings(read_csv(paste0(use_folder, "/med_modules.csv"), 
-                                         col_types = "ncncn"))
-fore_modules <- suppressWarnings(read_csv(paste0(use_folder, "/fore_modules.csv"), 
-                                          col_types = "ncncn"))
+for (reg in region_short) {
+  eval(parse(text = paste0(reg, '_modules <- suppressWarnings(read_csv(paste0(use_folder, \"/', reg, '_modules.csv\"), 
+                                          col_types = \"ncncn\"))')))
+}
 
 # read node igraph object
-hy_ig <- readRDS(paste0(use_folder, "/hy_conn_list"))
-med_ig <-readRDS(paste0(use_folder, "/med_conn_list"))
-fore_ig <- readRDS(paste0(use_folder, "/fore_conn_list"))
-  
-hy_net <- toVisNetworkData(hy_ig)
-med_net <- toVisNetworkData(med_ig)
-fore_net <- toVisNetworkData(fore_ig)
+for (reg in region_short) {
+  eval(parse(text = paste0(reg, '_ig <- suppressWarnings(readRDS(paste0(use_folder, \"/', reg, '_conn_list\")))')))
+}
+
+for (reg in region_short) {
+  eval(parse(text = paste0(reg, '_net <- suppressWarnings(toVisNetworkData(', reg, '_ig))')))
+}
 
 igraph_to_df <- function(ig, mod) {
   temp <- as_edgelist(ig)
@@ -126,14 +139,14 @@ igraph_to_df <- function(ig, mod) {
   temp
 }
 
-hy_temp4 <- igraph_to_df(hy_ig, hy_modules) 
-med_temp4 <- igraph_to_df(med_ig, med_modules) 
-fore_temp4 <- igraph_to_df(fore_ig, fore_modules) 
+for (reg in region_short) {
+  eval(parse(text = paste0(reg, '_temp4 <- suppressWarnings(igraph_to_df(', reg, '_ig, ', reg, '_modules))')))
+}
 
 # eigengene plots
-hy_gg <- readRDS(paste0(use_folder, "/hy_gg"))
-fore_gg <- readRDS(paste0(use_folder, "/fore_gg"))
-med_gg <- readRDS(paste0(use_folder, "/med_gg"))
+for (reg in region_short) {
+  eval(parse(text = paste0(reg, '_gg <- suppressWarnings(readRDS(paste0(use_folder, \"/', reg, '_gg\")))')))
+}
 
 # read go terms and TFs
 gmt_to_list <- function(path,
@@ -202,7 +215,8 @@ sig_sym <- data.frame(call = letters[1:length(sig_cols)],
 calls_sig <- function(padj, sig_sym) {
   temp <- cbind(padj, sig_sym)
   temp <- temp %>% rownames_to_column("comp") %>%
-    mutate(call1 = ifelse(padj <= 0.05,1,0))
+    mutate(call1 = ifelse(padj <= 0.05, 1, 0))
+  temp
 }
 
 find_groups <- function(df) {
@@ -379,7 +393,7 @@ ui <- fluidPage(
                      checkboxInput("doNet", "plot network", value = F, width = NULL),
                      checkboxInput("doKegg", "GO terms", value = T, width = NULL)),
                    tabPanel("links",
-                     selectInput("region", label = NULL, choices = list("fore","hy","med"), selected = "hy"),
+                     selectInput("region", label = NULL, choices = as.list(region_short), selected = region_short[1]),
                      uiOutput("conn"),
                      tags$hr(style="border-color: green;"),
                      uiOutput("tab"), uiOutput("blastlink"), 
@@ -414,7 +428,7 @@ ui <- fluidPage(
                       size = "large", 
                       htmlOutput("pdfview")),
               #plotOutput("boxPlot", width = 800, height = 600),
-              uiOutput('hyEigenPlot'),
+              uiOutput('EigenPlot'),
               tags$hr(style="border-color: green;"),
               tableOutput("results"),
               tableOutput("orfinfo"),
@@ -442,9 +456,9 @@ server <- function(input, output, session) {
   rv$old <- ""
   rv$blast <- ""
   rv$pval <- data.frame()
-  rv$act_modules <- hy_modules
-  rv$act_temp4 <- hy_temp4
-  rv$act_net <- hy_net
+  rv$act_modules <- eval(parse(text = paste0(region_short[1], "_modules")))
+  rv$act_temp4 <- eval(parse(text = paste0(region_short[1], "_temp4")))
+  rv$act_net <- eval(parse(text = paste0(region_short[1], "_net")))
   rv$temp_orfs <- data.frame()
   rv$listn <- 1
   
@@ -470,19 +484,9 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$region, {
-    if (input$region == "fore") {
-      rv$act_modules <- fore_modules
-      rv$act_temp4 <- fore_temp4
-      rv$act_net <- fore_net
-    } else if (input$region == "hy") {
-      rv$act_modules <- hy_modules
-      rv$act_temp4 <- hy_temp4
-      rv$act_net <- hy_net
-    } else if (input$region == "med") {
-      rv$act_modules <- med_modules
-      rv$act_temp4 <- med_temp4
-      rv$act_net <- med_net
-    }
+    rv$act_modules <- eval(parse(text = paste0(input$region, "_modules")))
+    rv$act_temp4 <- eval(parse(text = paste0(input$region, "_temp4")))
+    rv$act_net <- eval(parse(text = paste0(input$region, "_net")))
   })
   
   inid <- eventReactive(input$Find, {
@@ -504,9 +508,7 @@ server <- function(input, output, session) {
     inid <- outputtab$unique_gene_symbol
     plot_temp <- combined %>% filter(gene_id == inid | unique_gene_symbol == inid) %>% 
       mutate(sample = (str_remove(sample, "[A-Z]+")))
-    mis <- setdiff(c("Forebrain", 
-                     "Hypothalamus", 
-                     "Medulla"), plot_temp$region %>% unique() %>% as.character())
+    mis <- setdiff(region_main, plot_temp$region %>% unique() %>% as.character())
     if (length(mis) > 0) {
       for (element in mis) {
         l <- as.list(plot_temp[1, 1:6])
@@ -518,12 +520,13 @@ server <- function(input, output, session) {
       }
     }
     if (input$doTis != T) {
-      plot_temp <- plot_temp %>% filter(region %in% c("Forebrain", 
-                                                      "Hypothalamus", 
-                                                      "Medulla"))
+      plot_temp <- plot_temp %>% filter(region %in% region_main)
     }
     if (nrow(rv$pval) != 0) {
       padj <- rv$pval %>% select(ends_with("_wald_padj")) %>% t()
+      if (ncol(padj) > 1) {
+        padj <- padj[, 1, drop = FALSE]
+      }
       tbl <- str_c(rownames(padj), format(padj[,1], digits = 2), sep = " : ")
       plot_temp <- plot_temp %>% mutate(text = mapply(find_padj, 
                                                       as.character(region), 
@@ -553,15 +556,14 @@ server <- function(input, output, session) {
     }
     
     if (input$doPadj == T & nrow(rv$pval) != 0 & input$doPlotly == F) {
-      temp2 <<- calls_sig(padj, sig_sym) %>%
+      temp2 <- calls_sig(padj, sig_sym) 
+      temp2 <- temp2 %>%
         replace_na(list(call1 = list(0))) %>%
         separate(comp, into = c("region", "state1", NA, "state2")) %>% 
-        select(-padj, -call) %>% mutate(call1 = as.numeric(call1)) %>%
-        mutate(region = case_when(
-          region == "hy" ~ "Hypothalamus",
-          region == "med" ~ "Medulla",
-          region == "fore" ~ "Forebrain"
-        ))
+        select(-padj, -call) %>% mutate(call1 = as.numeric(call1)) %>% 
+        mutate(region = as.character(region))
+      temp2$region <- region_order[factor(temp2$region, level = region_short) %>% as.numeric()]
+      temp2 <- temp2
       temp3 <- groups_to_letters_igraph(temp2)
 
       agg <- aggregate(log2_counts ~ state + region, plot_temp, max)
@@ -616,7 +618,7 @@ server <- function(input, output, session) {
     }
   })
   
-  output$hyEigenPlot <- renderUI({
+  output$EigenPlot <- renderUI({
     eigenplotr()
   })
   
@@ -628,20 +630,17 @@ server <- function(input, output, session) {
     } else {
       outputtab <- outputtab()
       inid <- outputtab$unique_gene_symbol
-      hy_mod <- hy_modules %>% filter(gene == inid) %>% pull(module_n)
-      med_mod <- med_modules %>% filter(gene == inid) %>% pull(module_n)
-      fore_mod <- fore_modules %>% filter(gene == inid) %>% pull(module_n)
+      for (reg in region_short) {
+        eval(parse(text = paste0(reg, '_mod <- ', reg, '_modules %>% filter(gene == inid) %>% pull(module_n)')))
+      }
       
-      fore_fig <- tryCatch({fore_gg[[as.numeric(fore_mod) + 1]]}, 
-                           error = function(err) {
-        return(ggplot() + theme_void())})
-      hy_fig <- tryCatch({hy_gg[[as.numeric(hy_mod) + 1]]}, 
-                         error = function(err) {
-        return(ggplot() + theme_void())})
-      med_fig <- tryCatch({med_gg[[as.numeric(med_mod) + 1]]}, 
-                          error = function(err) {
-        return(ggplot() + theme_void())})
-      g <- cowplot::plot_grid(fore_fig, hy_fig, med_fig, ncol = 3)
+      for (reg in region_short) {
+        eval(parse(text = paste0(reg, '_fig <- tryCatch({', reg, '_gg[[as.numeric(', reg, '_mod) + 1]]}, 
+                                          error = function(err) {
+                                            return(ggplot() + theme_void())})')))
+      }
+      
+      g <- eval(parse(text = paste0('cowplot::plot_grid(', str_c(region_short, "_fig", collapse = ","), ', ncol =', length(region_short),')')))
       output$boxPlot3 <- renderPlot(g)
       plotOutput("boxPlot3", width = 800, height = 300)
     }
