@@ -1,6 +1,21 @@
 # prep samples
-combined2 <- read_csv("squirrelBox/combined2.csv.gz")
-dict <- combined2 %>% distinct(sample, state)
+require(tidyverse)
+require(feather)
+# combined2 <- read_feather("squirrelBox/combined2.feather")
+# dict2 <- combined2 %>% distinct(sample, state)
+
+# region_letter <- c(
+#   "B",
+#   "H",
+#   "M"
+# )
+# pheno <- read.csv("/Users/rf/sandy/brain_phenodata.csv") %>%
+#   mutate(ids = str_remove(ids, "[A-Z,a-z]"))
+# dict <- pheno %>% expand(ids, population, region = region_letter) %>% 
+#   mutate(ids = str_c(region, ids))
+pheno_path <- c("/Users/rf/sandy/brain_phenodata.csv","/Users/rf/sandy/medulla_phenodata.csv","/Users/rf/sandy/hypothalamus_phenodata.csv")
+pheno <- map(pheno_path, function(x) {read.csv(x) %>% select(ids, population)})
+dict <- do.call(rbind, pheno)
 
 a <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20191113/Adrenal.tsv.gz") %>%
   select(-contains("_"), -source, gene_id) %>%
@@ -137,3 +152,23 @@ a3 <- left_join(a3, d, by = c("gene_id" = "gene_id"))
 #d4 <- bed %>% select(gene_id, unique_gene_symbol) %>% distinct()
 #a4 <- a3 %>% left_join(d4, by = "gene_id")
 write_csv(a3, "padj_orf.csv") # <- padj_orf.csv
+
+find_elbow <- function(x, y, after) {
+  d1 <- diff(y) / diff(x) # first derivative
+  d2 <- diff(d1) / diff(x[-1]) # second derivative
+  maxd <- max(d2[after:length(d2)])
+  mind <- min(d2[after:length(d2)])
+  print(maxd)
+  print(mind)
+  indices <- which(d2 == maxd)  
+  return(indices)
+}
+
+r1 <- read_csv("/Users/rf/newselect201911/hy/hy_mean_5000.csv", col_names = F)
+r2 <- read_csv("/Users/rf/newselect201911/med/med_mean_5000.csv", col_names = F)
+r3 <- read_csv("/Users/rf/newselect201911/fore/fore_mean_5000.csv", col_names = F)
+r <- full_join(r1, r2, by = "X1") %>% full_join(r3, by = "X1")
+r[is.na(r)] <- 0
+colnames(r) <- c("unique_gene_symbol", "hy_imp", "med_imp", "fore_imp")
+r <- r %>% mutate(hy_rank = rank(-hy_imp), med_rank = rank(-med_imp), fore_rank = rank(-fore_imp))
+write_csv(r, "rf_imp.csv")

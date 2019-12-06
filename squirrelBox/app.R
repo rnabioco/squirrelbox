@@ -23,6 +23,7 @@ track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
 
 ### sample settings, define state colors and order, region order
+### possibly read info out of csv file
 state_cols <- c(
   SA = rgb(255, 0, 0, maxColorValue = 255),
   IBA = rgb(67, 205, 128, maxColorValue = 255),
@@ -379,6 +380,9 @@ groups_to_letters_igraph <- function(df) {
   do.call(rbind, g)
 }
 
+# read in rf importance
+imp <- read_csv("rf_imp.csv")
+
 # some other code for webpage functions
 jscode <- '
 $(function() {
@@ -498,12 +502,20 @@ ui <- fluidPage(
           tableOutput("gotab")
         ),
         tabPanel(
-          "table",
+          "table_orf",
           downloadButton(
             outputId = "saveFiltered",
             label = "download filtered data"
           ),
           DT::dataTableOutput("tbl")
+        ),
+        tabPanel(
+          "table_RF",
+          downloadButton(
+            outputId = "saveFiltered2",
+            label = "download filtered data"
+          ),
+          DT::dataTableOutput("tbl2")
         )
       )
     )
@@ -1268,6 +1280,34 @@ server <- function(input, output, session) {
   output$saveFiltered <- downloadHandler("filtré.csv", content = function(file) {
     s <- input$tbl_rows_all
     write_csv((bed %>% select(unique_gene_symbol, everything()))[s, ], file)
+  })
+  
+  output$tbl2 <- DT::renderDataTable({
+    DT::datatable(imp %>% select(
+      unique_gene_symbol,
+      contains("rank"),
+      everything()
+    ),
+    filter = "top",
+    escape = FALSE,
+    selection = "single",
+    rownames = FALSE
+    )
+  })
+  
+  output$saveFiltered2 <- downloadHandler("filtré2.csv", content = function(file) {
+    s <- input$tbl_rows_all
+    write_csv((imp %>% select(unique_gene_symbol, contains("rank"), everything()))[s, ], file)
+  })
+  
+  observeEvent(input$tbl2_rows_selected, {
+    rv$run2 <- 1
+    updateSelectizeInput(session,
+                         inputId = "geneID",
+                         selected = imp[input$tbl2_rows_selected, "unique_gene_symbol"],
+                         choices = autocomplete_list,
+                         server = T
+    )
   })
 }
 
