@@ -43,7 +43,7 @@ benchmark2 <- microbenchmark(
   find_graph2 = groups_to_letters_igraph(t2),
   find_for3 = groups_to_letters(t3),
   find_graph3 = groups_to_letters_igraph(t3),
-  times = 20)
+  times = 100)
 benchmark2
 ```
 
