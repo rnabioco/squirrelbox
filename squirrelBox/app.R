@@ -427,6 +427,7 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       style = "position:fixed;width:inherit;",
+      width = 3,
       div(
         style = "display: inline-block;vertical-align:top; width: 200px;",
         tagAppendAttributes(selectizeInput("geneID",
@@ -485,10 +486,20 @@ ui <- fluidPage(
           uiOutput("history8"),
           uiOutput("history9"),
           uiOutput("history10")
+        ),
+        tabPanel(
+          "cart",
+          uiOutput("listn2"),
+          actionButton("Add", "Add"),
+          downloadButton(
+            outputId = "saveList",
+            label = "cart to TXT"
+          )
         )
       )
     ),
     mainPanel(
+      width = 9,
       tabsetPanel(
         id = "tabMain",
         tabPanel(
@@ -551,6 +562,8 @@ server <- function(input, output, session) {
   rv$act_net <- eval(parse(text = paste0(region_short[1], "_net")))
   rv$temp_orfs <- data.frame()
   rv$listn <- 1
+  rv$listn2 <- 0
+  rv$cart <- 0
 
   observeEvent(rv$init == 0, {
     if (rv$init == 0) {
@@ -603,6 +616,7 @@ server <- function(input, output, session) {
 
   historytab <- c()
   historytablist <- c()
+  carttablist <- c()
 
   boxPlot1 <- reactive({
     outputtab <- outputtab()
@@ -889,6 +903,14 @@ server <- function(input, output, session) {
       filter(gene_id == inid | unique_gene_symbol == inid) %>%
       select(1:6) %>%
       unique()
+    
+    if (nrow(filtered) == 0) {
+      rv$blast <<- ""
+      rv$pval <<- data.frame()
+      rv$temp_orfs <<- data.frame()
+      return(NULL)
+    }
+    
     filtered2 <- bed %>%
       filter(gene_id == filtered$gene_id[1]) %>%
       select(c(1, 2, 3, 6))
@@ -896,11 +918,13 @@ server <- function(input, output, session) {
       filtered2 <- cbind(bed_merge(filtered2), filtered2[1, 4])
     }
 
-    tempvec <- unique(c(filtered$unique_gene_symbol, historytab))
-    if (length(tempvec) > 10) {
-      tempvec <- tempvec[1:10]
+    if (nrow(filtered2 > 0)) {
+      tempvec <- unique(c(filtered$unique_gene_symbol, historytab))
+      if (length(tempvec) > 10) {
+        tempvec <- tempvec[1:10]
+      }
+      historytab <<- tempvec
     }
-    historytab <<- tempvec
 
     out <- cbind(filtered, filtered2)
 
@@ -1252,7 +1276,20 @@ server <- function(input, output, session) {
     path <- input$file$datapath
     historytablist <<- read_csv(path) %>% pull(1)
   })
+  
+  onclick("Add", {
+    carttablist <- unique(c(historytab[1], carttablist))
+    rv$listn2 <- length(carttablist)
+  })
 
+  output$listn2 <- renderUI({
+    HTML(str_c("# in cart:", rv$listn2))
+  })
+  
+  output$saveList <- downloadHandler("cart.txt", content = function(file) {
+    write_lines(carttablist, file)
+  })
+  
   onclick("Prev", {
     rv$listn <- rv$listn - 1
     if (rv$listn < 1) {
