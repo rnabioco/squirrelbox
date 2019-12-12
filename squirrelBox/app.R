@@ -21,6 +21,7 @@ theme_set(theme_cowplot())
 use_folder <- "wgcna11" # change to get to old version of data
 track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
+gmt_file <- "c5.all.v6.2.symbols.gmt"
 
 ### sample settings, define state colors and order, region order
 ### possibly read info out of csv file
@@ -187,7 +188,7 @@ gmt_to_list <- function(path,
   )
   tidyr::unnest_legacy(df, genes)
 }
-gmt <- gmt_to_list("c5.all.v6.2.symbols.gmt",
+gmt <- gmt_to_list(gmt_file,
   rm = "^GO_"
 )
 refs <- combined %>% distinct(
@@ -336,8 +337,11 @@ sort_groups <- function(groups) {
   leftout <- list(setdiff(state_order, unlist(groups)))
   leftout <- as.list(unlist(leftout))
   full <- c(groups, leftout)
-  full <- sapply(full, function(x) factor(x)[order(factor(x, levels = state_order))])
-  full2 <- sapply(full, "length<-", max(lengths(full))) %>%
+  full4 <- sapply(full, function(x) factor(x)[order(factor(x, levels = state_order))])
+  if (class(full4) != "matrix") {
+    full4 <- sapply(full4, "length<-", max(lengths(full4))) 
+  }
+  full2 <- full4 %>% 
     t() %>%
     as.data.frame()
   colnames(full2) <- str_c("V", 1:ncol(full2))
@@ -414,6 +418,12 @@ ui <- fluidPage(
   useShinyjs(),
   tags$head(tags$script(HTML(jscode))),
   titlePanel("13-lined ground squirrel gene-level RNA-seq expression by tissue"),
+  fixedPanel(
+    style="z-index:100;",
+    actionButton("back_to_top", label = "back_to_top"),
+    right = 10,
+    bottom = 10
+  ),
   sidebarLayout(
     sidebarPanel(
       style = "position:fixed;width:inherit;",
@@ -480,8 +490,10 @@ ui <- fluidPage(
     ),
     mainPanel(
       tabsetPanel(
+        id = "tabMain",
         tabPanel(
-          "plot",
+          title = "plot",
+          value = "plot",
           uiOutput("boxPlotUI"),
           bsModal("modalPDF",
             title = "module-trait",
@@ -502,7 +514,8 @@ ui <- fluidPage(
           tableOutput("gotab")
         ),
         tabPanel(
-          "table_orf",
+          title ="table_orf",
+          value = "table_orf",
           downloadButton(
             outputId = "saveFiltered",
             label = "download filtered data"
@@ -510,7 +523,8 @@ ui <- fluidPage(
           DT::dataTableOutput("tbl")
         ),
         tabPanel(
-          "table_RF",
+          title ="table_RF",
+          value = "table_RF",
           downloadButton(
             outputId = "saveFiltered2",
             label = "download filtered data"
@@ -567,6 +581,12 @@ server <- function(input, output, session) {
     rv$act_net <- eval(parse(text = paste0(input$region, "_net")))
   })
 
+  observeEvent(input$Find, {
+    updateTabsetPanel(session, 
+                      "tabMain",
+                      selected = "plot")
+  })
+  
   inid <- eventReactive(input$Find,
     {
       rv$old <<- input$geneID
@@ -1198,7 +1218,7 @@ server <- function(input, output, session) {
     )
   })
   observeEvent(input$geneID != "", {
-    if (rv$run2 == 1 & input$geneID != "" & !is.null(input$geneID)) {
+    if (rv$run2 == 1 & input$geneID != "" & !is.null(input$geneID) & input$tabMain == "plot") {
       rv$run2 <- 0
       click("Find")
     }
@@ -1309,6 +1329,10 @@ server <- function(input, output, session) {
                          server = T
     )
   })
+  
+  observeEvent(input$back_to_top, {
+    shinyjs::runjs("window.scrollTo(0, 0)")
+  }, ignoreNULL = T)
 }
 
 # Run the application
