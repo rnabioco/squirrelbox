@@ -1,4 +1,4 @@
-library(shiny)
+library(shiny)  
 library(dplyr)
 library(ggplot2)
 library(cowplot)
@@ -15,6 +15,7 @@ library(shinyBS)
 library(feather)
 options(stringsAsFactors = FALSE)
 theme_set(theme_cowplot())
+# options(shiny.reactlog = TRUE)
 
 
 ### general data settings
@@ -70,7 +71,6 @@ region_letter <- c(
 if (file.exists("combined2.feather")) {
   combined2 <- read_feather("combined2.feather")
   combined3 <- read_feather("combined3.feather")
-  combined <- combined3 %>% inner_join(combined2, by = "gene_id")
 } else if (file.exists("combined2.csv")) {
   # combined2 <- read_csv("combined2.csv", col_types = "ccncc")
   # combined3 <- read_csv("combined3.csv", col_types = "cccccc")
@@ -86,19 +86,33 @@ if (file.exists("combined2.feather")) {
   )
 }
 
-combined <- combined %>% mutate(
-  state = factor(state,
-    levels = state_order
-  ),
-  region = factor(region,
-    levels = region_order
+comb_fil_factor <- function(combined2, combined3, inid) {
+  combined3 <- combined3 %>% filter(gene_id == inid | unique_gene_symbol == inid)
+  combined2 <- combined2 %>% filter(gene_id == inid | gene_id == combined3$gene_id[1]) %>%
+    mutate(sample = (str_remove(sample, "[A-Z]+")))
+  combined <- combined3 %>% inner_join(combined2, by = "gene_id")
+  combined %>% mutate(
+    state = factor(state,
+                   levels = state_order
+    ),
+    region = factor(region,
+                    levels = region_order
+    )
   )
-)
+}
+# combined <- combined %>% mutate(
+#   state = factor(state,
+#     levels = state_order
+#   ),
+#   region = factor(region,
+#     levels = region_order
+#   )
+# )
 
 # lists
 autocomplete_list <- str_sort(c(
-  combined$unique_gene_symbol,
-  combined$gene_id
+  combined3$unique_gene_symbol,
+  combined3$gene_id
 ) %>% unique(),
 decreasing = T
 )
@@ -188,10 +202,12 @@ gmt_to_list <- function(path,
   )
   tidyr::unnest_legacy(df, genes)
 }
+
 gmt <- gmt_to_list(gmt_file,
   rm = "^GO_"
 )
-refs <- combined %>% distinct(
+
+refs <- combined3 %>% distinct(
   unique_gene_symbol,
   clean_gene_symbol
 )
@@ -258,73 +274,6 @@ calls_sig <- function(padj, sig_sym) {
   temp
 }
 
-find_groups <- function(df) {
-  v <- mapply(function(x, y) c(x, y),
-    df$state1,
-    df$state2,
-    SIMPLIFY = F
-  )
-  g <- list()
-  for (i in 1:length(v)) {
-    if (i == 1) {
-      # first pair
-      g[[1]] <- v[[1]]
-    } else {
-      nextf <- 0
-      for (j in 1:length(g)) {
-        # no overlap, no need to assess further
-        if (length(intersect(v[[i]], g[[j]])) == 0) {
-          next
-        }
-        # already in the set, move onto next
-        if (length(setdiff(v[[i]], g[[j]])) == 0) {
-          nextf <- 1
-          next
-        }
-        # excruciatingly going through every other pair
-        targ <- setdiff(v[[i]], g[[j]])
-        for (element in g[[j]]) {
-          foundf <- 0
-          # common element won't be informative
-          if (element == intersect(v[[i]], g[[j]])) {
-            next
-          }
-          for (k in 1:length(v)) {
-            # ignore same entry
-            if (k == i) {
-              next
-            }
-            # unrelated entries
-            if (length(intersect(v[[i]], v[[k]])) == 0) {
-              next
-            }
-            if (length(intersect(element, v[[k]])) == 0) {
-              next
-            }
-            # find for each element
-            if (setdiff(v[[k]], element) == targ) {
-              foundf <- 1
-              next
-            }
-          }
-          # if one not found, abort
-          if (foundf != 1) {
-            next
-          }
-        }
-        if (foundf == 1) {
-          g[[j]] <- unique(c(v[[i]], g[[j]]))
-          nextf <- 1
-        }
-      }
-      if (nextf == 0) {
-        g[[length(g) + 1]] <- v[[i]]
-      }
-    }
-  }
-  g
-}
-
 find_groups_igraph <- function(df) {
   df <- df %>% select(-region)
   g <- graph_from_data_frame(df, directed = FALSE)
@@ -358,19 +307,6 @@ sort_groups <- function(groups) {
   full3
 }
 
-groups_to_letters <- function(df) {
-  reg <- df$region %>% unique()
-  df2 <- df %>% filter(call1 == 0)
-  g <- lapply(reg, function(x) {
-    g <- df2 %>% filter(region == x)
-    g2 <- find_groups(g)
-    g3 <- sort_groups(g2)
-    g3$region <- x
-    return(g3)
-  })
-  do.call(rbind, g)
-}
-
 groups_to_letters_igraph <- function(df) {
   reg <- df$region %>% unique()
   df2 <- df %>% filter(call1 == 0)
@@ -387,6 +323,39 @@ groups_to_letters_igraph <- function(df) {
 # read in rf importance
 imp <- read_csv("rf_imp.csv")
 
+# faster than plot_grid
+gg_to_facet <- function(region_short, gg_list) {
+  df_title <- lapply(gg_list, function(g) {
+    g$labels$title
+  })
+  names(df_title) <- region_short
+  
+  df_list <- mapply(function(g, reg) {
+    temp <- g$data
+    if (is.null(nrow(temp))) {
+      return(data.frame(eigengenes = NA, population = state_order[1], region = reg))
+    }
+    temp$region <- reg
+    temp
+  }, gg_list, region_short, SIMPLIFY = FALSE)
+  
+  temp2 <- do.call(rbind, df_list) %>% mutate(
+    population = factor(population,
+                   levels = state_order
+    ),
+    region = factor(region,
+                    levels = region_short
+    ))
+  
+  ggplot(temp2, aes(y = eigengenes, x = population)) + 
+    geom_boxplot(aes(fill = population), outlier.shape = NA) +
+    scale_fill_manual(values = state_cols) +
+    facet_wrap(~region, scales = "free", labeller = as_labeller(unlist(df_title))) + 
+    scale_x_discrete(limits = state_order) +
+    # geom_point(aes(color = population), position = position_jitter(seed = 1)) + 
+    # scale_color_manual(values = state_cols) + 
+    theme(legend.position = "none")
+}
 # some other code for webpage functions
 jscode <- '
 $(function() {
@@ -417,7 +386,8 @@ ui <- fluidPage(
   "),
   useShinyjs(),
   tags$head(tags$script(HTML(jscode))),
-  titlePanel("13-lined ground squirrel gene-level RNA-seq expression by tissue"),
+  titlePanel(div(img(src = "logo.png", style ="width : 4%; display: inline-block;"),
+                 "13-lined ground squirrel gene-level RNA-seq expression")),
   fixedPanel(
     style="z-index:100;",
     actionButton("back_to_top", label = "back_to_top"),
@@ -621,9 +591,7 @@ server <- function(input, output, session) {
   boxPlot1 <- reactive({
     outputtab <- outputtab()
     inid <- outputtab$unique_gene_symbol
-    plot_temp <- combined %>%
-      filter(gene_id == inid | unique_gene_symbol == inid) %>%
-      mutate(sample = (str_remove(sample, "[A-Z]+")))
+    plot_temp <- comb_fil_factor(combined2, combined3, inid)
     mis <- setdiff(region_main, plot_temp$region %>% unique() %>% as.character())
     if (length(mis) > 0) {
       for (element in mis) {
@@ -631,7 +599,7 @@ server <- function(input, output, session) {
         l$region <- element
         l$sample <- "0"
         l$log2_counts <- NA
-        l$state <- "IBA"
+        l$state <- state_order[1]
         plot_temp <- rbind(plot_temp, l)
       }
     }
@@ -736,22 +704,25 @@ server <- function(input, output, session) {
   })
 
   output$boxPlotUI <- renderUI({
-    if (input$doPlotly == T) {
-      boxPlotlyr()
-    } else {
+    if (input$doPlotly == FALSE) {
       boxPlotr()
+    } else {
+      boxPlotlyr()
     }
   })
 
   output$EigenPlot <- renderUI({
-    eigenplotr()
+    if (input$doEigen != T) {
+      plotOutput("boxPlot3", height = 1)
+    } else {
+      plotOutput("boxPlot3", width = 800, height = 300)
+    }
   })
 
-  eigenplotr <- reactive({
+  output$boxPlot3 <- renderPlot({
     if (input$doEigen != T) {
       g <- ""
-      output$boxPlot3 <- renderPlot(g)
-      plotOutput("boxPlot3", height = 1)
+      g
     } else {
       outputtab <- outputtab()
       inid <- outputtab$unique_gene_symbol
@@ -765,9 +736,8 @@ server <- function(input, output, session) {
                                             return(ggplot() + theme_void())})")))
       }
 
-      g <- eval(parse(text = paste0("cowplot::plot_grid(", str_c(region_short, "_fig", collapse = ","), ", ncol =", length(region_short), ")")))
-      output$boxPlot3 <- renderPlot(g)
-      plotOutput("boxPlot3", width = 800, height = 300)
+      # eval(parse(text = paste0("cowplot::plot_grid(", str_c(region_short, "_fig", collapse = ","), ", ncol =", length(region_short), ")")))
+      eval(parse(text = paste0("gg_to_facet(region_short, list(", str_c(region_short, "_fig", collapse = ","), "))")))
     }
   })
 
@@ -899,8 +869,25 @@ server <- function(input, output, session) {
 
   outputtab <- reactive({
     inid <- inid()
-    filtered <- combined %>%
-      filter(gene_id == inid | unique_gene_symbol == inid) %>%
+    
+    if (inid %in% orfs$gene_id | inid %in% orfs$unique_gene_symbol) {
+      temp_orfs <- orfs %>% filter(gene_id == inid | unique_gene_symbol == inid)
+      if (nrow(temp_orfs) == 0) {
+        rv$blast <<- ""
+        rv$pval <<- data.frame()
+        rv$temp_orfs <<- data.frame()
+      } else {
+        rv$pval <<- temp_orfs
+        rv$blast <<- temp_orfs$orf[1]
+        rv$temp_orfs <<- temp_orfs
+      }
+    } else {
+      rv$blast <<- ""
+      rv$pval <<- data.frame()
+      rv$temp_orfs <<- data.frame()
+    }
+    
+    filtered <- comb_fil_factor(combined2, combined3, inid) %>%
       select(1:6) %>%
       unique()
     
@@ -927,24 +914,6 @@ server <- function(input, output, session) {
     }
 
     out <- cbind(filtered, filtered2)
-
-    inid <- out$gene_id
-    if (inid %in% orfs$gene_id) {
-      temp_orfs <- orfs %>% filter(gene_id == inid)
-      if (nrow(temp_orfs) == 0) {
-        rv$blast <<- ""
-        rv$pval <<- data.frame()
-        rv$temp_orfs <<- data.frame()
-      } else {
-        rv$pval <<- temp_orfs
-        rv$blast <<- temp_orfs$orf[1]
-        rv$temp_orfs <<- temp_orfs
-      }
-    } else {
-      rv$blast <<- ""
-      rv$pval <<- data.frame()
-      rv$temp_orfs <<- data.frame()
-    }
 
     out
   })
