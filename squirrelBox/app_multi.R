@@ -1,5 +1,6 @@
 library(shiny)  
 library(dplyr)
+library(multidplyr)
 library(ggplot2)
 library(cowplot)
 library(readr)
@@ -15,8 +16,7 @@ library(shinyBS)
 library(feather)
 options(stringsAsFactors = FALSE)
 theme_set(theme_cowplot())
-# options(shiny.reactlog = TRUE)
-
+cluster <- new_cluster(4)
 
 ### general data settings
 use_folder <- "wgcna11" # change to get to old version of data
@@ -162,7 +162,9 @@ igraph_to_df <- function(ig, mod) {
     left_join(mod, by = "gene") %>%
     select(-X1) %>%
     group_by(module_n) %>%
+    partition(cluster) %>% 
     mutate(rank = rank(-n)) %>%
+    collect() %>% 
     ungroup()
   temp
 }
@@ -239,13 +241,14 @@ orfs <- read_csv("padj_orf.csv") %>%
 
 starorfs <- orfs %>%
   group_by(unique_gene_symbol) %>%
+  partition(cluster) %>% 
   arrange(desc(orf)) %>%
   dplyr::slice(1) %>%
   filter(
     exons > 1,
     str_detect(unique_gene_symbol, "^G[0-9]+|_"),
     orf_len >= 100
-  )
+  ) %>% collect()
 domains <- read_csv("novel_domains.csv", col_types = "cc")
 
 # padj functions
@@ -323,28 +326,7 @@ groups_to_letters_igraph <- function(df) {
 # read in rf importance
 imp <- read_csv("rf_imp.csv")
 
-# read in rf mds df
-dfmds <- readRDS("MDSdf.rds")
-
-# read in rf selection results
-rf.vs1 <- readRDS("rfvs.rds")
-trf <- rf.vs1$selec.history %>% 
-  as_tibble() %>% 
-  mutate(Vars.in.Forest = str_split(Vars.in.Forest, " \\+ "))
-rfvars<- trf$Vars.in.Forest %>%
-  unlist() %>%
-  table() %>%
-  sort(decreasing = TRUE) %>% 
-  as.data.frame(stringsAsFactors = FALSE) %>%
-  mutate(rank = rank(-Freq, ties.method = "min")) %>%
-  select(-2)
-colnames(rfvars) <- c("gene", "rank")
-
-vars_set <- function(rfvars, n) {
-  rfvars %>% filter(rank <= n) %>% pull(gene)
-}
-
-# slightly faster than plot_grid?
+# faster than plot_grid
 gg_to_facet <- function(region_short, gg_list) {
   df_title <- lapply(gg_list, function(g) {
     g$labels$title
@@ -377,7 +359,6 @@ gg_to_facet <- function(region_short, gg_list) {
     # scale_color_manual(values = state_cols) + 
     theme(legend.position = "none")
 }
-
 # some other code for webpage functions
 jscode <- '
 $(function() {
@@ -533,21 +514,6 @@ ui <- fluidPage(
             label = "download filtered data"
           ),
           DT::dataTableOutput("tbl2")
-        ),
-        tabPanel(
-          title ="table_varsel",
-          value = "table_varsel",
-          div(plotlyOutput("mds", width = 400, height = 300, inline = TRUE),
-              plotlyOutput("mds2", width = 400, height = 300, inline = TRUE)),
-          div(plotlyOutput("oob", width = 400, height = 300, inline = TRUE),
-              plotlyOutput("oob2", width = 400, height = 300, inline = TRUE)),
-          div(
-          downloadButton(
-            outputId = "saveFiltered3",
-            label = "download gene list"
-          ),
-          uiOutput("sel", inline = TRUE)),
-          DT::dataTableOutput("tbl3")
         )
       )
     )
@@ -571,7 +537,6 @@ server <- function(input, output, session) {
   rv$listn <- 1
   rv$listn2 <- 0
   rv$cart <- 0
-  rv$xsel <- "NA"
 
   observeEvent(rv$init == 0, {
     if (rv$init == 0) {
@@ -742,10 +707,10 @@ server <- function(input, output, session) {
   })
 
   output$boxPlotUI <- renderUI({
-    if (input$doPlotly == FALSE) {
-      boxPlotr()
-    } else {
+    if (input$doPlotly == T) {
       boxPlotlyr()
+    } else {
+      boxPlotr()
     }
   })
 
@@ -1281,7 +1246,7 @@ server <- function(input, output, session) {
   observeEvent(input$file, {
     rv$listn <- 0
     path <- input$file$datapath
-    historytablist <<- read_csv(path, col_names = FALSE) %>% pull(1)
+    historytablist <<- read_csv(path) %>% pull(1)
   })
   
   onclick("Add", {
@@ -1372,75 +1337,6 @@ server <- function(input, output, session) {
                          choices = autocomplete_list,
                          server = T
     )
-  })
-  
-  output$tbl3 <- DT::renderDataTable({
-    DT::datatable(
-      rfvars,
-      filter = "top",
-      escape = FALSE,
-      selection = "single",
-      rownames = FALSE
-    )
-  })
-  
-  observeEvent(input$tbl3_rows_selected, {
-    rv$run2 <- 1
-    updateSelectizeInput(session,
-                         inputId = "geneID",
-                         selected = rfvars[input$tbl3_rows_selected, "gene"],
-                         choices = autocomplete_list,
-                         server = T
-    )
-  })
-  
-  output$mds <- renderPlotly({
-    plot_ly(x=dfmds$`Dim 1`, 
-            y=dfmds$`Dim 2`, 
-            z=dfmds$`Dim 3`, 
-            type="scatter3d", 
-            mode="text", 
-            color=state_cols[dfmds$state], 
-            name = dfmds$state, 
-            text = dfmds$state) %>% hide_legend()
-  })
-  
-  output$mds2 <- renderPlotly({
-    plot_ly(x=dfmds$`Dim 1`, 
-            y=dfmds$`Dim 2`, 
-            z=dfmds$`Dim 3`, 
-            type="scatter3d", 
-            mode="text", 
-            color=state_cols[dfmds$region], 
-            name = dfmds$region, 
-            text = dfmds$sample) %>% hide_legend()
-  })
-  
-  output$oob <- renderPlotly({
-    ggplot(trf, aes(x = Number.Variables, y = OOB)) +
-      geom_point() +
-      theme_cowplot()
-  })
-
-  output$oob2 <- renderPlotly({
-    g <- ggplot(trf, aes(x = Number.Variables, y = OOB)) +
-      geom_point() +
-      theme_cowplot() +
-      xlim(0,50) 
-    ggplotly(g, source = "oob2", selectedpoints=list(9)) %>% 
-      layout(xaxis = list(showspikes = TRUE))
-  }) 
-  
-  plotlysel <- reactive({
-    event_data("plotly_click", source = "oob2")
-  })
-  
-  output$sel <- renderUI({
-    rv$xsel <<- plotlysel()
-    paste0("selected: ", as.character(rv$xsel$x))})
-  
-  output$saveFiltered3 <- downloadHandler("var_list.txt", content = function(file) {
-    write_lines(vars_set(rfvars, rv$xsel$x), file)
   })
   
   observeEvent(input$back_to_top, {
