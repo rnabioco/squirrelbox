@@ -13,6 +13,7 @@ library(plotly)
 library(tidyr)
 library(shinyBS)
 library(feather)
+library(qs)
 options(stringsAsFactors = FALSE)
 theme_set(theme_cowplot())
 # options(shiny.reactlog = TRUE)
@@ -23,6 +24,7 @@ use_folder <- "wgcna11" # change to get to old version of data
 track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
 gmt_file <- "c5.all.v6.2.symbols.gmt"
+sig_cut <- 0.001
 
 ### sample settings, define state colors and order, region order
 ### possibly read info out of csv file
@@ -144,8 +146,12 @@ for (reg in region_short) {
 }
 
 # read node igraph object
+# for (reg in region_short) {
+#   eval(parse(text = paste0(reg, '_ig <- suppressWarnings(readRDS(paste0(use_folder, \"/', reg, '_conn_list\")))')))
+# }
+
 for (reg in region_short) {
-  eval(parse(text = paste0(reg, '_ig <- suppressWarnings(readRDS(paste0(use_folder, \"/', reg, '_conn_list\")))')))
+  eval(parse(text = paste0(reg, '_ig <- suppressWarnings(qread(paste0(use_folder, \"/', reg, '_conn_list.qs\")))')))
 }
 
 for (reg in region_short) {
@@ -270,7 +276,7 @@ calls_sig <- function(padj, sig_sym) {
   temp <- cbind(padj, sig_sym)
   temp <- temp %>%
     rownames_to_column("comp") %>%
-    mutate(call1 = ifelse(padj <= 0.05, 1, 0))
+    mutate(call1 = ifelse(padj <= sig_cut, 1, 0))
   temp
 }
 
@@ -1413,7 +1419,7 @@ server <- function(input, output, session) {
             mode="text", 
             color=state_cols[dfmds$region], 
             name = dfmds$region, 
-            text = dfmds$sample) %>% hide_legend()
+            text = dfmds$region) %>% hide_legend()
   })
   
   output$oob <- renderPlotly({

@@ -172,3 +172,6 @@ r[is.na(r)] <- 0
 colnames(r) <- c("unique_gene_symbol", "hy_imp", "med_imp", "fore_imp")
 r <- r %>% mutate(hy_rank = rank(-hy_imp), med_rank = rank(-med_imp), fore_rank = rank(-fore_imp))
 write_csv(r, "rf_imp.csv")
+
+qsave(combined2, "combined2.qs")
+combined2 <- qread("combined2.qs")
