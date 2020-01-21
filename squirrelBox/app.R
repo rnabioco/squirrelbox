@@ -132,10 +132,7 @@ colnames(bed) <- c(
 historytab <- c()
 
 # read modules
-for (reg in region_short) {
-  eval(parse(text = paste0(reg, '_modules <- suppressWarnings(read_csv(paste0(use_folder, \"/', reg, '_modules.csv\"), 
-                                          col_types = \"ncncn\"))')))
-}
+mod <- read_feather("clusters.feather")
 
 # eigengene plots
 for (reg in region_short) {
@@ -218,7 +215,7 @@ domains <- read_csv("novel_domains.csv", col_types = "cc")
 find_padj <- function(region, state, tbl) {
   temp <- str_c(tbl[str_sub(tbl, 1, 1) == str_to_lower(str_sub(region, 1, 1)) &
                       str_detect(tbl, state)],
-                collapse = "\n"
+                collapse = "<br>"
   )
   if (length(temp) == 0) {
     temp <- "NA"
@@ -236,7 +233,7 @@ calls_sig <- function(padj, sig_sym) {
   temp <- cbind(padj, sig_sym)
   temp <- temp %>%
     rownames_to_column("comp") %>%
-    mutate(call1 = ifelse(padj <= sigcut, 1, 0))
+    mutate(call1 = ifelse(padj <= sig_cut, 1, 0))
   temp
 }
 
@@ -412,7 +409,6 @@ ui <- fluidPage(
         ),
         tabPanel(
           "links",
-          selectInput("region", label = NULL, choices = as.list(region_short), selected = region_short[1]),
           uiOutput("conn"),
           tags$hr(style = "border-color: green;"),
           uiOutput("tab"), uiOutput("blastlink"),
@@ -531,7 +527,6 @@ server <- function(input, output, session) {
   rv$old <- ""
   rv$blast <- ""
   rv$pval <- data.frame()
-  rv$act_modules <- eval(parse(text = paste0(region_short[1], "_modules")))
   rv$temp_orfs <- data.frame()
   rv$listn <- 1
   rv$listn2 <- 0
@@ -561,10 +556,6 @@ server <- function(input, output, session) {
       rv$init <- 1
       rv$run2 <- 1
     }
-  })
-  
-  observeEvent(input$region, {
-    rv$act_modules <- eval(parse(text = paste0(input$region, "_modules")))
   })
   
   observeEvent(input$Find, {
@@ -751,28 +742,29 @@ server <- function(input, output, session) {
     outputtab <- outputtab()
     inid <- outputtab$unique_gene_symbol
     
-    mod <- rv$act_modules %>%
-      filter(gene == inid) %>%
-      pull(module_n)
-    if (length(mod) == 0) {
-      mod <- "low expression"
-    }
-    r <- rv$act_modules %>%
-      filter(gene == inid) %>%
-      pull(r)
-    if (length(r) == 0) {
-      r <- ""
+    mod1 <- mod %>%
+      filter(gene == inid)
+    if (length(mod1) == 0) {
+      mod1 <- "low expression everywhere"
     } else {
-      r <- as.character(round(r, digits = 2))
-      r <- str_c(", r = ", r)
+      mod1 <- mod1 %>% t() %>%
+        as.data.frame() %>%
+        rownames_to_column() %>%
+        mutate(text = str_c(rowname, V1, sep = ":")) %>%
+        pull(text) %>%
+        str_c(collapse = "\n")
     }
-    maxrank <- rv$act_modules %>%
-      filter(module_n == mod) %>%
-      nrow()
+    # r <- rv$act_modules %>%
+    #   filter(gene == inid) %>%
+    #   pull(r)
+    # if (length(r) == 0) {
+    #   r <- ""
+    # } else {
+    #   r <- as.character(round(r, digits = 2))
+    #   r <- str_c(", r = ", r)
+    # }
     HTML(str_c(
-      input$region, ": ",
-      mod,
-      r
+      mod1#, r
     ))
   })
   
@@ -1207,16 +1199,16 @@ server <- function(input, output, session) {
   )
   
   # link to trait pdf
-  onclick("conn", {
-    filename <- str_c(input$region, "_trait.pdf")
-    output$pdfview <- renderText({
-      return(paste('<iframe style="height:800px; width:100%" src="',
-                   filename,
-                   '"></iframe>',
-                   sep = ""
-      ))
-    })
-  })
+  # onclick("conn", {
+  #   filename <- str_c(input$region, "_trait.pdf")
+  #   output$pdfview <- renderText({
+  #     return(paste('<iframe style="height:800px; width:100%" src="',
+  #                  filename,
+  #                  '"></iframe>',
+  #                  sep = ""
+  #     ))
+  #   })
+  # })
   
   # loading list and viewing
   observeEvent(input$file, {
