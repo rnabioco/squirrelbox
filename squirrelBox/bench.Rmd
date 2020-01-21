@@ -30,6 +30,13 @@ benchmark2 <- microbenchmark(
   read_tsv_string = readr::read_csv("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined3.csv"),
   fread = data.table::fread("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined3.csv"),
   times = 2)
+
+benchmark3 <- microbenchmark(
+  read_tsv = readr::read_csv("/Users/rf/Downloads/squirrelBox/combined2.csv"),
+  fread = data.table::fread("/Users/rf/Downloads/squirrelBox/combined2.csv"),
+  feather = feather::read_feather("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined2.feather"),
+  qs = qs::qread("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/combined2.qs", nthreads = 3),
+  times = 5)
 ```
 
 ```{r}

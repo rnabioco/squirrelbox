@@ -17,32 +17,32 @@ pheno_path <- c("/Users/rf/sandy/brain_phenodata.csv","/Users/rf/sandy/medulla_p
 pheno <- map(pheno_path, function(x) {read.csv(x) %>% select(ids, population)})
 dict <- do.call(rbind, pheno)
 
-a <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20191113/Adrenal.tsv.gz") %>%
+a <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20200116/Adrenal.tsv.gz") %>%
   select(-contains("_"), -source, gene_id) %>%
   mutate(region = "Adrenal") %>%
   pivot_longer(-c(gene_id, region), names_to = "sample", values_to = "log2_counts") %>% 
   left_join(dict)
-f <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20191113/Forebrain.tsv.gz") %>%
-  select(-contains("_"), -source, gene_id) %>%
+f <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20200116/Forebrain.tsv.gz") %>%
+  select(-contains("_"), -source, -cluster, gene_id) %>%
   mutate(region = "Forebrain") %>%
   pivot_longer(-c(gene_id, region), names_to = "sample", values_to = "log2_counts") %>% 
-  left_join(dict)
-k <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20191113/Kidney.tsv.gz") %>%
+  left_join(dict, by = c("sample" = "ids"))
+k <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20200116/Kidney.tsv.gz") %>%
   select(-contains("_"), -source, gene_id) %>%
   mutate(region = "Kidney") %>%
   pivot_longer(-c(gene_id, region), names_to = "sample", values_to = "log2_counts") %>% 
   left_join(dict)
-l <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20191113/Liver.tsv.gz") %>%
+l <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20200116/Liver.tsv.gz") %>%
   select(-contains("_"), -source, gene_id) %>%
   mutate(region = "Liver") %>%
   pivot_longer(-c(gene_id, region), names_to = "sample", values_to = "log2_counts") %>% 
   left_join(dict)
-m <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20191113/Medulla.tsv.gz") %>%
+m <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20200116/Medulla.tsv.gz") %>%
   select(-contains("_"), -source, gene_id) %>%
   mutate(region = "Medulla") %>%
   pivot_longer(-c(gene_id, region), names_to = "sample", values_to = "log2_counts") %>% 
   left_join(dict)
-h <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20191113/Hypothalamus.tsv.gz") %>%
+h <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20200116/Hypothalamus.tsv.gz") %>%
   select(-contains("_"), -source, gene_id) %>%
   mutate(region = "Hypothalamus") %>%
   pivot_longer(-c(gene_id, region), names_to = "sample", values_to = "log2_counts") %>% 
@@ -66,6 +66,16 @@ k <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20191113/Kidney.tsv.gz"
 
 combined3 <- do.call(rbind, list(a,f,k,l,m,h)) %>% distinct()
 write_feather(combined3, "combined3.feather") # <- combined3.feather
+
+mod_f <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20200116/Forebrain.tsv.gz") %>%
+  select(gene = unique_gene_symbol, cluster) %>%
+  mutate(cluster = ifelse(is.na(cluster), "insig", cluster))
+mod_h <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20200116/Hypothalamus.tsv.gz") %>%
+  select(gene_id, cluster) %>%
+  mutate(cluster = ifelse(is.na(cluster), "insig", cluster))
+mod_m <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20200116/Medulla.tsv.gz") %>%
+  select(gene_id, cluster) %>%
+  mutate(cluster = ifelse(is.na(cluster), "insig", cluster))
 
 # bed <- read_tsv("squirrelBox/final_annot_20191112.bed12", col_names = F, col_types = "cnncncnnnnncccc") %>%
 #   select(1:6,13)
@@ -172,3 +182,6 @@ r[is.na(r)] <- 0
 colnames(r) <- c("unique_gene_symbol", "hy_imp", "med_imp", "fore_imp")
 r <- r %>% mutate(hy_rank = rank(-hy_imp), med_rank = rank(-med_imp), fore_rank = rank(-fore_imp))
 write_csv(r, "rf_imp.csv")
+
+qsave(combined2, "combined2.qs")
+combined2 <- qread("combined2.qs")
