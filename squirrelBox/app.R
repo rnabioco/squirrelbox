@@ -137,34 +137,6 @@ for (reg in region_short) {
                                           col_types = \"ncncn\"))')))
 }
 
-# read node igraph object
-for (reg in region_short) {
-  eval(parse(text = paste0(reg, '_ig <- suppressWarnings(readRDS(paste0(use_folder, \"/', reg, '_conn_list\")))')))
-}
-
-for (reg in region_short) {
-  eval(parse(text = paste0(reg, "_net <- suppressWarnings(toVisNetworkData(", reg, "_ig))")))
-}
-
-igraph_to_df <- function(ig, mod) {
-  temp <- as_edgelist(ig)
-  temp <- c(temp[, 1], temp[, 2]) %>%
-    table() %>%
-    as.tibble()
-  colnames(temp) <- c("gene", "n")
-  temp <- temp %>%
-    left_join(mod, by = "gene") %>%
-    select(-X1) %>%
-    group_by(module_n) %>%
-    mutate(rank = rank(-n)) %>%
-    ungroup()
-  temp
-}
-
-for (reg in region_short) {
-  eval(parse(text = paste0(reg, "_temp4 <- suppressWarnings(igraph_to_df(", reg, "_ig, ", reg, "_modules))")))
-}
-
 # eigengene plots
 for (reg in region_short) {
   eval(parse(text = paste0(reg, '_gg <- suppressWarnings(readRDS(paste0(use_folder, \"/', reg, '_gg\")))')))
@@ -367,8 +339,6 @@ gg_to_facet <- function(region_short, gg_list) {
     scale_fill_manual(values = state_cols) +
     facet_wrap(~region, scales = "free", labeller = as_labeller(unlist(df_title))) + 
     scale_x_discrete(limits = state_order) +
-    # geom_point(aes(color = population), position = position_jitter(seed = 1)) + 
-    # scale_color_manual(values = state_cols) + 
     theme(legend.position = "none")
 }
 
@@ -506,8 +476,6 @@ ui <- fluidPage(
           tags$hr(style = "border-color: green;"),
           htmlOutput("ucscPlot"),
           tags$hr(style = "border-color: green;"),
-          visNetworkOutput("connPlot"),
-          tags$hr(style = "border-color: green;"),
           tableOutput("gotab")
         ),
         tabPanel(
@@ -564,8 +532,6 @@ server <- function(input, output, session) {
   rv$blast <- ""
   rv$pval <- data.frame()
   rv$act_modules <- eval(parse(text = paste0(region_short[1], "_modules")))
-  rv$act_temp4 <- eval(parse(text = paste0(region_short[1], "_temp4")))
-  rv$act_net <- eval(parse(text = paste0(region_short[1], "_net")))
   rv$temp_orfs <- data.frame()
   rv$listn <- 1
   rv$listn2 <- 0
@@ -599,8 +565,6 @@ server <- function(input, output, session) {
   
   observeEvent(input$region, {
     rv$act_modules <- eval(parse(text = paste0(input$region, "_modules")))
-    rv$act_temp4 <- eval(parse(text = paste0(input$region, "_temp4")))
-    rv$act_net <- eval(parse(text = paste0(input$region, "_net")))
   })
   
   observeEvent(input$Find, {
@@ -780,69 +744,6 @@ server <- function(input, output, session) {
     }
   })
   
-  output$connPlot <- renderVisNetwork({
-    if (input$doMod != T | input$doNet != T) {
-      return()
-    }
-    outputtab <- outputtab()
-    queryid <- outputtab$unique_gene_symbol
-    edgeq <- rv$act_net$edges %>% filter(from == queryid | to == queryid)
-    nodeq <- c(edgeq$from, edgeq$to) %>% unique()
-    edgeq2 <- tryCatch(
-      {
-        rv$act_net$edges %>%
-          filter(from %in% nodeq | to %in% nodeq) %>%
-          mutate(color = "gray", opacity = 0, width = 0)
-      },
-      error = function(err) {
-        return(data.frame())
-      }
-    )
-    nodeq2 <- tryCatch(
-      {
-        rv$act_net$nodes[nodeq, ] %>%
-          left_join(table(c(edgeq2$from, edgeq2$to)) %>%
-                      as.data.frame(stringsAsFactors = F), by = c("id" = "Var1")) %>%
-          mutate(
-            value = Freq,
-            color = ifelse(id == queryid, "red", "lightblue"),
-            shape = ifelse(id %in% refTFs,
-                           "square",
-                           ifelse(id %in% starorfs$unique_gene_symbol,
-                                  "star",
-                                  "triangle"
-                           )
-            ),
-            border.color = "black"
-          )
-      },
-      error = function(err) {
-        return(data.frame())
-      }
-    )
-    if (nrow(nodeq2) == 0) {
-      return()
-    }
-    visNetwork(nodes = nodeq2, edges = edgeq2, height = "1200px") %>%
-      visLayout(randomSeed = 23) %>%
-      visNodes(
-        borderWidth = 2, color = list(
-          border = "green",
-          highlight = "yellow"
-        ),
-        font = list(size = 9)
-      ) %>%
-      visPhysics(
-        stabilization = F,
-        solver = "repulsion",
-        enabled = F
-      ) %>%
-      visEdges(smooth = F) %>%
-      visEvents(select = "function(nodes) {
-                Shiny.onInputChange('current_node_id', nodes.nodes);
-                ;}")
-  })
-  
   output$conn <- renderUI({
     if (input$doMod != T) {
       return()
@@ -850,23 +751,6 @@ server <- function(input, output, session) {
     outputtab <- outputtab()
     inid <- outputtab$unique_gene_symbol
     
-    edgeq <- rv$act_net$edges %>% filter(from == inid | to == inid)
-    nodeq <- c(edgeq$from, edgeq$to) %>% unique()
-    rv$conn <<- tryCatch(
-      {
-        length(nodeq) - 1
-      },
-      error = function(err) {
-        return(0)
-      }
-    )
-    
-    rank <- rv$act_temp4 %>%
-      filter(gene == inid) %>%
-      pull(rank)
-    if (length(rank) == 0) {
-      rank <- "NA"
-    }
     mod <- rv$act_modules %>%
       filter(gene == inid) %>%
       pull(module_n)
@@ -886,24 +770,10 @@ server <- function(input, output, session) {
       filter(module_n == mod) %>%
       nrow()
     HTML(str_c(
-      "# of connections (",
-      input$region, "): ",
-      rv$conn, "<br>",
-      rank, " out of ",
-      maxrank,
-      " in module ",
+      input$region, ": ",
       mod,
       r
     ))
-  })
-  
-  observeEvent(input$current_node_id, {
-    updateSelectizeInput(session,
-                         inputId = "geneID",
-                         selected = input$current_node_id,
-                         choices = autocomplete_list,
-                         server = T
-    )
   })
   
   outputtab <- reactive({
