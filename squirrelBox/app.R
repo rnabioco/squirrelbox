@@ -132,38 +132,7 @@ colnames(bed) <- c(
 historytab <- c()
 
 # read modules
-for (reg in region_short) {
-  eval(parse(text = paste0(reg, '_modules <- suppressWarnings(read_csv(paste0(use_folder, \"/', reg, '_modules.csv\"), 
-                                          col_types = \"ncncn\"))')))
-}
-
-# read node igraph object
-for (reg in region_short) {
-  eval(parse(text = paste0(reg, '_ig <- suppressWarnings(readRDS(paste0(use_folder, \"/', reg, '_conn_list\")))')))
-}
-
-for (reg in region_short) {
-  eval(parse(text = paste0(reg, "_net <- suppressWarnings(toVisNetworkData(", reg, "_ig))")))
-}
-
-igraph_to_df <- function(ig, mod) {
-  temp <- as_edgelist(ig)
-  temp <- c(temp[, 1], temp[, 2]) %>%
-    table() %>%
-    as.tibble()
-  colnames(temp) <- c("gene", "n")
-  temp <- temp %>%
-    left_join(mod, by = "gene") %>%
-    select(-X1) %>%
-    group_by(module_n) %>%
-    mutate(rank = rank(-n)) %>%
-    ungroup()
-  temp
-}
-
-for (reg in region_short) {
-  eval(parse(text = paste0(reg, "_temp4 <- suppressWarnings(igraph_to_df(", reg, "_ig, ", reg, "_modules))")))
-}
+mod <- read_feather("clusters.feather")
 
 # eigengene plots
 for (reg in region_short) {
@@ -246,7 +215,7 @@ domains <- read_csv("novel_domains.csv", col_types = "cc")
 find_padj <- function(region, state, tbl) {
   temp <- str_c(tbl[str_sub(tbl, 1, 1) == str_to_lower(str_sub(region, 1, 1)) &
                       str_detect(tbl, state)],
-                collapse = "\n"
+                collapse = "<br>"
   )
   if (length(temp) == 0) {
     temp <- "NA"
@@ -264,7 +233,7 @@ calls_sig <- function(padj, sig_sym) {
   temp <- cbind(padj, sig_sym)
   temp <- temp %>%
     rownames_to_column("comp") %>%
-    mutate(call1 = ifelse(padj <= sigcut, 1, 0))
+    mutate(call1 = ifelse(padj <= sig_cut, 1, 0))
   temp
 }
 
@@ -367,8 +336,6 @@ gg_to_facet <- function(region_short, gg_list) {
     scale_fill_manual(values = state_cols) +
     facet_wrap(~region, scales = "free", labeller = as_labeller(unlist(df_title))) + 
     scale_x_discrete(limits = state_order) +
-    # geom_point(aes(color = population), position = position_jitter(seed = 1)) + 
-    # scale_color_manual(values = state_cols) + 
     theme(legend.position = "none")
 }
 
@@ -442,7 +409,6 @@ ui <- fluidPage(
         ),
         tabPanel(
           "links",
-          selectInput("region", label = NULL, choices = as.list(region_short), selected = region_short[1]),
           uiOutput("conn"),
           tags$hr(style = "border-color: green;"),
           uiOutput("tab"), uiOutput("blastlink"),
@@ -506,8 +472,6 @@ ui <- fluidPage(
           tags$hr(style = "border-color: green;"),
           htmlOutput("ucscPlot"),
           tags$hr(style = "border-color: green;"),
-          visNetworkOutput("connPlot"),
-          tags$hr(style = "border-color: green;"),
           tableOutput("gotab")
         ),
         tabPanel(
@@ -563,9 +527,6 @@ server <- function(input, output, session) {
   rv$old <- ""
   rv$blast <- ""
   rv$pval <- data.frame()
-  rv$act_modules <- eval(parse(text = paste0(region_short[1], "_modules")))
-  rv$act_temp4 <- eval(parse(text = paste0(region_short[1], "_temp4")))
-  rv$act_net <- eval(parse(text = paste0(region_short[1], "_net")))
   rv$temp_orfs <- data.frame()
   rv$listn <- 1
   rv$listn2 <- 0
@@ -595,12 +556,6 @@ server <- function(input, output, session) {
       rv$init <- 1
       rv$run2 <- 1
     }
-  })
-  
-  observeEvent(input$region, {
-    rv$act_modules <- eval(parse(text = paste0(input$region, "_modules")))
-    rv$act_temp4 <- eval(parse(text = paste0(input$region, "_temp4")))
-    rv$act_net <- eval(parse(text = paste0(input$region, "_net")))
   })
   
   observeEvent(input$Find, {
@@ -780,69 +735,6 @@ server <- function(input, output, session) {
     }
   })
   
-  output$connPlot <- renderVisNetwork({
-    if (input$doMod != T | input$doNet != T) {
-      return()
-    }
-    outputtab <- outputtab()
-    queryid <- outputtab$unique_gene_symbol
-    edgeq <- rv$act_net$edges %>% filter(from == queryid | to == queryid)
-    nodeq <- c(edgeq$from, edgeq$to) %>% unique()
-    edgeq2 <- tryCatch(
-      {
-        rv$act_net$edges %>%
-          filter(from %in% nodeq | to %in% nodeq) %>%
-          mutate(color = "gray", opacity = 0, width = 0)
-      },
-      error = function(err) {
-        return(data.frame())
-      }
-    )
-    nodeq2 <- tryCatch(
-      {
-        rv$act_net$nodes[nodeq, ] %>%
-          left_join(table(c(edgeq2$from, edgeq2$to)) %>%
-                      as.data.frame(stringsAsFactors = F), by = c("id" = "Var1")) %>%
-          mutate(
-            value = Freq,
-            color = ifelse(id == queryid, "red", "lightblue"),
-            shape = ifelse(id %in% refTFs,
-                           "square",
-                           ifelse(id %in% starorfs$unique_gene_symbol,
-                                  "star",
-                                  "triangle"
-                           )
-            ),
-            border.color = "black"
-          )
-      },
-      error = function(err) {
-        return(data.frame())
-      }
-    )
-    if (nrow(nodeq2) == 0) {
-      return()
-    }
-    visNetwork(nodes = nodeq2, edges = edgeq2, height = "1200px") %>%
-      visLayout(randomSeed = 23) %>%
-      visNodes(
-        borderWidth = 2, color = list(
-          border = "green",
-          highlight = "yellow"
-        ),
-        font = list(size = 9)
-      ) %>%
-      visPhysics(
-        stabilization = F,
-        solver = "repulsion",
-        enabled = F
-      ) %>%
-      visEdges(smooth = F) %>%
-      visEvents(select = "function(nodes) {
-                Shiny.onInputChange('current_node_id', nodes.nodes);
-                ;}")
-  })
-  
   output$conn <- renderUI({
     if (input$doMod != T) {
       return()
@@ -850,60 +742,30 @@ server <- function(input, output, session) {
     outputtab <- outputtab()
     inid <- outputtab$unique_gene_symbol
     
-    edgeq <- rv$act_net$edges %>% filter(from == inid | to == inid)
-    nodeq <- c(edgeq$from, edgeq$to) %>% unique()
-    rv$conn <<- tryCatch(
-      {
-        length(nodeq) - 1
-      },
-      error = function(err) {
-        return(0)
-      }
-    )
-    
-    rank <- rv$act_temp4 %>%
-      filter(gene == inid) %>%
-      pull(rank)
-    if (length(rank) == 0) {
-      rank <- "NA"
-    }
-    mod <- rv$act_modules %>%
-      filter(gene == inid) %>%
-      pull(module_n)
-    if (length(mod) == 0) {
-      mod <- "low expression"
-    }
-    r <- rv$act_modules %>%
-      filter(gene == inid) %>%
-      pull(r)
-    if (length(r) == 0) {
-      r <- ""
+    mod1 <- mod %>%
+      filter(gene == inid)
+    if (length(mod1) == 0) {
+      mod1 <- "low expression everywhere"
     } else {
-      r <- as.character(round(r, digits = 2))
-      r <- str_c(", r = ", r)
+      mod1 <- mod1 %>% t() %>%
+        as.data.frame() %>%
+        rownames_to_column() %>%
+        mutate(text = str_c(rowname, V1, sep = ":")) %>%
+        pull(text) %>%
+        str_c(collapse = "\n")
     }
-    maxrank <- rv$act_modules %>%
-      filter(module_n == mod) %>%
-      nrow()
+    # r <- rv$act_modules %>%
+    #   filter(gene == inid) %>%
+    #   pull(r)
+    # if (length(r) == 0) {
+    #   r <- ""
+    # } else {
+    #   r <- as.character(round(r, digits = 2))
+    #   r <- str_c(", r = ", r)
+    # }
     HTML(str_c(
-      "# of connections (",
-      input$region, "): ",
-      rv$conn, "<br>",
-      rank, " out of ",
-      maxrank,
-      " in module ",
-      mod,
-      r
+      mod1#, r
     ))
-  })
-  
-  observeEvent(input$current_node_id, {
-    updateSelectizeInput(session,
-                         inputId = "geneID",
-                         selected = input$current_node_id,
-                         choices = autocomplete_list,
-                         server = T
-    )
   })
   
   outputtab <- reactive({
@@ -1337,16 +1199,16 @@ server <- function(input, output, session) {
   )
   
   # link to trait pdf
-  onclick("conn", {
-    filename <- str_c(input$region, "_trait.pdf")
-    output$pdfview <- renderText({
-      return(paste('<iframe style="height:800px; width:100%" src="',
-                   filename,
-                   '"></iframe>',
-                   sep = ""
-      ))
-    })
-  })
+  # onclick("conn", {
+  #   filename <- str_c(input$region, "_trait.pdf")
+  #   output$pdfview <- renderText({
+  #     return(paste('<iframe style="height:800px; width:100%" src="',
+  #                  filename,
+  #                  '"></iframe>',
+  #                  sep = ""
+  #     ))
+  #   })
+  # })
   
   # loading list and viewing
   observeEvent(input$file, {
