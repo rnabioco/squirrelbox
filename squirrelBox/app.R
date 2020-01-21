@@ -13,7 +13,7 @@ library(plotly)
 library(tidyr)
 library(shinyBS)
 library(feather)
-library(qs)
+library(crosstalk)
 options(stringsAsFactors = FALSE)
 theme_set(theme_cowplot())
 # options(shiny.reactlog = TRUE)
@@ -84,13 +84,13 @@ if (file.exists("combined2.feather")) {
   combined <- fread("combined.tsv")
 } else {
   combined <- read_tsv("combined.tsv.gz",
-    col_types = cols()
+                       col_types = cols()
   )
 }
 
 comb_fil_factor <- function(combined2, combined3, inid) {
-  combined3 <- combined3 %>% filter(gene_id == inid | unique_gene_symbol == inid)
-  combined2 <- combined2 %>% filter(gene_id == inid | gene_id == combined3$gene_id[1]) %>%
+  combined3 <- combined3 %>% filter(gene_id %in% inid | unique_gene_symbol %in% inid) 
+  combined2 <- combined2 %>% filter(gene_id %in% inid | gene_id %in% (combined3$gene_id %>% unique())) %>%
     mutate(sample = (str_remove(sample, "[A-Z]+")))
   combined <- combined3 %>% inner_join(combined2, by = "gene_id")
   combined %>% mutate(
@@ -102,14 +102,6 @@ comb_fil_factor <- function(combined2, combined3, inid) {
     )
   )
 }
-# combined <- combined %>% mutate(
-#   state = factor(state,
-#     levels = state_order
-#   ),
-#   region = factor(region,
-#     levels = region_order
-#   )
-# )
 
 # lists
 autocomplete_list <- str_sort(c(
@@ -121,8 +113,8 @@ decreasing = T
 
 # read annotation file to find ucsc track
 bed <- read_tsv("final_annot_20191112.bed12",
-  col_names = F,
-  col_types = "cnncncnnnnncccc"
+                col_names = F,
+                col_types = "cnncncnnnnncccc"
 ) %>%
   select(1:6, 13)
 
@@ -146,12 +138,8 @@ for (reg in region_short) {
 }
 
 # read node igraph object
-# for (reg in region_short) {
-#   eval(parse(text = paste0(reg, '_ig <- suppressWarnings(readRDS(paste0(use_folder, \"/', reg, '_conn_list\")))')))
-# }
-
 for (reg in region_short) {
-  eval(parse(text = paste0(reg, '_ig <- suppressWarnings(qread(paste0(use_folder, \"/', reg, '_conn_list.qs\")))')))
+  eval(parse(text = paste0(reg, '_ig <- suppressWarnings(readRDS(paste0(use_folder, \"/', reg, '_conn_list\")))')))
 }
 
 for (reg in region_short) {
@@ -188,29 +176,29 @@ gmt_to_list <- function(path,
                         sep = "\thttp://www.broadinstitute.org/gsea/msigdb/cards/.*?\t",
                         rm = "REACTOME_") {
   df <- readr::read_csv(path,
-    col_names = F, col_types = cols()
+                        col_names = F, col_types = cols()
   )
   df <- tidyr::separate(df,
-    X1,
-    sep = sep,
-    into = c("path", "genes")
+                        X1,
+                        sep = sep,
+                        into = c("path", "genes")
   )
   df <- dplyr::mutate(df,
-    path = stringr::str_replace(
-      df$path,
-      rm,
-      ""
-    ),
-    genes = stringr::str_split(
-      genes,
-      "\t"
-    )
+                      path = stringr::str_replace(
+                        df$path,
+                        rm,
+                        ""
+                      ),
+                      genes = stringr::str_split(
+                        genes,
+                        "\t"
+                      )
   )
   tidyr::unnest_legacy(df, genes)
 }
 
 gmt <- gmt_to_list(gmt_file,
-  rm = "^GO_"
+                   rm = "^GO_"
 )
 
 refs <- combined3 %>% distinct(
@@ -235,12 +223,12 @@ refTFs <- refs %>%
 # load orf predictions
 orfs <- read_csv("padj_orf.csv") %>%
   select(gene_id,
-    orf_len = len,
-    exons,
-    rna_len = transcript,
-    orf,
-    unique_gene_symbol,
-    everything()
+         orf_len = len,
+         exons,
+         rna_len = transcript,
+         orf,
+         unique_gene_symbol,
+         everything()
   )
 
 starorfs <- orfs %>%
@@ -257,8 +245,8 @@ domains <- read_csv("novel_domains.csv", col_types = "cc")
 # padj functions
 find_padj <- function(region, state, tbl) {
   temp <- str_c(tbl[str_sub(tbl, 1, 1) == str_to_lower(str_sub(region, 1, 1)) &
-    str_detect(tbl, state)],
-  collapse = "\n"
+                      str_detect(tbl, state)],
+                collapse = "\n"
   )
   if (length(temp) == 0) {
     temp <- "NA"
@@ -276,7 +264,7 @@ calls_sig <- function(padj, sig_sym) {
   temp <- cbind(padj, sig_sym)
   temp <- temp %>%
     rownames_to_column("comp") %>%
-    mutate(call1 = ifelse(padj <= sig_cut, 1, 0))
+    mutate(call1 = ifelse(padj <= sigcut, 1, 0))
   temp
 }
 
@@ -368,7 +356,7 @@ gg_to_facet <- function(region_short, gg_list) {
   
   temp2 <- do.call(rbind, df_list) %>% mutate(
     population = factor(population,
-                   levels = state_order
+                        levels = state_order
     ),
     region = factor(region,
                     levels = region_short
@@ -429,9 +417,9 @@ ui <- fluidPage(
       div(
         style = "display: inline-block;vertical-align:top; width: 200px;",
         tagAppendAttributes(selectizeInput("geneID",
-          label = NULL,
-          selected = "",
-          choices = ""
+                                           label = NULL,
+                                           selected = "",
+                                           choices = ""
         ),
         `data-proxy-click` = "Find"
         )
@@ -505,10 +493,10 @@ ui <- fluidPage(
           value = "plot",
           uiOutput("boxPlotUI"),
           bsModal("modalPDF",
-            title = "module-trait",
-            trigger = "conn",
-            size = "large",
-            htmlOutput("pdfview")
+                  title = "module-trait",
+                  trigger = "conn",
+                  size = "large",
+                  htmlOutput("pdfview")
           ),
           # plotOutput("boxPlot", width = 800, height = 600),
           uiOutput("EigenPlot"),
@@ -548,12 +536,17 @@ ui <- fluidPage(
           div(plotlyOutput("oob", width = 400, height = 300, inline = TRUE),
               plotlyOutput("oob2", width = 400, height = 300, inline = TRUE)),
           div(
-          downloadButton(
-            outputId = "saveFiltered3",
-            label = "download gene list"
-          ),
-          uiOutput("sel", inline = TRUE)),
+            downloadButton(
+              outputId = "saveFiltered3",
+              label = "download gene list"
+            ),
+            uiOutput("sel", inline = TRUE)),
           DT::dataTableOutput("tbl3")
+        ),
+        tabPanel(
+          title ="line_plot",
+          value = "line_plot",
+          plotlyOutput("linePlot", width = 800, height = 600)
         )
       )
     )
@@ -578,36 +571,38 @@ server <- function(input, output, session) {
   rv$listn2 <- 0
   rv$cart <- 0
   rv$xsel <- "NA"
-
+  rv$line <- 0
+  rv$line_refresh <- 0
+  
   observeEvent(rv$init == 0, {
     if (rv$init == 0) {
       query <- parseQueryString(session$clientData$url_search)
       if (!is.null(query[["gene"]])) {
         updateSelectizeInput(session,
-          inputId = "geneID",
-          selected = query[["gene"]],
-          choices = autocomplete_list,
-          server = T
+                             inputId = "geneID",
+                             selected = query[["gene"]],
+                             choices = autocomplete_list,
+                             server = T
         )
       } else {
         updateSelectizeInput(session,
-          inputId = "geneID",
-          selected = "Mex3c",
-          choices = autocomplete_list,
-          server = T
+                             inputId = "geneID",
+                             selected = "Mex3c",
+                             choices = autocomplete_list,
+                             server = T
         )
       }
       rv$init <- 1
       rv$run2 <- 1
     }
   })
-
+  
   observeEvent(input$region, {
     rv$act_modules <- eval(parse(text = paste0(input$region, "_modules")))
     rv$act_temp4 <- eval(parse(text = paste0(input$region, "_temp4")))
     rv$act_net <- eval(parse(text = paste0(input$region, "_net")))
   })
-
+  
   observeEvent(input$Find, {
     updateTabsetPanel(session, 
                       "tabMain",
@@ -615,23 +610,23 @@ server <- function(input, output, session) {
   })
   
   inid <- eventReactive(input$Find,
-    {
-      rv$old <<- input$geneID
-      shinyjs::runjs("window.scrollTo(0, 0)")
-      if (rv$init == 1) {
-        rv$init <<- 2
-      } else {
-        updateQueryString(paste0("?gene=", input$geneID), mode = "push")
-      }
-      input$geneID
-    },
-    ignoreNULL = T
+                        {
+                          rv$old <<- input$geneID
+                          shinyjs::runjs("window.scrollTo(0, 0)")
+                          if (rv$init == 1) {
+                            rv$init <<- 2
+                          } else {
+                            updateQueryString(paste0("?gene=", input$geneID), mode = "push")
+                          }
+                          input$geneID
+                        },
+                        ignoreNULL = T
   )
-
+  
   historytab <- c()
   historytablist <- c()
   carttablist <- c()
-
+  
   boxPlot1 <- reactive({
     outputtab <- outputtab()
     inid <- outputtab$unique_gene_symbol
@@ -667,13 +662,13 @@ server <- function(input, output, session) {
     } else {
       plot_temp <- plot_temp %>% mutate(text = "NA")
     }
-
+    
     set.seed(1)
     g <- ggplot(plot_temp, aes(state, log2_counts, text = text)) +
       ylab("rlog(counts)") +
       facet_wrap(~region, scales = "free") +
       theme(legend.position = "none")
-
+    
     if (input$doName == T) {
       g <- g +
         geom_boxplot(aes(color = state), outlier.shape = NA) +
@@ -686,7 +681,7 @@ server <- function(input, output, session) {
         geom_point(position = position_jitter(seed = 1))
       # geom_point(aes(color = sample), position = position_jitter(seed = 1))
     }
-
+    
     if (input$doPadj == T & nrow(rv$pval) != 0 & input$doPlotly == F) {
       temp2 <- calls_sig(padj, sig_sym)
       temp2 <- temp2 %>%
@@ -698,7 +693,7 @@ server <- function(input, output, session) {
       temp2$region <- region_order[factor(temp2$region, level = region_short) %>% as.numeric()]
       temp2 <- temp2
       temp3 <- groups_to_letters_igraph(temp2)
-
+      
       agg <- aggregate(log2_counts ~ state + region, plot_temp, max)
       agg_min <- aggregate(log2_counts ~ state + region, plot_temp, min)
       agg$min <- agg_min$log2_counts
@@ -712,7 +707,7 @@ server <- function(input, output, session) {
       agg3 <- agg2 %>%
         left_join(temp3 %>% select(region, state, letter)) %>%
         replace_na(list(letter = list("")))
-
+      
       g <- g +
         geom_text(data = agg3, aes(
           text = letter,
@@ -722,10 +717,10 @@ server <- function(input, output, session) {
           group = NULL
         ))
     }
-
+    
     g
   })
-
+  
   boxPlotr <- reactive({
     g <- boxPlot1()
     output$boxPlot <- renderPlot(g)
@@ -735,18 +730,18 @@ server <- function(input, output, session) {
       plotOutput("boxPlot", width = 800, height = 300)
     }
   })
-
+  
   boxPlotlyr <- reactive({
     g <- boxPlot1()
     output$boxPlot2 <- renderPlotly(ggplotly(g + facet_wrap(~region), tooltip = "text") %>%
-      layout(hovermode = "closest"))
+                                      layout(hovermode = "closest"))
     if (input$doTis == T) {
       plotlyOutput("boxPlot2", width = 800, height = 600)
     } else {
       plotlyOutput("boxPlot2", width = 800, height = 300)
     }
   })
-
+  
   output$boxPlotUI <- renderUI({
     if (input$doPlotly == FALSE) {
       boxPlotr()
@@ -754,7 +749,7 @@ server <- function(input, output, session) {
       boxPlotlyr()
     }
   })
-
+  
   output$EigenPlot <- renderUI({
     if (input$doEigen != T) {
       plotOutput("boxPlot3", height = 1)
@@ -762,7 +757,7 @@ server <- function(input, output, session) {
       plotOutput("boxPlot3", width = 800, height = 300)
     }
   })
-
+  
   output$boxPlot3 <- renderPlot({
     if (input$doEigen != T) {
       g <- ""
@@ -773,18 +768,18 @@ server <- function(input, output, session) {
       for (reg in region_short) {
         eval(parse(text = paste0(reg, "_mod <- ", reg, "_modules %>% filter(gene == inid) %>% pull(module_n)")))
       }
-
+      
       for (reg in region_short) {
         eval(parse(text = paste0(reg, "_fig <- tryCatch({", reg, "_gg[[as.numeric(", reg, "_mod) + 1]]}, 
                                           error = function(err) {
                                             return(ggplot() + theme_void())})")))
       }
-
+      
       # eval(parse(text = paste0("cowplot::plot_grid(", str_c(region_short, "_fig", collapse = ","), ", ncol =", length(region_short), ")")))
       eval(parse(text = paste0("gg_to_facet(region_short, list(", str_c(region_short, "_fig", collapse = ","), "))")))
     }
   })
-
+  
   output$connPlot <- renderVisNetwork({
     if (input$doMod != T | input$doNet != T) {
       return()
@@ -807,16 +802,16 @@ server <- function(input, output, session) {
       {
         rv$act_net$nodes[nodeq, ] %>%
           left_join(table(c(edgeq2$from, edgeq2$to)) %>%
-            as.data.frame(stringsAsFactors = F), by = c("id" = "Var1")) %>%
+                      as.data.frame(stringsAsFactors = F), by = c("id" = "Var1")) %>%
           mutate(
             value = Freq,
             color = ifelse(id == queryid, "red", "lightblue"),
             shape = ifelse(id %in% refTFs,
-              "square",
-              ifelse(id %in% starorfs$unique_gene_symbol,
-                "star",
-                "triangle"
-              )
+                           "square",
+                           ifelse(id %in% starorfs$unique_gene_symbol,
+                                  "star",
+                                  "triangle"
+                           )
             ),
             border.color = "black"
           )
@@ -847,14 +842,14 @@ server <- function(input, output, session) {
                 Shiny.onInputChange('current_node_id', nodes.nodes);
                 ;}")
   })
-
+  
   output$conn <- renderUI({
     if (input$doMod != T) {
       return()
     }
     outputtab <- outputtab()
     inid <- outputtab$unique_gene_symbol
-
+    
     edgeq <- rv$act_net$edges %>% filter(from == inid | to == inid)
     nodeq <- c(edgeq$from, edgeq$to) %>% unique()
     rv$conn <<- tryCatch(
@@ -865,7 +860,7 @@ server <- function(input, output, session) {
         return(0)
       }
     )
-
+    
     rank <- rv$act_temp4 %>%
       filter(gene == inid) %>%
       pull(rank)
@@ -901,16 +896,16 @@ server <- function(input, output, session) {
       r
     ))
   })
-
+  
   observeEvent(input$current_node_id, {
     updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = input$current_node_id,
-      choices = autocomplete_list,
-      server = T
+                         inputId = "geneID",
+                         selected = input$current_node_id,
+                         choices = autocomplete_list,
+                         server = T
     )
   })
-
+  
   outputtab <- reactive({
     inid <- inid()
     
@@ -948,7 +943,7 @@ server <- function(input, output, session) {
     if (nrow(filtered2) > 1) {
       filtered2 <- cbind(bed_merge(filtered2), filtered2[1, 4])
     }
-
+    
     if (nrow(filtered2 > 0)) {
       tempvec <- unique(c(filtered$unique_gene_symbol, historytab))
       if (length(tempvec) > 10) {
@@ -956,19 +951,19 @@ server <- function(input, output, session) {
       }
       historytab <<- tempvec
     }
-
+    
     out <- cbind(filtered, filtered2)
-
+    
     out
   })
-
+  
   output$results <- renderTable(
     {
       outputtab()
     },
     digits = 0
   )
-
+  
   # orf call table
   output$orfinfo <- renderTable(
     {
@@ -977,7 +972,7 @@ server <- function(input, output, session) {
     },
     digits = 0
   )
-
+  
   # goterm table
   output$gotab <- renderTable({
     if (input$doKegg != T) {
@@ -990,7 +985,7 @@ server <- function(input, output, session) {
     }
     temp1
   })
-
+  
   # download ucscplot
   output$ucscPlot <- renderUI({
     if (input$doUcsc != T) {
@@ -1032,77 +1027,77 @@ server <- function(input, output, session) {
       "<a/>"
     ))
   })
-
+  
   # various links in sidebar
   output$tab <- renderUI({
     outputtab <- outputtab()
     url <- a(outputtab$unique_gene_symbol,
-      href = str_c(
-        "http://genome.ucsc.edu/cgi-bin/hgTracks?db=",
-        track_name,
-        "&hubUrl=",
-        track_url,
-        "&ignoreCookie=1&position=",
-        outputtab$chrom,
-        ":",
-        outputtab$start,
-        "-",
-        outputtab$end
-      )
+             href = str_c(
+               "http://genome.ucsc.edu/cgi-bin/hgTracks?db=",
+               track_name,
+               "&hubUrl=",
+               track_url,
+               "&ignoreCookie=1&position=",
+               outputtab$chrom,
+               ":",
+               outputtab$start,
+               "-",
+               outputtab$end
+             )
     )
     tagList("trackhub:", url)
   })
-
+  
   output$tab2 <- renderUI({
     outputtab <- outputtab()
     clean <- a(outputtab$unique_gene_symbol,
-      href = str_c(
-        "https://www.ncbi.nlm.nih.gov/gene/?term=",
-        outputtab$clean_gene_symbol,
-        "[sym]+AND+human[ORGN]"
-      )
+               href = str_c(
+                 "https://www.ncbi.nlm.nih.gov/gene/?term=",
+                 outputtab$clean_gene_symbol,
+                 "[sym]+AND+human[ORGN]"
+               )
     )
     tagList("genbank:", clean)
   })
-
+  
   output$tab3 <- renderUI({
     outputtab <- outputtab()
     clean <- a(outputtab$unique_gene_symbol,
-      href = str_c(
-        "https://www.genenames.org/data/gene-symbol-report/#!/symbol/",
-        outputtab$clean_gene_symbol
-      )
+               href = str_c(
+                 "https://www.genenames.org/data/gene-symbol-report/#!/symbol/",
+                 outputtab$clean_gene_symbol
+               )
     )
     tagList("hgnc:", clean)
   })
-
+  
   output$tab4 <- renderUI({
     outputtab <- outputtab()
     clean <- a(outputtab$unique_gene_symbol,
-      href = str_c(
-        "https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
-        outputtab$clean_gene_symbol
-      )
+               href = str_c(
+                 "https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
+                 outputtab$clean_gene_symbol
+               )
     )
     tagList("genecard:", clean)
   })
-
+  
   output$blastlink <- renderUI({
     if (rv$blast != "" & !(is.na(rv$blast))) {
       outputtab <- outputtab()
       orf <- rv$blast
       url <- a(outputtab$unique_gene_symbol,
-        href = str_c(
-          "https://blast.ncbi.nlm.nih.gov/blast/Blast.cgi?CMD=Put&PROGRAM=blastp&DATABASE=nr&QUERY=",
-          orf
-        )
+               href = str_c(
+                 "https://blast.ncbi.nlm.nih.gov/blast/Blast.cgi?CMD=Put&PROGRAM=blastp&DATABASE=nr&QUERY=",
+                 orf
+               )
       )
       tagList("blast orf:", url)
     } else {
       return()
     }
   })
-
+  
   # save plot as pdf
   output$savePlot <- downloadHandler(
     filename = function() {
@@ -1122,7 +1117,77 @@ server <- function(input, output, session) {
       ggplot2::ggsave(file, plot = boxPlot1(), device = "pdf", width = w, height = h)
     }
   )
-
+  
+  linetemp <- reactive({
+    inid()
+    rv$line_refresh
+    if (length(historytablist) == 0) {
+      return(data.frame(unique_gene_symbol = "load data first"))
+    }
+    plot_temp <- comb_fil_factor(combined2, combined3, historytablist) %>%
+      group_by(region, state, unique_gene_symbol) %>%
+      summarize(counts = mean(2^log2_counts))
+    norm_state1 <- F
+    if (norm_state1 == TRUE) {
+      plot_temp <- plot_temp %>% group_by(unique_gene_symbol, region) %>%
+        mutate(log2_counts = log2(counts/counts[1])) %>%
+        ungroup()
+    } else {
+      plot_temp <- plot_temp %>% group_by(unique_gene_symbol, region) %>%
+        mutate(log2_counts = log2(counts/mean(counts))) %>%
+        ungroup()
+    }
+    mis <- setdiff(region_main, plot_temp$region %>% unique() %>% as.character())
+    if (length(mis) > 0) {
+      for (element in mis) {
+        l <- as.list(plot_temp[1, 1:6])
+        l$region <- element
+        l$sample <- "0"
+        l$log2_counts <- NA
+        l$state <- state_order[1]
+        plot_temp <- rbind(plot_temp, l)
+      }
+    }
+    if (input$doTis != T) {
+      plot_temp <- plot_temp %>% filter(region %in% region_main)
+    }
+    plot_temp
+  })
+  
+  
+  observeEvent(linetemp(), {
+    rv$line <- rv$line + 1
+    d <<- SharedData$new(linetemp, ~unique_gene_symbol, as.character(rv$line))
+    d$clearSelection()
+  })
+  
+  output$linePlot <- renderPlotly({
+    set.seed(1)
+    linetemp()
+    if (length(historytablist) == 0) {
+     return(ggplotly(ggplot()))
+    }
+    g <- ggplot(d, aes(state, log2_counts, 
+                       group = unique_gene_symbol,
+                       text = unique_gene_symbol)) +
+      ylab("rlog(counts)") +
+      facet_wrap(~region) +
+      theme(legend.position = "none")
+    
+    if (input$doName == T) {
+      g <- g +
+        geom_point(aes(color = unique_gene_symbol)) +
+        geom_line(aes(color = unique_gene_symbol)) +
+        geom_text(position = position_jitter(seed = 1), aes(label = unique_gene_symbol))
+    } else {
+      g <- g +
+        geom_point(aes(color = unique_gene_symbol)) +
+        geom_line(aes(color = unique_gene_symbol))
+    }
+    # highlight(ggplotly(g, tooltip = "text"),"plotly_hover")
+    ggplotly(g, tooltip = "text")
+  })
+  
   # history
   output$history1 <- renderUI({
     outputtab()
@@ -1167,91 +1232,91 @@ server <- function(input, output, session) {
   observeEvent(input$history1, {
     rv$run2 <- 1
     updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = historytab[1],
-      choices = autocomplete_list,
-      server = T
+                         inputId = "geneID",
+                         selected = historytab[1],
+                         choices = autocomplete_list,
+                         server = T
     )
   })
   observeEvent(input$history2, {
     rv$run2 <- 1
     updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = historytab[2],
-      choices = autocomplete_list,
-      server = T
+                         inputId = "geneID",
+                         selected = historytab[2],
+                         choices = autocomplete_list,
+                         server = T
     )
   })
   observeEvent(input$history3, {
     rv$run2 <- 1
     updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = historytab[3],
-      choices = autocomplete_list,
-      server = T
+                         inputId = "geneID",
+                         selected = historytab[3],
+                         choices = autocomplete_list,
+                         server = T
     )
   })
   observeEvent(input$history4, {
     rv$run2 <- 1
     updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = historytab[4],
-      choices = autocomplete_list,
-      server = T
+                         inputId = "geneID",
+                         selected = historytab[4],
+                         choices = autocomplete_list,
+                         server = T
     )
   })
   observeEvent(input$history5, {
     rv$run2 <- 1
     updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = historytab[5],
-      choices = autocomplete_list,
-      server = T
+                         inputId = "geneID",
+                         selected = historytab[5],
+                         choices = autocomplete_list,
+                         server = T
     )
   })
   observeEvent(input$history6, {
     rv$run2 <- 1
     updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = historytab[6],
-      choices = autocomplete_list,
-      server = T
+                         inputId = "geneID",
+                         selected = historytab[6],
+                         choices = autocomplete_list,
+                         server = T
     )
   })
   observeEvent(input$history7, {
     rv$run2 <- 1
     updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = historytab[7],
-      choices = autocomplete_list,
-      server = T
+                         inputId = "geneID",
+                         selected = historytab[7],
+                         choices = autocomplete_list,
+                         server = T
     )
   })
   observeEvent(input$history8, {
     rv$run2 <- 1
     updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = historytab[8],
-      choices = autocomplete_list,
-      server = T
+                         inputId = "geneID",
+                         selected = historytab[8],
+                         choices = autocomplete_list,
+                         server = T
     )
   })
   observeEvent(input$history9, {
     rv$run2 <- 1
     updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = historytab[9],
-      choices = autocomplete_list,
-      server = T
+                         inputId = "geneID",
+                         selected = historytab[9],
+                         choices = autocomplete_list,
+                         server = T
     )
   })
   observeEvent(input$history10, {
     rv$run2 <- 1
     updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = historytab[10],
-      choices = autocomplete_list,
-      server = T
+                         inputId = "geneID",
+                         selected = historytab[10],
+                         choices = autocomplete_list,
+                         server = T
     )
   })
   observeEvent(input$geneID != "", {
@@ -1260,41 +1325,42 @@ server <- function(input, output, session) {
       click("Find")
     }
   })
-
+  
   onclick(
     "geneID",
     updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = "",
-      choices = autocomplete_list,
-      server = T
+                         inputId = "geneID",
+                         selected = "",
+                         choices = autocomplete_list,
+                         server = T
     )
   )
-
+  
   # link to trait pdf
   onclick("conn", {
     filename <- str_c(input$region, "_trait.pdf")
     output$pdfview <- renderText({
       return(paste('<iframe style="height:800px; width:100%" src="',
-        filename,
-        '"></iframe>',
-        sep = ""
+                   filename,
+                   '"></iframe>',
+                   sep = ""
       ))
     })
   })
-
+  
   # loading list and viewing
   observeEvent(input$file, {
     rv$listn <- 0
     path <- input$file$datapath
-    historytablist <<- read_csv(path, col_names = FALSE) %>% pull(1)
+    historytablist <<- read_csv(path, col_names = FALSE) %>% pull
+    rv$line_refresh <- rv$line_refresh + 1
   })
   
   onclick("Add", {
     carttablist <- unique(c(historytab[1], carttablist))
     rv$listn2 <- length(carttablist)
   })
-
+  
   output$listn2 <- renderUI({
     HTML(str_c("# in cart:", rv$listn2))
   })
@@ -1310,13 +1376,13 @@ server <- function(input, output, session) {
     }
     rv$run2 <- 1
     updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = historytablist[rv$listn],
-      choices = autocomplete_list,
-      server = T
+                         inputId = "geneID",
+                         selected = historytablist[rv$listn],
+                         choices = autocomplete_list,
+                         server = T
     )
   })
-
+  
   onclick("Next", {
     rv$listn <- rv$listn + 1
     if (rv$listn > length(historytablist)) {
@@ -1324,17 +1390,17 @@ server <- function(input, output, session) {
     }
     rv$run2 <- 1
     updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = historytablist[rv$listn],
-      choices = autocomplete_list,
-      server = T
+                         inputId = "geneID",
+                         selected = historytablist[rv$listn],
+                         choices = autocomplete_list,
+                         server = T
     )
   })
-
+  
   output$listn <- renderUI({
     HTML(str_c(rv$listn, "of ", length(historytablist)))
   })
-
+  
   output$tbl <- DT::renderDataTable({
     DT::datatable(bed %>% select(
       unique_gene_symbol,
@@ -1346,7 +1412,7 @@ server <- function(input, output, session) {
     rownames = FALSE
     )
   })
-
+  
   output$saveFiltered <- downloadHandler("filtré.csv", content = function(file) {
     s <- input$tbl_rows_all
     write_csv((bed %>% select(unique_gene_symbol, everything()))[s, ], file)
@@ -1408,7 +1474,7 @@ server <- function(input, output, session) {
             mode="text", 
             color=state_cols[dfmds$state], 
             name = dfmds$state, 
-            text = dfmds$state) %>% hide_legend()
+            text = dfmds$region) %>% hide_legend()
   })
   
   output$mds2 <- renderPlotly({
@@ -1419,7 +1485,7 @@ server <- function(input, output, session) {
             mode="text", 
             color=state_cols[dfmds$region], 
             name = dfmds$region, 
-            text = dfmds$region) %>% hide_legend()
+            text = dfmds$sample) %>% hide_legend()
   })
   
   output$oob <- renderPlotly({
@@ -1427,7 +1493,7 @@ server <- function(input, output, session) {
       geom_point() +
       theme_cowplot()
   })
-
+  
   output$oob2 <- renderPlotly({
     g <- ggplot(trf, aes(x = Number.Variables, y = OOB)) +
       geom_point() +
