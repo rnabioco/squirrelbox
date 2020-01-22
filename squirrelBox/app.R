@@ -340,15 +340,19 @@ $(function() {
 # Define UI for application that draws the boxplot
 ui <- fluidPage(
   tags$style("
-      .checkbox { /* checkbox is a div class*/
+      .checkbox {
         line-height: 20px;
         margin-top: -15px;
-        margin-bottom: -15px; /*set the margin, so boxes don't overlap*/
+        margin-bottom: -15px;
+      }
+      .header {
+        position:fixed;
+        z-index:100;
       }
   "),
   useShinyjs(),
   tags$head(tags$script(HTML(jscode))),
-  titlePanel(div(img(src = "logo.png", style ="width : 4%; display: inline-block;"),
+  titlePanel(div(class = "header", img(src = "logo.png", style ="width : 4%;"),
                  "13-lined ground squirrel gene-level RNA-seq expression")),
   fixedPanel(
     style="z-index:100;",
@@ -358,10 +362,10 @@ ui <- fluidPage(
   ),
   sidebarLayout(
     sidebarPanel(
-      style = "position:fixed;width:inherit;",
+      style = "position:fixed;width:23%;margin-top: 60px;z-index:10;",
       width = 3,
       div(
-        style = "display: inline-block;vertical-align:top; width: 200px;",
+        style = "display: inline-block;vertical-align:top; width: 160px;",
         tagAppendAttributes(selectizeInput("geneID",
                                            label = NULL,
                                            selected = "",
@@ -371,7 +375,7 @@ ui <- fluidPage(
         )
       ),
       div(style = "display: inline-block;vertical-align:top; width: 10px;", actionButton("Find", "Find")),
-      tags$hr(style = "border-color: green;"),
+      br(),
       tabsetPanel(
         tabPanel(
           "options",
@@ -388,6 +392,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           "links",
+          br(),
           uiOutput("conn"),
           tags$hr(style = "border-color: green;"),
           uiOutput("tab"), uiOutput("blastlink"),
@@ -395,7 +400,6 @@ ui <- fluidPage(
           downloadButton("savePlot", label = "download plot")
         )
       ),
-      # br(),
       tags$hr(style = "border-color: green;"),
       tabsetPanel(
         tabPanel(
@@ -434,7 +438,9 @@ ui <- fluidPage(
       )
     ),
     mainPanel(
+      #style = "width:inherit;",
       width = 9,
+      style = "z-index:1;margin-top: 60px;",
       tabsetPanel(
         id = "tabMain",
         tabPanel(
