@@ -14,6 +14,7 @@ library(tidyr)
 library(shinyBS)
 library(feather)
 library(crosstalk)
+library(purrr)
 options(stringsAsFactors = FALSE)
 theme_set(theme_cowplot())
 # options(shiny.reactlog = TRUE)
@@ -133,11 +134,21 @@ historytab <- c()
 
 # read modules
 mod <- read_feather("clusters.feather")
+eigen <- read_tsv("cluster_patterns_matrices/reference_patterns.tsv") %>% 
+  rename(state = X1) %>% mutate(state = factor(state,
+                                               levels = state_order))
 
-# eigengene plots
-for (reg in region_short) {
-  eval(parse(text = paste0(reg, '_gg <- suppressWarnings(readRDS(paste0(use_folder, \"/', reg, '_gg\")))')))
+eigen_gg <- list()
+for (clu in colnames(eigen[,-1])) {
+  df_plot <- data.frame(state = eigen$state, value = eigen[[clu]])
+  eigen_gg[[clu]] <- ggplot(df_plot, aes(state, value, group = 1)) +
+    geom_line() +
+    geom_point(aes(color = state)) +
+    scale_color_manual(values = state_cols) +
+    ylab("expr") +
+    theme(legend.position = "none")
 }
+eigen_gg[["empty"]] <- ggplot()
 
 # read go terms and TFs
 gmt_to_list <- function(path,
@@ -307,38 +318,6 @@ vars_set <- function(rfvars, n) {
   rfvars %>% filter(rank <= n) %>% pull(gene)
 }
 
-# slightly faster than plot_grid?
-gg_to_facet <- function(region_short, gg_list) {
-  df_title <- lapply(gg_list, function(g) {
-    g$labels$title
-  })
-  names(df_title) <- region_short
-  
-  df_list <- mapply(function(g, reg) {
-    temp <- g$data
-    if (is.null(nrow(temp))) {
-      return(data.frame(eigengenes = NA, population = state_order[1], region = reg))
-    }
-    temp$region <- reg
-    temp
-  }, gg_list, region_short, SIMPLIFY = FALSE)
-  
-  temp2 <- do.call(rbind, df_list) %>% mutate(
-    population = factor(population,
-                        levels = state_order
-    ),
-    region = factor(region,
-                    levels = region_short
-    ))
-  
-  ggplot(temp2, aes(y = eigengenes, x = population)) + 
-    geom_boxplot(aes(fill = population), outlier.shape = NA) +
-    scale_fill_manual(values = state_cols) +
-    facet_wrap(~region, scales = "free", labeller = as_labeller(unlist(df_title))) + 
-    scale_x_discrete(limits = state_order) +
-    theme(legend.position = "none")
-}
-
 # some other code for webpage functions
 jscode <- '
 $(function() {
@@ -401,11 +380,11 @@ ui <- fluidPage(
           checkboxInput("doPadj", "indicate sig", value = F, width = NULL),
           checkboxInput("doName", "label by sample", value = F, width = NULL),
           checkboxInput("doTis", "plot non-brain", value = F, width = NULL),
-          checkboxInput("doEigen", "plot eigengenes", value = T, width = NULL),
+          checkboxInput("doEigen", "plot cluster mockup", value = T, width = NULL),
           checkboxInput("doUcsc", "download track", value = F, width = NULL),
           checkboxInput("doMod", "find module", value = T, width = NULL),
-          checkboxInput("doNet", "plot network", value = F, width = NULL),
-          checkboxInput("doKegg", "GO terms", value = T, width = NULL)
+          checkboxInput("doKegg", "GO terms", value = T, width = NULL),
+          checkboxInput("doNorm", "SA-norm", value = F, width = NULL),
         ),
         tabPanel(
           "links",
@@ -534,6 +513,7 @@ server <- function(input, output, session) {
   rv$xsel <- "NA"
   rv$line <- 0
   rv$line_refresh <- 0
+  rv$mod_df <- data.frame()
   
   observeEvent(rv$init == 0, {
     if (rv$init == 0) {
@@ -720,18 +700,12 @@ server <- function(input, output, session) {
     } else {
       outputtab <- outputtab()
       inid <- outputtab$unique_gene_symbol
-      for (reg in region_short) {
-        eval(parse(text = paste0(reg, "_mod <- ", reg, "_modules %>% filter(gene == inid) %>% pull(module_n)")))
+      if (nrow(rv$mod_df) == 0) {
+        mods <- c("empty","empty","empty")
       }
-      
-      for (reg in region_short) {
-        eval(parse(text = paste0(reg, "_fig <- tryCatch({", reg, "_gg[[as.numeric(", reg, "_mod) + 1]]}, 
-                                          error = function(err) {
-                                            return(ggplot() + theme_void())})")))
-      }
-      
-      # eval(parse(text = paste0("cowplot::plot_grid(", str_c(region_short, "_fig", collapse = ","), ", ncol =", length(region_short), ")")))
-      eval(parse(text = paste0("gg_to_facet(region_short, list(", str_c(region_short, "_fig", collapse = ","), "))")))
+      mods <- (rv$mod_df[1,] %>% unlist())[-1]
+      cowplot::plot_grid(plotlist = map(mods, function(x) eigen_gg[[x]]),
+                         ncol = 3)
     }
   })
   
@@ -739,30 +713,18 @@ server <- function(input, output, session) {
     if (input$doMod != T) {
       return()
     }
-    outputtab <- outputtab()
-    inid <- outputtab$unique_gene_symbol
     
-    mod1 <- mod %>%
-      filter(gene == inid)
-    if (length(mod1) == 0) {
+    if (length(rv$mod_df) == 0) {
       mod1 <- "low expression everywhere"
     } else {
-      mod1 <- mod1 %>% t() %>%
+      mod1 <- rv$mod_df %>% t() %>%
         as.data.frame() %>%
         rownames_to_column() %>%
         mutate(text = str_c(rowname, V1, sep = ":")) %>%
         pull(text) %>%
-        str_c(collapse = "\n")
+        str_c(collapse = "<br>")
     }
-    # r <- rv$act_modules %>%
-    #   filter(gene == inid) %>%
-    #   pull(r)
-    # if (length(r) == 0) {
-    #   r <- ""
-    # } else {
-    #   r <- as.character(round(r, digits = 2))
-    #   r <- str_c(", r = ", r)
-    # }
+
     HTML(str_c(
       mod1#, r
     ))
@@ -786,6 +748,15 @@ server <- function(input, output, session) {
       rv$blast <<- ""
       rv$pval <<- data.frame()
       rv$temp_orfs <<- data.frame()
+    }
+    
+    # clusters
+    mod1 <- mod %>%
+      filter(gene == inid)
+    if (length(mod1) == 0) {
+      rv$mod_df <<- data.frame()
+    } else {
+      rv$mod_df <<- mod1
     }
     
     filtered <- comb_fil_factor(combined2, combined3, inid) %>%
@@ -989,8 +960,7 @@ server <- function(input, output, session) {
     plot_temp <- comb_fil_factor(combined2, combined3, historytablist) %>%
       group_by(region, state, unique_gene_symbol) %>%
       summarize(counts = mean(2^log2_counts))
-    norm_state1 <- F
-    if (norm_state1 == TRUE) {
+    if (input$doNorm == TRUE) {
       plot_temp <- plot_temp %>% group_by(unique_gene_symbol, region) %>%
         mutate(log2_counts = log2(counts/counts[1])) %>%
         ungroup()
@@ -1016,7 +986,6 @@ server <- function(input, output, session) {
     plot_temp
   })
   
-  
   observeEvent(linetemp(), {
     rv$line <- rv$line + 1
     d <<- SharedData$new(linetemp, ~unique_gene_symbol, as.character(rv$line))
@@ -1032,7 +1001,7 @@ server <- function(input, output, session) {
     g <- ggplot(d, aes(state, log2_counts, 
                        group = unique_gene_symbol,
                        text = unique_gene_symbol)) +
-      ylab("rlog(counts)") +
+      ylab("log2fold") +
       facet_wrap(~region) +
       theme(legend.position = "none")
     
