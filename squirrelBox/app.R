@@ -403,7 +403,9 @@ ui <- fluidPage(
           fileInput("file", label = NULL),
           actionButton("Prev", "Prev"),
           actionButton("Next", "Next"),
-          uiOutput("listn")
+          uiOutput("listn"),
+          DT::dataTableOutput("tbllist"),
+          style = "height:300px; overflow-y: scroll;"
         ),
         tabPanel(
           "history",
@@ -425,7 +427,9 @@ ui <- fluidPage(
           downloadButton(
             outputId = "saveList",
             label = "cart to TXT"
-          )
+          ),
+          DT::dataTableOutput("tbllist2"),
+          style = "height:300px; overflow-y: scroll;"
         )
       )
     ),
@@ -1200,6 +1204,37 @@ server <- function(input, output, session) {
     write_lines(carttablist, file)
   })
   
+  output$tbllist2 <- DT::renderDataTable({
+    rv$listn2
+    if (length(carttablist) > 0) {
+      DT::datatable(data.table::as.data.table(list(carttablist)),
+                    escape = FALSE,
+                    selection = "single",
+                    rownames = FALSE,
+                    colnames = "genes",
+                    options = list(searchable = FALSE, dom = 't', paging = FALSE, scrollY = TRUE)
+      )
+    } else {
+      DT::datatable(data.table::as.data.table(list(c(""))),
+                    escape = FALSE,
+                    selection = "single",
+                    rownames = FALSE,
+                    colnames = "genes",
+                    options = list(searchable = FALSE, dom = 't', paging = FALSE, scrollY = TRUE)
+      )
+    }
+  })
+  
+  observeEvent(input$tbllist2_rows_selected, {
+    rv$run2 <- 1
+    updateSelectizeInput(session,
+                         inputId = "geneID",
+                         selected = carttablist[input$tbllist2_rows_selected],
+                         choices = autocomplete_list,
+                         server = T
+    )
+  })
+  
   onclick("Prev", {
     rv$listn <- rv$listn - 1
     if (rv$listn < 1) {
@@ -1229,7 +1264,39 @@ server <- function(input, output, session) {
   })
   
   output$listn <- renderUI({
-    HTML(str_c(rv$listn, "of ", length(historytablist)))
+    rv$line_refresh
+    HTML(paste0(rv$listn, " of ", length(historytablist)))
+  })
+  
+  output$tbllist <- DT::renderDataTable({
+    rv$line_refresh
+    if (length(historytablist) > 0) {
+      DT::datatable(data.table::as.data.table(list(historytablist)),
+                    escape = FALSE,
+                    selection = "single",
+                    rownames = FALSE,
+                    colnames = "genes",
+                    options = list(searchable = FALSE, dom = 't', paging = FALSE, scrollY = TRUE)
+      )
+    } else {
+      DT::datatable(data.table::as.data.table(list(c(""))),
+                    escape = FALSE,
+                    selection = "single",
+                    rownames = FALSE,
+                    colnames = "genes",
+                    options = list(searchable = FALSE, dom = 't', paging = FALSE, scrollY = TRUE)
+      )
+    }
+  })
+  
+  observeEvent(input$tbllist_rows_selected, {
+    rv$run2 <- 1
+    updateSelectizeInput(session,
+                         inputId = "geneID",
+                         selected = historytablist[input$tbllist_rows_selected],
+                         choices = autocomplete_list,
+                         server = T
+    )
   })
   
   output$tbl <- DT::renderDataTable({
