@@ -383,8 +383,8 @@ ui <- fluidPage(
           checkboxInput("doEigen", "plot cluster mockup", value = T, width = NULL),
           checkboxInput("doUcsc", "download track", value = F, width = NULL),
           checkboxInput("doMod", "find module", value = T, width = NULL),
-          checkboxInput("doNet", "plot network", value = F, width = NULL),
-          checkboxInput("doKegg", "GO terms", value = T, width = NULL)
+          checkboxInput("doKegg", "GO terms", value = T, width = NULL),
+          checkboxInput("doNorm", "SA-norm", value = F, width = NULL),
         ),
         tabPanel(
           "links",
@@ -960,8 +960,7 @@ server <- function(input, output, session) {
     plot_temp <- comb_fil_factor(combined2, combined3, historytablist) %>%
       group_by(region, state, unique_gene_symbol) %>%
       summarize(counts = mean(2^log2_counts))
-    norm_state1 <- F
-    if (norm_state1 == TRUE) {
+    if (input$doNorm == TRUE) {
       plot_temp <- plot_temp %>% group_by(unique_gene_symbol, region) %>%
         mutate(log2_counts = log2(counts/counts[1])) %>%
         ungroup()
@@ -1002,7 +1001,7 @@ server <- function(input, output, session) {
     g <- ggplot(d, aes(state, log2_counts, 
                        group = unique_gene_symbol,
                        text = unique_gene_symbol)) +
-      ylab("rlog(counts)") +
+      ylab("log2fold") +
       facet_wrap(~region) +
       theme(legend.position = "none")
     
