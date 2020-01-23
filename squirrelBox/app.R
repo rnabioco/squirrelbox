@@ -580,7 +580,13 @@ server <- function(input, output, session) {
     outputtab <- outputtab()
     inid <- outputtab$unique_gene_symbol
     plot_temp <- comb_fil_factor(combined2, combined3, inid)
-    mis <- setdiff(region_main, plot_temp$region %>% unique() %>% as.character())
+    
+    if (input$doTis) {
+      mis <- setdiff(region_order, plot_temp$region %>% unique() %>% as.character())
+    } else {
+      mis <- setdiff(region_main, plot_temp$region %>% unique() %>% as.character())
+    }
+    
     if (length(mis) > 0) {
       for (element in mis) {
         l <- as.list(plot_temp[1, 1:6])
