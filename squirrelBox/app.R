@@ -510,6 +510,7 @@ server <- function(input, output, session) {
   rv$mod <- 0
   rv$conn <- 0
   rv$init <- 0
+  rv$actuallygo <- 0
   rv$old <- ""
   rv$blast <- ""
   rv$pval <- data.frame()
@@ -551,24 +552,28 @@ server <- function(input, output, session) {
   
   # jump to plot
   observeEvent(input$Find, {
-    updateTabsetPanel(session, 
-                      "tabMain",
-                      selected = "plot")
+      
+    if ((input$geneID != "") & (input$geneID != rv$old)) {
+      updateTabsetPanel(session, 
+                        "tabMain",
+                        selected = "plot")
+      rv$actuallygo <- rv$actuallygo + 1
+      if (rv$init == 1) {
+        rv$init <<- 2
+      } else {
+        updateQueryString(paste0("?gene=", input$geneID), mode = "push")
+      }
+    }
   })
   
   # query
-  inid <- eventReactive(input$Find,
+  inid <- eventReactive(rv$actuallygo,
                         {
                           rv$old <<- input$geneID
                           shinyjs::runjs("window.scrollTo(0, 0)")
-                          if (rv$init == 1) {
-                            rv$init <<- 2
-                          } else {
-                            updateQueryString(paste0("?gene=", input$geneID), mode = "push")
-                          }
                           input$geneID
                         },
-                        ignoreNULL = T
+                        ignoreNULL = T, ignoreInit = T
   )
   
   historytab <- c()
@@ -1093,7 +1098,7 @@ server <- function(input, output, session) {
   # find function on new input
   observeEvent(input$geneID != "", {
     if (rv$run2 == 1 & input$geneID != "" & !is.null(input$geneID) & input$tabMain == "plot") {
-      rv$run2 <- 0
+      rv$run2 <- 1
       click("Find")
     }
   })
@@ -1350,6 +1355,7 @@ server <- function(input, output, session) {
     shinyjs::runjs("window.scrollTo(0, 0)")
   }, ignoreNULL = T)
 }
+
 
 # Run the application
 shinyApp(ui = ui, server = server, enableBookmarking = "url")
