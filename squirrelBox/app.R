@@ -33,7 +33,9 @@ state_cols <- c(
   IBA = rgb(67, 205, 128, maxColorValue = 255),
   Ent = rgb(155, 48, 255, maxColorValue = 255),
   LT = rgb(25, 25, 112, maxColorValue = 255),
+  EAr = rgb(0, 0, 255, maxColorValue = 255),
   Ar = rgb(0, 0, 255, maxColorValue = 255),
+  LAr = rgb(0, 102, 102, maxColorValue = 255),
   SpD = rgb(255, 165, 0, maxColorValue = 255)
 )
 state_order <- c(
@@ -41,7 +43,9 @@ state_order <- c(
   "IBA",
   "Ent",
   "LT",
+  "EAr",
   "Ar",
+  "LAr",
   "SpD"
 )
 region_order <- c(
