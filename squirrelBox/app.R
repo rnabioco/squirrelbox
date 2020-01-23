@@ -219,6 +219,11 @@ starorfs <- orfs %>%
   )
 domains <- read_csv("novel_domains.csv", col_types = "cc")
 
+fulltbl <- combined3 %>% select(-c(3,4,5)) %>%
+  full_join(orfs %>% select(1:4, contains("LRT")), by = "gene_id") %>% 
+  mutate(source = factor(source)) %>% 
+  distinct()
+
 # padj functions
 find_padj <- function(region, state, tbl) {
   temp <- str_c(tbl[str_sub(tbl, 1, 1) == str_to_lower(str_sub(region, 1, 1)) &
@@ -744,7 +749,7 @@ server <- function(input, output, session) {
       return()
     }
     
-    if (length(rv$mod_df) == 0) {
+    if (nrow(rv$mod_df) == 0) {
       mod1 <- "low expression everywhere"
     } else {
       mod1 <- rv$mod_df %>% t() %>%
@@ -833,6 +838,9 @@ server <- function(input, output, session) {
   output$orfinfo <- renderTable(
     {
       outputtab()
+      if (nrow(rv$temp_orfs) == 0) {
+        return(rv$temp_orfs)
+      }
       rv$temp_orfs %>% select(1:6)
     },
     digits = 0
@@ -857,6 +865,11 @@ server <- function(input, output, session) {
       return()
     }
     outputtab <- outputtab()
+    if (nrow(outputtab) > 1) {
+      outputtab$end <- max(outputtab$end)
+      outputtab$start<- min(outputtab$start)
+      outputtab <- outputtab[1,]
+    }
     l <- as.integer((outputtab$end - outputtab$start) * 0.2)
     url <- str_c(
       "http://genome.ucsc.edu/cgi-bin/hgTracks?db=",
@@ -896,6 +909,9 @@ server <- function(input, output, session) {
   # various links in sidebar
   output$tab <- renderUI({
     outputtab <- outputtab()
+    if (nrow(outputtab) > 1) {
+      outputtab <- outputtab[1,]
+    }
     url <- a(outputtab$unique_gene_symbol,
              href = str_c(
                "http://genome.ucsc.edu/cgi-bin/hgTracks?db=",
@@ -916,6 +932,9 @@ server <- function(input, output, session) {
   # link genbank
   output$tab2 <- renderUI({
     outputtab <- outputtab()
+    if (nrow(outputtab) > 1) {
+      outputtab <- outputtab[1,]
+    }
     clean <- a(outputtab$unique_gene_symbol,
                href = str_c(
                  "https://www.ncbi.nlm.nih.gov/gene/?term=",
@@ -929,6 +948,9 @@ server <- function(input, output, session) {
   # link hgnc
   output$tab3 <- renderUI({
     outputtab <- outputtab()
+    if (nrow(outputtab) > 1) {
+      outputtab <- outputtab[1,]
+    }
     clean <- a(outputtab$unique_gene_symbol,
                href = str_c(
                  "https://www.genenames.org/data/gene-symbol-report/#!/symbol/",
@@ -941,6 +963,9 @@ server <- function(input, output, session) {
   # link genecard
   output$tab4 <- renderUI({
     outputtab <- outputtab()
+    if (nrow(outputtab) > 1) {
+      outputtab <- outputtab[1,]
+    }
     clean <- a(outputtab$unique_gene_symbol,
                href = str_c(
                  "https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
@@ -954,6 +979,9 @@ server <- function(input, output, session) {
   output$blastlink <- renderUI({
     if (rv$blast != "" & !(is.na(rv$blast))) {
       outputtab <- outputtab()
+      if (nrow(outputtab) > 1) {
+        outputtab <- outputtab[1,]
+      }
       orf <- rv$blast
       url <- a(outputtab$unique_gene_symbol,
                href = str_c(
@@ -970,7 +998,11 @@ server <- function(input, output, session) {
   # save plot as pdf
   output$savePlot <- downloadHandler(
     filename = function() {
-      sym <- tryCatch(outputtab()$unique_gene_symbol, error = function(err) {
+      outputtab <- outputtab()
+      if (nrow(outputtab) > 1) {
+        outputtab <- outputtab[1,]
+      }
+      sym <- tryCatch(outputtab$unique_gene_symbol, error = function(err) {
         return("wrong")
       })
       paste0(sym, ".pdf", sep = "")
@@ -1235,13 +1267,14 @@ server <- function(input, output, session) {
   
   # explore bed table
   output$tbl <- DT::renderDataTable({
-    DT::datatable(bed %>% select(
+    DT::datatable(fulltbl %>% select(
       unique_gene_symbol,
+      contains("LRT"),
       everything()
     ),
     filter = "top",
     escape = FALSE,
-    selection = "none",
+    selection = "single",
     rownames = FALSE
     )
   })
@@ -1249,6 +1282,16 @@ server <- function(input, output, session) {
   output$saveFiltered <- downloadHandler("filtré.csv", content = function(file) {
     s <- input$tbl_rows_all
     write_csv((bed %>% select(unique_gene_symbol, everything()))[s, ], file)
+  })
+  
+  observeEvent(input$tbl_rows_selected, {
+    rv$run2 <- 1
+    updateSelectizeInput(session,
+                         inputId = "geneID",
+                         selected = fulltbl[input$tbl_rows_selected, "unique_gene_symbol"],
+                         choices = autocomplete_list,
+                         server = T
+    )
   })
   
   # explore feature importance table
