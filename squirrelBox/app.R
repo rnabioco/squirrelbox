@@ -26,7 +26,13 @@ track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
 gmt_file <- "c5.all.v6.2.symbols.gmt"
 sig_cut <- 0.001
-
+table_cols <- c("gene_id", 
+                "unique_gene_symbol", 
+                #"gene_symbol", 
+                "clean_gene_symbol", 
+                #"original_gene_name", 
+                "source")
+orf_cols <- c("gene_id", "orf_len", "exons", "rna_len", "orf")
 ### sample settings, define state colors and order, region order
 state_cols <- c(
   SA = rgb(255, 0, 0, maxColorValue = 255),
@@ -118,20 +124,24 @@ decreasing = T
 
 # read annotation file to find ucsc track
 bed <- read_tsv("final_annot_20191112.bed12",
-  col_names = F,
-  col_types = "cnncncnnnnncccc"
-) %>%
-  select(1:6, 13)
-
-colnames(bed) <- c(
-  "chrom",
-  "start",
-  "end",
-  "unique_gene_symbol",
-  "score",
-  "strand",
-  "gene_id"
-)
+  col_names =c(
+    "chrom",
+    "start",
+    "end",
+    "unique_gene_symbol",
+    "score",
+    "strand",
+    NA,
+    NA,
+    NA,
+    NA,
+    NA,
+    NA,
+    "gene_id",
+    NA,
+    NA
+  ),
+  col_types = "cnncncnnnnncccc") %>% select(-contains("X"))
 
 # temp fix
 bed <- bed %>% rename(gene_symbol = unique_gene_symbol) %>% 
@@ -191,25 +201,6 @@ gmt <- gmt_to_list(gmt_file,
   rm = "^GO_"
 )
 
-refs <- combined3 %>% distinct(
-  unique_gene_symbol,
-  clean_gene_symbol
-)
-TFs <- gmt %>%
-  filter(
-    str_detect(
-      path,
-      str_to_upper("transcription_repressor_activity|transcription_factor_activity")
-    ),
-    path != "VIRAL_TRANSCRIPTION"
-  ) %>%
-  pull(genes) %>%
-  unique()
-refTFs <- refs %>%
-  mutate(clean_gene_symbol = str_to_upper(clean_gene_symbol)) %>%
-  filter(clean_gene_symbol %in% str_to_upper(TFs)) %>%
-  pull(unique_gene_symbol)
-
 # load orf predictions
 orfs <- read_csv("padj_orf.csv") %>%
   select(gene_id,
@@ -239,8 +230,8 @@ starorfs <- orfs %>%
 domains <- read_csv("novel_domains.csv", col_types = "cc")
 
 fulltbl <- combined3 %>%
-  select(-c(3, 4, 5)) %>%
-  full_join(orfs %>% select(1:4, contains("LRT")), by = "gene_id") %>%
+  select(-c(gene_symbol, clean_gene_symbol, original_gene_name)) %>%
+  full_join(orfs %>% select(orf_cols, contains("LRT")), by = "gene_id") %>%
   mutate(source = factor(source)) %>%
   distinct()
 
@@ -258,7 +249,8 @@ find_padj <- function(region, state, tbl) {
 
 sig_cols <- colnames(orfs)[colnames(orfs) %>% str_detect("vs")]
 sig_sym <- data.frame(
-  call = letters[1:length(sig_cols)],
+  call = rep(1,length(sig_cols)), # place holder only
+  #call = letters[1:length(sig_cols)],
   row.names = sig_cols
 )
 
@@ -619,7 +611,7 @@ server <- function(input, output, session) {
   boxPlot1 <- reactive({
     outputtab <- outputtab()
     inid <- outputtab$unique_gene_symbol
-    plot_temp <- comb_fil_factor(combined2, combined3, inid)
+    plot_temp <<- comb_fil_factor(combined2, combined3, inid)
 
     if (input$doTis) {
       mis <- setdiff(region_order, plot_temp$region %>% unique() %>% as.character())
@@ -629,7 +621,7 @@ server <- function(input, output, session) {
 
     if (length(mis) > 0) {
       for (element in mis) {
-        l <- as.list(plot_temp[1, 1:6])
+        l <- as.list(plot_temp[1,])
         l$region <- element
         l$sample <- "0"
         l$log2_counts <- NA
@@ -821,7 +813,7 @@ server <- function(input, output, session) {
     }
 
     filtered <- comb_fil_factor(combined2, combined3, inid) %>%
-      select(1:6) %>%
+      select(table_cols) %>%
       unique()
 
     if (nrow(filtered) == 0) {
@@ -833,9 +825,9 @@ server <- function(input, output, session) {
 
     filtered2 <- bed %>%
       filter(gene_id == filtered$gene_id[1]) %>%
-      select(c(1, 2, 3, 6))
+      select(c("chrom", "start", "end", "gene_id"))
     if (nrow(filtered2) > 1) {
-      filtered2 <- cbind(bed_merge(filtered2), filtered2[1, 4])
+      filtered2 <- cbind(bed_merge(filtered2), filtered2[1, "gene_id"])
     }
 
     if (nrow(filtered2 > 0)) {
@@ -847,6 +839,7 @@ server <- function(input, output, session) {
     }
 
     out <- cbind(filtered, filtered2)
+    out <- out[, -which(duplicated(colnames(out)))]
     # clusters
     mod1 <- mod %>%
       filter(gene == out$unique_gene_symbol)
@@ -873,7 +866,7 @@ server <- function(input, output, session) {
       if (nrow(rv$temp_orfs) == 0) {
         return(rv$temp_orfs)
       }
-      rv$temp_orfs %>% select(1:6)
+      rv$temp_orfs %>% select(orf_cols)
     },
     digits = 0
   )
@@ -1075,7 +1068,7 @@ server <- function(input, output, session) {
     mis <- setdiff(region_main, plot_temp$region %>% unique() %>% as.character())
     if (length(mis) > 0) {
       for (element in mis) {
-        l <- as.list(plot_temp[1, 1:6])
+        l <- as.list(plot_temp[1, ])
         l$region <- element
         l$sample <- "0"
         l$log2_counts <- NA
