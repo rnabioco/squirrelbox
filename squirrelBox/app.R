@@ -221,6 +221,7 @@ orfs <- read_csv("padj_orf.csv") %>%
     everything()
   )
 
+# temp fix
 orfs <- orfs %>% rename(gene_symbol = unique_gene_symbol) %>% 
   left_join(combined3 %>% select(gene_id, unique_gene_symbol)) %>%
   mutate(unique_gene_symbol = ifelse(is.na(unique_gene_symbol), gene_symbol, unique_gene_symbol)) %>% 
@@ -686,28 +687,30 @@ server <- function(input, output, session) {
       temp2$region <- region_order[factor(temp2$region, level = region_short) %>% as.numeric()]
       temp3 <- groups_to_letters_igraph(temp2)
 
-      agg <- aggregate(log2_counts ~ state + region, plot_temp, max)
-      agg_min <- aggregate(log2_counts ~ state + region, plot_temp, min)
-      agg$min <- agg_min$log2_counts
-      agg2 <- agg %>%
-        group_by(region) %>%
-        mutate(
-          maxy = max(log2_counts),
-          miny = min(min),
-          nudgey = (maxy - miny) * 0.1
-        )
-      agg3 <- agg2 %>%
-        left_join(temp3 %>% select(region, state, letter)) %>%
-        replace_na(list(letter = list("")))
-
-      g <- g +
-        geom_text(data = agg3, aes(
-          text = letter,
-          label = letter,
-          y = log2_counts + nudgey,
-          x = state,
-          group = NULL
-        ))
+      if (!(is.na(plot_temp$log2_counts) %>% all())) {
+        agg <- aggregate(log2_counts ~ state + region, plot_temp, max)
+        agg_min <- aggregate(log2_counts ~ state + region, plot_temp, min)
+        agg$min <- agg_min$log2_counts
+        agg2 <- agg %>%
+          group_by(region) %>%
+          mutate(
+            maxy = max(log2_counts),
+            miny = min(min),
+            nudgey = (maxy - miny) * 0.1
+          )
+        agg3 <- agg2 %>%
+          left_join(temp3 %>% select(region, state, letter)) %>%
+          replace_na(list(letter = list("")))
+  
+        g <- g +
+          geom_text(data = agg3, aes(
+            text = letter,
+            label = letter,
+            y = log2_counts + nudgey,
+            x = state,
+            group = NULL
+          ))
+      }
     }
 
     g
