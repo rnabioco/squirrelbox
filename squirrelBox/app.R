@@ -21,16 +21,16 @@ theme_set(theme_cowplot())
 
 
 ### general data settings
-use_folder <- "wgcna11" # change to get to old version of data
+#use_folder <- "wgcna11" # change to get to old version of data
 track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
 gmt_file <- "c5.all.v6.2.symbols.gmt"
 sig_cut <- 0.001
-table_cols <- c("gene_id", 
+table_cols <- c("gene_id", # comment out to remove from table outputs
                 "unique_gene_symbol", 
-                #"gene_symbol", 
+                "gene_symbol", 
                 "clean_gene_symbol", 
-                #"original_gene_name", 
+                "original_gene_name", 
                 "source")
 orf_cols <- c("gene_id", "orf_len", "exons", "rna_len", "orf")
 ### sample settings, define state colors and order, region order
@@ -218,15 +218,6 @@ orfs <- orfs %>% rename(gene_symbol = unique_gene_symbol) %>%
   mutate(unique_gene_symbol = ifelse(is.na(unique_gene_symbol), gene_symbol, unique_gene_symbol)) %>% 
   select(-gene_symbol)
 
-starorfs <- orfs %>%
-  group_by(unique_gene_symbol) %>%
-  arrange(desc(orf)) %>%
-  dplyr::slice(1) %>%
-  filter(
-    exons > 1,
-    str_detect(unique_gene_symbol, "^G[0-9]+|_"),
-    orf_len >= 100
-  )
 domains <- read_csv("novel_domains.csv", col_types = "cc")
 
 fulltbl <- combined3 %>%
