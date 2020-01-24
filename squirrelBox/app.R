@@ -67,17 +67,19 @@ region_main <- c(
   "Hypothalamus",
   "Medulla"
 )
+region_main2 <- c(
+  "Adrenal",
+  "Kidney",
+  "Liver"
+)
 region_short <- c(
   "fore",
   "hy",
-  "med"
+  "med",
+  "Adr",
+  "Kid",
+  "Liv"
 )
-region_letter <- c(
-  "B",
-  "H",
-  "M"
-)
-
 
 # read database
 if (file.exists("combined2.feather")) {
@@ -395,6 +397,7 @@ ui <- fluidPage(
           checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
           checkboxInput("doPadj", "indicate sig", value = F, width = NULL),
           checkboxInput("doName", "label by sample", value = F, width = NULL),
+          checkboxInput("doBr", "plot non-brain", value = T, width = NULL),
           checkboxInput("doTis", "plot non-brain", value = F, width = NULL),
           checkboxInput("doEigen", "plot cluster mockup", value = T, width = NULL),
           checkboxInput("doUcsc", "download track", value = F, width = NULL),
