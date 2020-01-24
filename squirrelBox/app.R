@@ -1185,7 +1185,13 @@ server <- function(input, output, session) {
   observeEvent(input$file, {
     rv$listn <- 0
     path <- input$file$datapath
-    historytablist <<- read_csv(path, col_names = FALSE) %>% pull()
+    if (str_detect(input$file$name, "\\.tsv")) {
+      historytablist <<- read_tsv(path, col_names = FALSE) %>% pull(1) %>% 
+        intersect(autocomplete_list)
+    } else {
+      historytablist <<- read_csv(path, col_names = FALSE) %>% pull(1) %>% 
+        intersect(autocomplete_list)
+    }
     rv$line_refresh <- rv$line_refresh + 1
   })
 
