@@ -32,7 +32,7 @@ table_cols <- c("gene_id", # comment out to remove from table outputs
                 "clean_gene_symbol", 
                 "original_gene_name", 
                 "source")
-orf_cols <- c("gene_id", "orf_len", "exons", "rna_len", "orf")
+orf_cols <- c("gene_id", "orf_len", "exons", "rna_len", "novel", "orf")
 ### sample settings, define state colors and order, region order
 state_cols <- c(
   SA = rgb(255, 0, 0, maxColorValue = 255),
@@ -210,7 +210,7 @@ orfs <- read_csv("padj_orf.csv") %>%
     orf,
     unique_gene_symbol,
     everything()
-  )
+  ) %>% mutate(novel = factor(ifelse(str_detect(gene_id, "^G"), 1, 0)))
 
 # temp fix
 orfs <- orfs %>% rename(gene_symbol = unique_gene_symbol) %>% 
@@ -222,10 +222,13 @@ domains <- read_csv("novel_domains.csv", col_types = "cc")
 
 fulltbl <- combined3 %>%
   select(-c(gene_symbol, clean_gene_symbol, original_gene_name)) %>%
-  full_join(orfs %>% select(orf_cols, contains("LRT")), by = "gene_id") %>%
+  left_join(orfs %>% select(orf_cols, contains("LRT")), by = "gene_id") %>%
   mutate(source = factor(source)) %>%
   distinct()
 
+fulltbl_collapse <- fulltbl %>% group_by(gene_id) %>%
+  arrange(desc(orf_len), .by_group = TRUE) %>% 
+  dplyr::slice(1)
 # padj functions
 find_padj <- function(region, state, tbl) {
   temp <- str_c(tbl[str_sub(tbl, 1, 1) == str_to_lower(str_sub(region, 1, 1)) &
@@ -475,6 +478,11 @@ ui <- fluidPage(
         tabPanel(
           title = "table_orf",
           value = "table_orf",
+          div(style = "display: inline-block;width: 160px;",
+          checkboxInput("doCollapse", 
+                        "longest transcript",
+                        value = T, 
+                        width = NULL)),
           downloadButton(
             outputId = "saveFiltered",
             label = "download filtered data"
@@ -1290,9 +1298,19 @@ server <- function(input, output, session) {
     )
   })
 
+  orftbl <- reactive({
+    if (input$doCollapse) {
+      fulltbl_collapse
+    } else {
+      fulltbl
+    }
+  })
+  
   # explore bed table
   output$tbl <- DT::renderDataTable({
-    DT::datatable(fulltbl %>% select(
+    DT::datatable(
+      orftbl() %>%
+        select(
       unique_gene_symbol,
       contains("LRT"),
       everything()
@@ -1313,7 +1331,7 @@ server <- function(input, output, session) {
     rv$run2 <- 1
     updateSelectizeInput(session,
       inputId = "geneID",
-      selected = fulltbl[input$tbl_rows_selected, "unique_gene_symbol"],
+      selected = orftbl()[input$tbl_rows_selected, "unique_gene_symbol"],
       choices = autocomplete_list,
       server = T
     )
