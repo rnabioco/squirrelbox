@@ -133,6 +133,13 @@ colnames(bed) <- c(
   "gene_id"
 )
 
+# temp fix
+bed <- bed %>% rename(gene_symbol = unique_gene_symbol) %>% 
+  left_join(combined3 %>% select(gene_id, unique_gene_symbol)) %>%
+  mutate(unique_gene_symbol = ifelse(is.na(unique_gene_symbol), gene_symbol, unique_gene_symbol)) %>% 
+  select(-gene_symbol)
+
+
 # read modules/clusters
 mod <- read_feather("clusters.feather")
 eigen <- read_tsv("cluster_patterns_matrices/reference_patterns.tsv") %>%
@@ -213,6 +220,11 @@ orfs <- read_csv("padj_orf.csv") %>%
     unique_gene_symbol,
     everything()
   )
+
+orfs <- orfs %>% rename(gene_symbol = unique_gene_symbol) %>% 
+  left_join(combined3 %>% select(gene_id, unique_gene_symbol)) %>%
+  mutate(unique_gene_symbol = ifelse(is.na(unique_gene_symbol), gene_symbol, unique_gene_symbol)) %>% 
+  select(-gene_symbol)
 
 starorfs <- orfs %>%
   group_by(unique_gene_symbol) %>%
@@ -672,7 +684,6 @@ server <- function(input, output, session) {
         mutate(call1 = as.numeric(call1)) %>%
         mutate(region = as.character(region))
       temp2$region <- region_order[factor(temp2$region, level = region_short) %>% as.numeric()]
-      temp2 <- temp2
       temp3 <- groups_to_letters_igraph(temp2)
 
       agg <- aggregate(log2_counts ~ state + region, plot_temp, max)
@@ -788,9 +799,9 @@ server <- function(input, output, session) {
   # filter data
   outputtab <- reactive({
     inid <- inid()
-
-    if (inid %in% orfs$gene_id | inid %in% orfs$unique_gene_symbol) {
-      temp_orfs <- orfs %>% filter(gene_id == inid | unique_gene_symbol == inid)
+    if ((inid %in% orfs$gene_id) | (inid %in% orfs$unique_gene_symbol)) {
+      
+      temp_orfs <- orfs %>% filter((gene_id == inid) | (unique_gene_symbol == inid))
       if (nrow(temp_orfs) == 0) {
         rv$blast <<- ""
         rv$pval <<- data.frame()
@@ -804,15 +815,6 @@ server <- function(input, output, session) {
       rv$blast <<- ""
       rv$pval <<- data.frame()
       rv$temp_orfs <<- data.frame()
-    }
-
-    # clusters
-    mod1 <- mod %>%
-      filter(gene == inid)
-    if (length(mod1) == 0) {
-      rv$mod_df <<- data.frame()
-    } else {
-      rv$mod_df <<- mod1
     }
 
     filtered <- comb_fil_factor(combined2, combined3, inid) %>%
@@ -842,7 +844,14 @@ server <- function(input, output, session) {
     }
 
     out <- cbind(filtered, filtered2)
-
+    # clusters
+    mod1 <- mod %>%
+      filter(gene == out$unique_gene_symbol)
+    if (length(mod1) == 0) {
+      rv$mod_df <<- data.frame()
+    } else {
+      rv$mod_df <<- mod1
+    }
     out
   })
 
