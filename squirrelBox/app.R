@@ -32,7 +32,16 @@ table_cols <- c("gene_id", # comment out to remove from table outputs
                 "clean_gene_symbol", 
                 "original_gene_name", 
                 "source")
-orf_cols <- c("gene_id", "orf_len", "exons", "rna_len", "novel", "min_sig", "domains", "orf")
+orf_cols <- c("gene_id", 
+              "orf_len",
+              "exons", 
+              "rna_len", 
+              "novel", 
+              "min_sig", 
+              "domains",
+              "br_expr",
+              "nonbr_expr",
+              "orf")
 ### sample settings, define state colors and order, region order
 state_cols <- c(
   SA = rgb(255, 0, 0, maxColorValue = 255),
@@ -151,7 +160,6 @@ bed <- bed %>% rename(gene_symbol = unique_gene_symbol) %>%
   mutate(unique_gene_symbol = ifelse(is.na(unique_gene_symbol), gene_symbol, unique_gene_symbol)) %>% 
   select(-gene_symbol)
 
-
 # read modules/clusters
 mod <- read_feather("clusters.feather")
 eigen <- read_tsv("cluster_patterns_matrices/reference_patterns.tsv") %>%
@@ -205,6 +213,14 @@ gmt <- gmt_to_list(gmt_file,
 
 domains <- read_csv("novel_domains.csv", col_types = "cc")
 
+br_expr <- combined2 %>% filter(region %in% region_main) %>%
+  pull(gene_id) %>%
+  unique()
+
+nonbr_expr <- combined2 %>% filter(region %in% region_main2) %>%
+  pull(gene_id) %>%
+  unique()
+
 # load orf predictions
 orfs <- read_csv("padj_orf.csv") %>%
   select(gene_id,
@@ -216,7 +232,9 @@ orfs <- read_csv("padj_orf.csv") %>%
     everything()
   ) %>% mutate(novel = factor(ifelse(str_detect(gene_id, "^G"), 1, 0))) %>%
   mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fore_LRT_padj, na.rm = T)) %>% 
-  mutate(domains = factor(ifelse(gene_id %in% domains$gene_id, 1, 0)))
+  mutate(domains = factor(ifelse(gene_id %in% domains$gene_id, 1, 0))) %>%
+  mutate(br_expr = factor(ifelse(gene_id %in% br_expr, 1, 0)), 
+         nonbr_expr = factor(ifelse(gene_id %in% nonbr_expr, 1, 0)))
 
 # temp fix
 orfs <- orfs %>% rename(gene_symbol = unique_gene_symbol) %>% 
