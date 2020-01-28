@@ -1,0 +1,357 @@
+---
+output:
+  html_document:
+    fig_caption: yes
+    fig_retina: 1 
+    df_print: paged
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(cache = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(cache.lazy = FALSE)
+```
+
+```{r}
+library(feather)
+library(tidyverse)
+orf_cols <- c("gene_id", 
+              "orf_len",
+              "exons", 
+              "rna_len", 
+              "novel", 
+              "min_sig", 
+              "domains",
+              "br_expr",
+              "nonbr_expr",
+              "orf")
+### sample settings, define state colors and order, region order
+state_cols <- c(
+  SA = rgb(255, 0, 0, maxColorValue = 255),
+  IBA = rgb(67, 205, 128, maxColorValue = 255),
+  Ent = rgb(155, 48, 255, maxColorValue = 255),
+  LT = rgb(25, 25, 112, maxColorValue = 255),
+  EAr = rgb(0, 0, 255, maxColorValue = 255),
+  Ar = rgb(0, 0, 255, maxColorValue = 255),
+  LAr = rgb(0, 102, 102, maxColorValue = 255),
+  SpD = rgb(255, 165, 0, maxColorValue = 255)
+)
+state_order <- c(
+  "SA",
+  "IBA",
+  "Ent",
+  "LT",
+  "EAr",
+  "Ar",
+  "LAr",
+  "SpD"
+)
+region_order <- c(
+  "Forebrain",
+  "Hypothalamus",
+  "Medulla",
+  "Adrenal",
+  "Kidney",
+  "Liver"
+)
+region_main <- c(
+  "Forebrain",
+  "Hypothalamus",
+  "Medulla"
+)
+region_main2 <- c(
+  "Adrenal",
+  "Kidney",
+  "Liver"
+)
+region_short <- c(
+  "fore",
+  "hy",
+  "med",
+  "Adr",
+  "Kid",
+  "Liv"
+)
+
+# read database
+combined2 <- read_feather("squirrelBox/combined2.feather")
+combined3 <- read_feather("squirrelBox/combined3.feather")
+
+# read annotation file to find ucsc track
+bed <- read_tsv("squirrelBox/final_annot_20191112.bed12",
+  col_names =c(
+    "chrom",
+    "start",
+    "end",
+    "unique_gene_symbol",
+    "score",
+    "strand",
+    NA,
+    NA,
+    NA,
+    NA,
+    NA,
+    NA,
+    "gene_id",
+    NA,
+    NA
+  ),
+  col_types = "cnncncnnnnncccc") %>% select(-contains("X"))
+
+# temp fix
+bed <- bed %>% rename(gene_symbol = unique_gene_symbol) %>% 
+  left_join(combined3 %>% select(gene_id, unique_gene_symbol)) %>%
+  mutate(unique_gene_symbol = ifelse(is.na(unique_gene_symbol), gene_symbol, unique_gene_symbol)) %>% 
+  select(-gene_symbol)
+
+domains <- read_csv("squirrelBox/novel_domains.csv", col_types = "cc")
+
+br_expr <- combined2 %>% filter(region %in% region_main) %>%
+  pull(gene_id) %>%
+  unique()
+
+nonbr_expr <- combined2 %>% filter(region %in% region_main2) %>%
+  pull(gene_id) %>%
+  unique()
+
+# load orf predictions
+orfs <- read_csv("squirrelBox/padj_orf.csv") %>%
+  select(gene_id,
+    orf_len = len,
+    exons,
+    rna_len = transcript,
+    orf,
+    unique_gene_symbol,
+    everything()
+  ) %>% mutate(novel = factor(ifelse(str_detect(gene_id, "^G"), 1, 0))) %>%
+  mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fore_LRT_padj, na.rm = T)) %>% 
+  mutate(domains = factor(ifelse(gene_id %in% domains$gene_id, 1, 0))) %>%
+  mutate(br_expr = factor(ifelse(gene_id %in% br_expr, 1, 0)), 
+         nonbr_expr = factor(ifelse(gene_id %in% nonbr_expr, 1, 0)))
+
+# temp fix
+orfs <- orfs %>% rename(gene_symbol = unique_gene_symbol) %>% 
+  left_join(combined3 %>% select(gene_id, unique_gene_symbol)) %>%
+  mutate(unique_gene_symbol = ifelse(is.na(unique_gene_symbol), gene_symbol, unique_gene_symbol)) %>% 
+  select(-gene_symbol)
+
+fulltbl <- combined3 %>%
+  select(-c(gene_symbol, clean_gene_symbol, original_gene_name)) %>%
+  left_join(orfs %>% select(orf_cols, contains("LRT")), by = "gene_id") %>%
+  mutate(source = factor(source)) %>%
+  distinct()
+
+fulltbl_collapse <- fulltbl %>% group_by(gene_id) %>%
+  arrange(desc(orf_len), .by_group = TRUE) %>% 
+  dplyr::slice(1)
+```
+
+```{r}
+n1 <- orfs %>% filter(str_detect(gene_id, "^G[0-9]")) %>% 
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# new genes, 14356
+
+n2 <- orfs %>% filter(str_detect(gene_id, "^G[0-9]")) %>%
+  filter(nonbr_expr == 1 | br_expr == 1) %>%
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# new genes passing count filter in one tissue, 2034
+
+n3 <- orfs %>% filter(str_detect(gene_id, "^G[0-9]")) %>% 
+  filter(br_expr == 1) %>% 
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# new genes passing count filter in one brain tissue, 694
+
+n4 <- orfs %>% filter(str_detect(gene_id, "^G[0-9]")) %>% 
+  filter(br_expr == 1) %>% 
+  filter(min_sig <= 0.001) %>% 
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# new genes passing count filter and sig DE in one brain tissue, 240
+
+n5 <- orfs %>% filter(str_detect(gene_id, "^G[0-9]")) %>% 
+  filter(br_expr == 1) %>% 
+  filter(min_sig <= 0.001) %>% 
+  filter(unique_gene_symbol != gene_id) %>% 
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# new genes passing count filter and sig DE in one brain tissue,
+# and assigned name by blast, 87
+
+n6 <- orfs %>% filter(str_detect(gene_id, "^G[0-9]")) %>% 
+  filter(br_expr == 1) %>% 
+  filter(min_sig <= 0.001) %>% 
+  filter(unique_gene_symbol == gene_id, domains == 1) %>% 
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# new genes passing count filter and sig DE in one brain tissue,
+# no name assigned by blast, but domain found in orf, 8
+
+n7 <- orfs %>% filter(str_detect(gene_id, "^G[0-9]")) %>% 
+  filter(br_expr == 1) %>% 
+  filter(min_sig <= 0.001) %>% 
+  filter(unique_gene_symbol == gene_id) %>% 
+  filter(exons > 1, orf_len >= 100) %>% 
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# new genes passing count filter and sig DE in one brain tissue,
+# no name assigned by blast, but at least 2 exons + 100aa, 19
+```
+
+```{r}
+o1 <- orfs %>% filter(!(str_detect(gene_id, "^G[0-9]"))) %>% 
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# previously documented genes, 28525
+
+o2 <- orfs %>% filter(!(str_detect(gene_id, "^G[0-9]"))) %>%
+  filter(nonbr_expr == 1 | br_expr == 1) %>%
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# previously documented genes passing count filter in one tissue, 14948
+
+o3 <- orfs %>% filter(!(str_detect(gene_id, "^G[0-9]"))) %>% 
+  filter(br_expr == 1) %>% 
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# previously documented genes passing count filter in one brain tissue, 12341
+
+o4 <- orfs %>% filter(!(str_detect(gene_id, "^G[0-9]"))) %>% 
+  filter(br_expr == 1) %>% 
+  filter(min_sig <= 0.001) %>% 
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# previously documented genes passing count filter and sig DE in one brain tissue, 6265
+
+o5 <- fulltbl_collapse %>% filter(!(str_detect(gene_id, "^G[0-9]"))) %>% 
+  filter(br_expr == 1) %>% 
+  filter(min_sig <= 0.001) %>% 
+  filter(source == "human_blastn") %>% 
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# previously documented genes passing count filter and sig DE in one brain tissue,
+# and assigned name by blast, 351
+
+o6 <- fulltbl_collapse %>% filter(!(str_detect(gene_id, "^G[0-9]"))) %>% 
+  filter(br_expr == 1) %>% 
+  filter(min_sig <= 0.001) %>% 
+  filter(unique_gene_symbol == gene_id, domains == 1) %>% 
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# previously documented genes passing count filter and sig DE in one brain tissue,
+# no name assigned by blast, but domain found in orf, 0
+
+o7 <- fulltbl_collapse %>% filter(!(str_detect(gene_id, "^G[0-9]"))) %>% 
+  filter(br_expr == 1) %>% 
+  filter(min_sig <= 0.001) %>% 
+  filter(unique_gene_symbol == gene_id) %>% 
+  filter(exons > 1, orf_len >= 100) %>% 
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# previously documented genes passing count filter and sig DE in one brain tissue,
+# no name assigned by blast, but at least 2 exons + 100aa, 7
+```
+
+```{r}
+b1 <- fulltbl_collapse %>% 
+  filter(br_expr == 1) %>% 
+  filter(min_sig <= 0.001) %>% 
+  filter(source == "human_blastn") %>% 
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+
+b2 <- fulltbl_collapse %>% 
+  filter(br_expr == 1) %>% 
+  filter(min_sig <= 0.001) %>% 
+  filter(source == "human_blastn") %>% 
+  filter(str_detect(unique_gene_symbol, "_containing")) %>% 
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# assigned name by blast, "containing", 147
+
+b3 <- fulltbl_collapse %>% 
+  filter(br_expr == 1) %>% 
+  filter(min_sig <= 0.001) %>% 
+  filter(source == "human_blastn") %>% 
+  filter(str_detect(unique_gene_symbol, "_like")) %>% 
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# assigned name by blast, "_like", 153
+
+b4 <- fulltbl_collapse %>% 
+  filter(br_expr == 1) %>% 
+  filter(min_sig <= 0.001) %>% 
+  filter(source == "human_blastn") %>% 
+  filter(!(str_detect(unique_gene_symbol, "_like")) &
+           !(str_detect(unique_gene_symbol, "_containing"))) %>% 
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
+# assigned name by blast, matching name, 138
+```
+
+### NEW GENES:
+
+total: `r n1`
+
+pass count filter in one tissue: `r n2`
+
+pass count filter in one brain tissue: `r n3`
+
+pass count filter and sig DE in one brain tissue: `r n4`
+
+pass count filter and sig DE in one brain tissue, assigned name by blast: `r n5`
+
+pass count filter and sig DE in one brain tissue, no name assigned by blast, but domain found in orf: `r n6`
+
+pass count filter and sig DE in one brain tissue, no name assigned by blast, but with at least 2 exons + 100aa: `r n7`
+
+
+### FROM PREVIOUS TRANSCRIPTOMES:
+
+total: `r o1`
+
+pass count filter in one tissue: `r o2`
+
+pass count filter in one brain tissue: `r o3`
+
+pass count filter and sig DE in one brain tissue: `r o4`
+
+pass count filter and sig DE in one brain tissue, assigned name by blast: `r o5`
+
+pass count filter and sig DE in one brain tissue, no name assigned by blast, but domain found in orf: `r o6`
+
+pass count filter and sig DE in one brain tissue, no name assigned by blast, but with at least 2 exons + 100aa: `r o7`
+
+
+### BLAST ASSIGNMENTS 
+### (pass count filter and sig DE in one brain tissue):
+
+total: `r b1`
+
+"_containing" `r b2`
+
+"_like" `r b3`
+
+"matched" `r b4`
+

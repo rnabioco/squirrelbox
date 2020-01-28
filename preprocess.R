@@ -151,7 +151,7 @@ saveRDS(a2, "orf_frombed.rds")
 #   mutate(exons = mapply(get_exons, gene_id), transcript = mapply(get_length, gene_id))
 # 
 # a2 <- gene_list_orf2
-dataref <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20191113/Hypothalamus.tsv.gz")
+dataref <- read_tsv("/Users/rf/sandy/newtab/DESesq2_salmon_rlog_20200117/Hypothalamus.tsv.gz")
 d <- dataref %>% select(gene_id, contains("_padj")) %>% select_all(.funs = funs(paste0("hy_", .)))
 colnames(d)[1] <- "gene_id"
 a3 <- left_join(a2, d, by = c("gene_id" = "gene_id"))
@@ -189,3 +189,27 @@ write_csv(r, "rf_imp.csv")
 
 qsave(combined2, "combined2.qs")
 combined2 <- qread("combined2.qs")
+
+
+a3 <- read_csv("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/padj_orf.csv")
+a4 <- a3 %>% filter(str_detect(unique_gene_symbol, "_like|_contain|^G[0-9]+")) %>%
+  filter(len > 0) %>%
+  group_by(gene_id) %>%
+  arrange(desc(len)) %>% dplyr::slice(1)
+writefasta <- function(full_list, name){
+  for(n in c(1:nrow(full_list))){
+    gene <- as.character(full_list[n,10])
+    print(gene)
+    seq <- as.character(full_list[n,11])
+    print(seq)
+    write(paste0(">",gene), file = name, append=TRUE)
+    write(seq, file = name, append=TRUE)
+  }
+}
+
+writefasta(a4, "novels2020.fa")
+
+# hmmsearch --tblout novelse2_2020 --cpu 6 -E 1e-2 /Users/rf/Downloads/Pfam-A.hmm /Users/rf/newselect201905/sq_gen/sq_gen/novels2020.fa
+domains <- read_table2("/Users/rf/novelse2_2020", comment = "#", col_names = FALSE) %>% mutate(gene_id = X1, domain = X3) %>% select(gene_id, domain)
+write_csv(domains, "novel_domains.csv")
+```

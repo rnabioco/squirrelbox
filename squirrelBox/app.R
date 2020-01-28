@@ -32,7 +32,16 @@ table_cols <- c("gene_id", # comment out to remove from table outputs
                 "clean_gene_symbol", 
                 "original_gene_name", 
                 "source")
-orf_cols <- c("gene_id", "orf_len", "exons", "rna_len", "novel", "orf")
+orf_cols <- c("gene_id", 
+              "orf_len",
+              "exons", 
+              "rna_len", 
+              "novel", 
+              "min_sig", 
+              "domains",
+              "br_expr",
+              "nonbr_expr",
+              "orf")
 ### sample settings, define state colors and order, region order
 state_cols <- c(
   SA = rgb(255, 0, 0, maxColorValue = 255),
@@ -67,17 +76,19 @@ region_main <- c(
   "Hypothalamus",
   "Medulla"
 )
+region_main2 <- c(
+  "Adrenal",
+  "Kidney",
+  "Liver"
+)
 region_short <- c(
   "fore",
   "hy",
-  "med"
+  "med",
+  "Adr",
+  "Kid",
+  "Liv"
 )
-region_letter <- c(
-  "B",
-  "H",
-  "M"
-)
-
 
 # read database
 if (file.exists("combined2.feather")) {
@@ -149,7 +160,6 @@ bed <- bed %>% rename(gene_symbol = unique_gene_symbol) %>%
   mutate(unique_gene_symbol = ifelse(is.na(unique_gene_symbol), gene_symbol, unique_gene_symbol)) %>% 
   select(-gene_symbol)
 
-
 # read modules/clusters
 mod <- read_feather("clusters.feather")
 eigen <- read_tsv("cluster_patterns_matrices/reference_patterns.tsv") %>%
@@ -201,6 +211,16 @@ gmt <- gmt_to_list(gmt_file,
   rm = "^GO_"
 )
 
+domains <- read_csv("novel_domains.csv", col_types = "cc")
+
+br_expr <- combined2 %>% filter(region %in% region_main) %>%
+  pull(gene_id) %>%
+  unique()
+
+nonbr_expr <- combined2 %>% filter(region %in% region_main2) %>%
+  pull(gene_id) %>%
+  unique()
+
 # load orf predictions
 orfs <- read_csv("padj_orf.csv") %>%
   select(gene_id,
@@ -210,15 +230,17 @@ orfs <- read_csv("padj_orf.csv") %>%
     orf,
     unique_gene_symbol,
     everything()
-  ) %>% mutate(novel = factor(ifelse(str_detect(gene_id, "^G"), 1, 0)))
+  ) %>% mutate(novel = factor(ifelse(str_detect(gene_id, "^G"), 1, 0))) %>%
+  mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fore_LRT_padj, na.rm = T)) %>% 
+  mutate(domains = factor(ifelse(gene_id %in% domains$gene_id, 1, 0))) %>%
+  mutate(br_expr = factor(ifelse(gene_id %in% br_expr, 1, 0)), 
+         nonbr_expr = factor(ifelse(gene_id %in% nonbr_expr, 1, 0)))
 
 # temp fix
 orfs <- orfs %>% rename(gene_symbol = unique_gene_symbol) %>% 
   left_join(combined3 %>% select(gene_id, unique_gene_symbol)) %>%
   mutate(unique_gene_symbol = ifelse(is.na(unique_gene_symbol), gene_symbol, unique_gene_symbol)) %>% 
   select(-gene_symbol)
-
-domains <- read_csv("novel_domains.csv", col_types = "cc")
 
 fulltbl <- combined3 %>%
   select(-c(gene_symbol, clean_gene_symbol, original_gene_name)) %>%
@@ -395,6 +417,7 @@ ui <- fluidPage(
           checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
           checkboxInput("doPadj", "indicate sig", value = F, width = NULL),
           checkboxInput("doName", "label by sample", value = F, width = NULL),
+          checkboxInput("doBr", "plot brain", value = T, width = NULL),
           checkboxInput("doTis", "plot non-brain", value = F, width = NULL),
           checkboxInput("doEigen", "plot cluster mockup", value = T, width = NULL),
           checkboxInput("doUcsc", "download track", value = F, width = NULL),
@@ -612,10 +635,12 @@ server <- function(input, output, session) {
     inid <- outputtab$unique_gene_symbol
     plot_temp <<- comb_fil_factor(combined2, combined3, inid)
 
-    if (input$doTis) {
+    if (input$doTis & input$doBr) {
       mis <- setdiff(region_order, plot_temp$region %>% unique() %>% as.character())
-    } else {
+    } else if (!(input$doTis) & input$doBr) {
       mis <- setdiff(region_main, plot_temp$region %>% unique() %>% as.character())
+    } else {
+      mis <- setdiff(region_main2, plot_temp$region %>% unique() %>% as.character())
     }
 
     if (length(mis) > 0) {
@@ -628,8 +653,11 @@ server <- function(input, output, session) {
         plot_temp <- rbind(plot_temp, l)
       }
     }
-    if (input$doTis != T) {
-      plot_temp <- plot_temp %>% filter(region %in% region_main)
+    if (!input$doTis) {
+      plot_temp <- plot_temp %>% filter(!(region %in% region_main2))
+    }
+    if (!input$doBr) {
+      plot_temp <- plot_temp %>% filter(!(region %in% region_main))
     }
     if (nrow(rv$pval) != 0) {
       padj <- rv$pval %>%
@@ -711,7 +739,7 @@ server <- function(input, output, session) {
   boxPlotr <- reactive({
     g <- boxPlot1()
     output$boxPlot <- renderPlot(g)
-    if (input$doTis == T) {
+    if (input$doTis + input$doBr == 2) {
       plotOutput("boxPlot", width = 800, height = 600)
     } else {
       plotOutput("boxPlot", width = 800, height = 300)
@@ -723,7 +751,7 @@ server <- function(input, output, session) {
     g <- boxPlot1()
     output$boxPlot2 <- renderPlotly(ggplotly(g + facet_wrap(~region), tooltip = "text") %>%
       layout(hovermode = "closest"))
-    if (input$doTis == T) {
+    if (input$doTis + input$doBr == 2) {
       plotlyOutput("boxPlot2", width = 800, height = 600)
     } else {
       plotlyOutput("boxPlot2", width = 800, height = 300)
@@ -1032,7 +1060,7 @@ server <- function(input, output, session) {
       paste0(sym, ".pdf", sep = "")
     },
     content = function(file) {
-      if (input$doTis == T) {
+      if (input$doTis + input$doBr == 2) {
         w <- 8
         h <- 6
       } else {
@@ -1075,8 +1103,11 @@ server <- function(input, output, session) {
         plot_temp <- rbind(plot_temp, l)
       }
     }
-    if (input$doTis != T) {
-      plot_temp <- plot_temp %>% filter(region %in% region_main)
+    if (!input$doTis) {
+      plot_temp <- plot_temp %>% filter(!(region %in% region_main2))
+    }
+    if (!input$doBr) {
+      plot_temp <- plot_temp %>% filter(!(region %in% region_main))
     }
     plot_temp
   })
@@ -1113,11 +1144,7 @@ server <- function(input, output, session) {
         geom_point(aes(color = unique_gene_symbol)) +
         geom_line(aes(color = unique_gene_symbol))
     }
-    if (input$doTis) {
-      fac <- 2
-    } else {
-      fac <- 1
-    }
+    fac <- input$doTis + input$doBr
     # highlight(ggplotly(g, tooltip = "text"),"plotly_hover")
     ggplotly(g, tooltip = "text", height = 300 * fac, width = 800) %>% layout(autosize = FALSE)
   })
