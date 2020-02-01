@@ -633,7 +633,7 @@ server <- function(input, output, session) {
   boxPlot1 <- reactive({
     outputtab <- outputtab()
     inid <- outputtab$unique_gene_symbol
-    plot_temp <<- comb_fil_factor(combined2, combined3, inid)
+    plot_temp <- comb_fil_factor(combined2, combined3, inid)
 
     if (input$doTis & input$doBr) {
       mis <- setdiff(region_order, plot_temp$region %>% unique() %>% as.character())
@@ -1097,7 +1097,7 @@ server <- function(input, output, session) {
       for (element in mis) {
         l <- as.list(plot_temp[1, ])
         l$region <- element
-        l$sample <- "0"
+        # l$sample <- "0"
         l$log2_counts <- NA
         l$state <- state_order[1]
         plot_temp <- rbind(plot_temp, l)
@@ -1132,21 +1132,21 @@ server <- function(input, output, session) {
     )) +
       ylab("log2fold") +
       facet_wrap(~region) +
-      theme(legend.position = "none")
+      theme(legend.position = "none") +
+      geom_point(aes(color = unique_gene_symbol)) +
+      geom_line(aes(color = unique_gene_symbol))
 
-    if (input$doName == T) {
-      g <- g +
-        geom_point(aes(color = unique_gene_symbol)) +
-        geom_line(aes(color = unique_gene_symbol)) +
-        geom_text(position = position_jitter(seed = 1), aes(label = unique_gene_symbol))
-    } else {
-      g <- g +
-        geom_point(aes(color = unique_gene_symbol)) +
-        geom_line(aes(color = unique_gene_symbol))
-    }
     fac <- input$doTis + input$doBr
-    # highlight(ggplotly(g, tooltip = "text"),"plotly_hover")
-    ggplotly(g, tooltip = "text", height = 300 * fac, width = 800) %>% layout(autosize = FALSE)
+    if (input$doName == T) {
+      
+      # highlight(ggplotly(g, tooltip = "text"),"plotly_hover")
+      ggplotly(g, tooltip = "text", height = 300 * fac, width = 800) %>% layout(autosize = FALSE, 
+                                                                                showlegend = TRUE)
+    } else {
+      # highlight(ggplotly(g, tooltip = "text"),"plotly_hover")
+      ggplotly(g, tooltip = "text", height = 300 * fac, width = 800)
+    }
+    
   })
 
   # list cart genes as table
@@ -1205,12 +1205,21 @@ server <- function(input, output, session) {
     rv$listn <- 0
     path <- input$file$datapath
     if (str_detect(input$file$name, "\\.tsv")) {
-      historytablist <<- read_tsv(path, col_names = FALSE) %>% pull(1) %>% 
-        intersect(autocomplete_list)
+      v_genes <- read_tsv(path, col_names = FALSE)
     } else {
-      historytablist <<- read_csv(path, col_names = FALSE) %>% pull(1) %>% 
-        intersect(autocomplete_list)
+      v_genes <- read_csv(path, col_names = FALSE)
     }
+    if (nrow(v_genes) == 1) {
+      v_genes <- v_genes[1,] %>% unlist() %>% str_split(", ", simplify = FALSE) %>%
+        unlist() %>%
+        str_split(",", simplify = FALSE) %>%
+        unlist() %>% 
+        str_trim()
+    } else {
+      v_genes <- v_genes %>% pull(1)
+    }
+    historytablist <<- autocomplete_list[str_to_upper(autocomplete_list) %in% str_to_upper(v_genes %>% 
+                                                                                             unique())]
     rv$line_refresh <- rv$line_refresh + 1
   })
 
@@ -1351,7 +1360,11 @@ server <- function(input, output, session) {
 
   output$saveFiltered <- downloadHandler("filtré.csv", content = function(file) {
     s <- input$tbl_rows_all
-    write_csv((bed %>% select(unique_gene_symbol, everything()))[s, ], file)
+    write_csv((orftbl() %>%
+                 select(
+                   unique_gene_symbol,
+                   contains("LRT"),
+                   everything()) %>% select(unique_gene_symbol, everything()))[s, ], file)
   })
 
   observeEvent(input$tbl_rows_selected, {
