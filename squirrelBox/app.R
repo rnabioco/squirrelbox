@@ -41,7 +41,10 @@ orf_cols <- c("gene_id",
               "domains",
               "br_expr",
               "nonbr_expr",
-              "orf")
+              "transcript_id",
+              "majiq",
+              "orf"
+              )
 ### sample settings, define state colors and order, region order
 state_cols <- c(
   SA = rgb(255, 0, 0, maxColorValue = 255),
@@ -134,12 +137,12 @@ decreasing = T
 )
 
 # read annotation file to find ucsc track
-bed <- read_tsv("final_annot_20191112.bed12",
+bed <- read_tsv("final_tx_annotations_20200201.tsv.gz",
   col_names =c(
     "chrom",
     "start",
     "end",
-    "unique_gene_symbol",
+    "transcript_id",
     "score",
     "strand",
     NA,
@@ -149,16 +152,14 @@ bed <- read_tsv("final_annot_20191112.bed12",
     NA,
     NA,
     "gene_id",
+    "unique_gene_symbol",
     NA,
-    NA
-  ),
-  col_types = "cnncncnnnnncccc") %>% select(-contains("X"))
-
-# temp fix
-bed <- bed %>% rename(gene_symbol = unique_gene_symbol) %>% 
-  left_join(combined3 %>% select(gene_id, unique_gene_symbol)) %>%
-  mutate(unique_gene_symbol = ifelse(is.na(unique_gene_symbol), gene_symbol, unique_gene_symbol)) %>% 
-  select(-gene_symbol)
+    NA,
+    NA,
+    NA,
+    "majiq"
+  ), skip = 1) %>% select(-contains("X")) %>%
+  mutate(majiq = factor(ifelse(is.na(majiq), 0, 1)))
 
 # read modules/clusters
 mod <- read_feather("clusters.feather")
@@ -234,13 +235,8 @@ orfs <- read_csv("padj_orf.csv") %>%
   mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fore_LRT_padj, na.rm = T)) %>% 
   mutate(domains = factor(ifelse(gene_id %in% domains$gene_id, 1, 0))) %>%
   mutate(br_expr = factor(ifelse(gene_id %in% br_expr, 1, 0)), 
-         nonbr_expr = factor(ifelse(gene_id %in% nonbr_expr, 1, 0)))
-
-# temp fix
-orfs <- orfs %>% rename(gene_symbol = unique_gene_symbol) %>% 
-  left_join(combined3 %>% select(gene_id, unique_gene_symbol)) %>%
-  mutate(unique_gene_symbol = ifelse(is.na(unique_gene_symbol), gene_symbol, unique_gene_symbol)) %>% 
-  select(-gene_symbol)
+         nonbr_expr = factor(ifelse(gene_id %in% nonbr_expr, 1, 0))) %>% 
+  mutate(majiq = factor(ifelse(is.na(majiq), 0, 1)))
 
 fulltbl <- combined3 %>%
   select(-c(gene_symbol, clean_gene_symbol, original_gene_name)) %>%
