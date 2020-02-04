@@ -88,9 +88,9 @@ region_short <- c(
   "fore",
   "hy",
   "med",
-  "Adr",
-  "Kid",
-  "Liv"
+  "adr",
+  "kid",
+  "liv"
 )
 
 # read database
@@ -281,9 +281,9 @@ find_groups_igraph <- function(df) {
   lapply(cg, names)
 }
 
-sort_groups <- function(groups) {
-  all_groups <- state_order
-  leftout <- list(setdiff(state_order, unlist(groups)))
+sort_groups <- function(groups, states, state_order) {
+  all_groups <- states
+  leftout <- list(setdiff(all_groups, unlist(groups)))
   leftout <- as.list(unlist(leftout))
   full <- c(groups, leftout)
   full4 <- sapply(full, function(x) factor(x)[order(factor(x, levels = state_order))])
@@ -313,7 +313,8 @@ groups_to_letters_igraph <- function(df) {
   g <- lapply(reg, function(x) {
     g <- df2 %>% filter(region == x)
     g2 <- find_groups_igraph(g)
-    g3 <- sort_groups(g2)
+    states <- unique(c(df2$state1, df2$state2))
+    g3 <- sort_groups(g2, states, state_order)
     g3$region <- x
     return(g3)
   })
@@ -700,13 +701,14 @@ server <- function(input, output, session) {
         mutate(call1 = as.numeric(call1)) %>%
         mutate(region = as.character(region))
       temp2$region <- region_order[factor(temp2$region, level = region_short) %>% as.numeric()]
-      temp3 <- groups_to_letters_igraph(temp2)
+      temp3 <- groups_to_letters_igraph(temp2) %>% mutate(region = factor(region, level = region_order))
 
       if (!(is.na(plot_temp$log2_counts) %>% all())) {
         agg <- aggregate(log2_counts ~ state + region, plot_temp, max)
         agg_min <- aggregate(log2_counts ~ state + region, plot_temp, min)
         agg$min <- agg_min$log2_counts
         agg2 <- agg %>%
+          mutate(region = factor(region, level = region_order)) %>% 
           group_by(region) %>%
           mutate(
             maxy = max(log2_counts),

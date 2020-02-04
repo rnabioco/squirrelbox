@@ -140,16 +140,28 @@ saveRDS(a2, "orf_frombed.rds")
 a2 <- readRDS("orf_frombed.rds")
 a2 <- a2 %>% select(chrom, start, end, site, orf, len, transcript) %>% left_join(bed)
 
-dataref <- read_tsv("/Users/rf/sandy/newtab/DESesq2_salmon_rlog_20200117/Hypothalamus.tsv.gz")
+dataref <- read_tsv("/Users/rf/sandy/newtab/DESesq2_salmon_rlog_20200130/Hypothalamus.tsv.gz")
 d <- dataref %>% select(gene_id, contains("_padj")) %>% select_all(.funs = funs(paste0("hy_", .)))
 colnames(d)[1] <- "gene_id"
 a3 <- left_join(a2, d, by = c("gene_id" = "gene_id"))
-dataref <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20191113/Forebrain.tsv.gz")
+dataref <- read_tsv("/Users/rf/sandy/newtab/DESesq2_salmon_rlog_20200130/Forebrain.tsv.gz")
 d <- dataref %>% select(gene_id, contains("_padj")) %>% select_all(.funs = funs(paste0("fore_", .)))
 colnames(d)[1] <- "gene_id"
 a3 <- left_join(a3, d, by = c("gene_id" = "gene_id"))
-dataref <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20191113/Medulla.tsv.gz")
+dataref <- read_tsv("/Users/rf/sandy/newtab/DESesq2_salmon_rlog_20200130/Medulla.tsv.gz")
 d <- dataref %>% select(gene_id, contains("_padj")) %>% select_all(.funs = funs(paste0("med_", .)))
+colnames(d)[1] <- "gene_id"
+a3 <- left_join(a3, d, by = c("gene_id" = "gene_id"))
+dataref <- read_tsv("/Users/rf/sandy/newtab/DESesq2_salmon_rlog_20200130/Adrenal.tsv.gz")
+d <- dataref %>% select(gene_id, contains("_padj")) %>% select_all(.funs = funs(paste0("adr_", .)))
+colnames(d)[1] <- "gene_id"
+a3 <- left_join(a3, d, by = c("gene_id" = "gene_id"))
+dataref <- read_tsv("/Users/rf/sandy/newtab/DESesq2_salmon_rlog_20200130/Liver.tsv.gz")
+d <- dataref %>% select(gene_id, contains("_padj")) %>% select_all(.funs = funs(paste0("liv_", .)))
+colnames(d)[1] <- "gene_id"
+a3 <- left_join(a3, d, by = c("gene_id" = "gene_id"))
+dataref <- read_tsv("/Users/rf/sandy/newtab/DESesq2_salmon_rlog_20200130/Kidney.tsv.gz")
+d <- dataref %>% select(gene_id, contains("_padj")) %>% select_all(.funs = funs(paste0("kid_", .)))
 colnames(d)[1] <- "gene_id"
 a3 <- left_join(a3, d, by = c("gene_id" = "gene_id"))
 write_csv(a3, "padj_orf.csv")
