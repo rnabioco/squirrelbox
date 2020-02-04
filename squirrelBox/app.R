@@ -865,7 +865,7 @@ server <- function(input, output, session) {
     out <- out[, -which(duplicated(colnames(out)))]
     # clusters
     mod1 <- mod %>%
-      filter(gene == out$unique_gene_symbol)
+      filter(gene %in% out$unique_gene_symbol)
     if (length(mod1) == 0) {
       rv$mod_df <<- data.frame()
     } else {
@@ -902,7 +902,7 @@ server <- function(input, output, session) {
     outputtab <- outputtab()
     temp1 <- gmt %>% filter(genes == str_to_upper(outputtab$clean_gene_symbol))
     if (nrow(temp1) == 0) {
-      temp1 <- domains %>% filter(gene_id == outputtab$gene_id)
+      temp1 <- domains %>% filter(gene_id %in% outputtab$gene_id)
     }
     temp1
   })
