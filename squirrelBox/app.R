@@ -986,7 +986,7 @@ server <- function(input, output, session) {
     clean <- a(outputtab$unique_gene_symbol,
       href = str_c(
         "https://www.ncbi.nlm.nih.gov/gene/?term=",
-        outputtab$clean_gene_symbol,
+        str_remove(outputtab$unique_gene_symbol, "_.+"),
         "[sym]+AND+human[ORGN]"
       )
     )
@@ -1002,7 +1002,7 @@ server <- function(input, output, session) {
     clean <- a(outputtab$unique_gene_symbol,
       href = str_c(
         "https://www.genenames.org/data/gene-symbol-report/#!/symbol/",
-        outputtab$clean_gene_symbol
+        str_remove(outputtab$unique_gene_symbol, "_.+")
       )
     )
     tagList("hgnc:", clean)
@@ -1017,7 +1017,7 @@ server <- function(input, output, session) {
     clean <- a(outputtab$unique_gene_symbol,
       href = str_c(
         "https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
-        outputtab$clean_gene_symbol
+        str_remove(outputtab$unique_gene_symbol, "_.+")
       )
     )
     tagList("genecard:", clean)
