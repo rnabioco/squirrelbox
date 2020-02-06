@@ -21,10 +21,9 @@ theme_set(theme_cowplot())
 
 
 ### general data settings
-#use_folder <- "wgcna11" # change to get to old version of data
 track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
-gmt_file <- "c5.all.v6.2.symbols.gmt"
+gmt_file <- "c5.all.v7.0.symbols.gmt"
 sig_cut <- 0.001
 table_cols <- c("gene_id", # comment out to remove from table outputs
                 "unique_gene_symbol", 
@@ -109,33 +108,6 @@ if (file.exists("combined2.feather")) {
   )
 }
 
-# query function
-comb_fil_factor <- function(combined2, combined3, inid) {
-  combined3 <- combined3 %>% 
-    filter(gene_id %in% inid | unique_gene_symbol %in% inid)
-  combined2 <- combined2 %>%
-    filter(gene_id %in% inid | gene_id %in% (combined3$gene_id %>%
-                                               unique())) %>%
-    mutate(sample = (str_remove(sample, "[A-Z]+")))
-  combined <- combined3 %>% inner_join(combined2, by = "gene_id")
-  combined %>% mutate(
-    state = factor(state,
-                   levels = state_order
-    ),
-    region = factor(region,
-                    levels = region_order
-    )
-  )
-}
-
-# lists of genes
-autocomplete_list <- str_sort(c(
-  combined3$unique_gene_symbol,
-  combined3$gene_id
-) %>% unique(),
-decreasing = T
-)
-
 # read annotation file to find ucsc track
 bed <- read_tsv("final_tx_annotations_20200201.tsv.gz",
   col_names =c(
@@ -180,6 +152,33 @@ for (clu in colnames(eigen[, -1])) {
     theme(legend.position = "none")
 }
 eigen_gg[["empty"]] <- ggplot()
+
+# query function
+comb_fil_factor <- function(combined2, combined3, inid) {
+  combined3 <- combined3 %>% 
+    filter(gene_id %in% inid | unique_gene_symbol %in% inid)
+  combined2 <- combined2 %>%
+    filter(gene_id %in% inid | gene_id %in% (combined3$gene_id %>%
+                                               unique())) %>%
+    mutate(sample = (str_remove(sample, "[A-Z]+")))
+  combined <- combined3 %>% inner_join(combined2, by = "gene_id")
+  combined %>% mutate(
+    state = factor(state,
+                   levels = state_order
+    ),
+    region = factor(region,
+                    levels = region_order
+    )
+  )
+}
+
+# lists of genes
+autocomplete_list <- str_sort(c(
+  combined3$unique_gene_symbol,
+  combined3$gene_id
+) %>% unique(),
+decreasing = T
+)
 
 # read go terms and TFs
 gmt_to_list <- function(path,
@@ -247,6 +246,7 @@ fulltbl <- combined3 %>%
 fulltbl_collapse <- fulltbl %>% group_by(gene_id) %>%
   arrange(desc(orf_len), .by_group = TRUE) %>% 
   dplyr::slice(1)
+
 # padj functions
 find_padj <- function(region, state, tbl) {
   temp <- str_c(tbl[str_sub(tbl, 1, 1) == str_to_lower(str_sub(region, 1, 1)) &
