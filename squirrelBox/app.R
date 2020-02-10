@@ -23,7 +23,8 @@ theme_set(theme_cowplot())
 ### general data settings
 track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
-gmt_file <- "c5.all.v7.0.symbols.gmt"
+gmt_file <- "c5.bp.v7.0.symbols.gmt"
+gmt_short <- "GO_"
 sig_cut <- 0.001
 table_cols <- c("gene_id", # comment out to remove from table outputs
                 "unique_gene_symbol", 
@@ -126,7 +127,7 @@ bed <- read_tsv("final_tx_annotations_20200201.tsv.gz",
     "gene_id",
     "unique_gene_symbol",
     NA,
-    NA,
+    "clean_gene_symbol",
     NA,
     NA,
     "majiq"
@@ -175,16 +176,31 @@ comb_fil_factor <- function(combined2, combined3, inid) {
 # lists of genes
 autocomplete_list <- str_sort(c(
   combined3$unique_gene_symbol,
-  combined3$gene_id
-) %>% unique(),
-decreasing = T
-)
+  combined3$gene_id) %>% unique(), decreasing = T)
+
+find_spelling <- function(entry, dict) {
+  temp <- intersect(c(entry, str_to_upper(entry), str_to_title(entry)),
+            dict)
+  if (length(temp) == 0) {
+    return("")
+  } else {
+    temp[1]
+  }
+} 
+
+namedvec <- combined3$clean_gene_symbol
+names(namedvec) <- combined3$unique_gene_symbol
+
+unique_to_clean <- function(genevec, namedvec) {
+  namedvec[genevec] %>% na.omit()
+}
 
 # read go terms and TFs
 gmt_to_list <- function(path,
                         cutoff = 0,
-                        sep = "\thttp://www.broadinstitute.org/gsea/msigdb/cards/.*?\t",
-                        rm = "REACTOME_") {
+                        sep = "\thttp://www\\..*?.org/gsea/msigdb/cards/.*?\t",
+                        rm = "REACTOME_",
+                        per = TRUE) {
   df <- readr::read_csv(path,
     col_names = F, col_types = cols()
   )
@@ -192,24 +208,35 @@ gmt_to_list <- function(path,
     X1,
     sep = sep,
     into = c("path", "genes")
-  )
-  df <- dplyr::mutate(df,
-    path = stringr::str_replace(
-      df$path,
-      rm,
-      ""
-    ),
-    genes = stringr::str_split(
-      genes,
-      "\t"
+  ) %>% dplyr::mutate(path = stringr::str_remove(path, rm))
+  if (per) {
+    df <- df %>% mutate(
+      genes = stringr::str_split(
+        genes,
+        "\t"
+      )
     )
-  )
-  tidyr::unnest_legacy(df, genes)
+    return(tidyr::unnest_legacy(df, genes))
+  } else {
+    l <- str_split(df$genes, "\t")
+    names(l) <- df$path
+    return(l)
+  }
 }
 
-gmt <- gmt_to_list(gmt_file,
-  rm = "^GO_"
-)
+gmt <- gmt_to_list(gmt_file, rm = gmt_short)
+
+if (file.exists(paste0(gmt_file, ".rds"))) {
+  gmtlist <- readRDS(paste0(gmt_file, ".rds"))
+} else {
+  gmtlist <- gmt_to_list(gmt_file, rm = gmt_short, per = FALSE)
+  gmtlist <- sapply(gmtlist, function(x) {
+    intersect(x, str_to_upper(bed$clean_gene_symbol %>% unique()))
+  })
+  gmtlist <- gmtlist[sapply(gmtlist, length) > 1] 
+  saveRDS(gmtlist, paste0(gmt_file, ".rds"))
+}
+
 
 domains <- read_csv("novel_domains.csv", col_types = "cc")
 
@@ -222,7 +249,7 @@ nonbr_expr <- combined2 %>% filter(region %in% region_main2) %>%
   unique()
 
 # load orf predictions
-orfs <- read_csv("padj_orf.csv") %>%
+orfs <- read_feather("padj_orf.feather") %>%
   select(gene_id,
     orf_len = len,
     exons,
@@ -240,12 +267,20 @@ orfs <- read_csv("padj_orf.csv") %>%
 fulltbl <- combined3 %>%
   select(-c(gene_symbol, clean_gene_symbol, original_gene_name)) %>%
   left_join(orfs %>% select(orf_cols, contains("LRT")), by = "gene_id") %>%
+  left_join(mod, by = c("unique_gene_symbol" = "gene")) %>% 
   mutate(source = factor(source)) %>%
+  mutate_at(vars(contains("cluster")), factor) %>% 
   distinct()
 
 fulltbl_collapse <- fulltbl %>% group_by(gene_id) %>%
   arrange(desc(orf_len), .by_group = TRUE) %>% 
   dplyr::slice(1)
+
+length_detected_genes <- orfs %>%
+  filter(br_expr == 1) %>%
+  pull(gene_id) %>%
+  unique() %>% 
+  length()
 
 # padj functions
 find_padj <- function(region, state, tbl) {
@@ -347,6 +382,36 @@ vars_set <- function(rfvars, n) {
     pull(gene)
 }
 
+fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
+  genevec <- intersect(genevec, unlist(gmtlist) %>% unique())
+  sampleSize <- length(genevec)
+  res <- sapply(gmtlist, function(x) {
+    if (length(x) == 0) {
+      return(c(stringofhits = "", pval = 1))
+    }
+    hitInSample <- length(intersect(genevec, x))
+    hitInPop <- length(x)
+    # print(hitInPop)
+    failInPop <- length_detected_genes - hitInPop
+    stringofhits <- intersect(genevec, x) %>% str_c(collapse = ",")
+    if (length(stringofhits) == 0) {
+      stringofhits = ""
+    }
+    pval <- phyper(hitInSample-1, hitInPop, failInPop, sampleSize, lower.tail= FALSE)
+    return(c(hits = stringofhits, pval = pval))
+  }, simplify = FALSE)
+  res <- data.frame(res) %>% data.table::transpose()
+  names(res) <- c("hits", "pval")
+  res$pathway <- names(gmtlist)
+  res$padj <- p.adjust(res$pval, method = "BH")
+  res %>% mutate(minuslog10 = -log10(padj)) %>%
+    mutate(len = unlist(map(str_split(hits, ","), length))) %>% 
+    mutate(len = ifelse(hits == "", 0, len)) %>% 
+    arrange(desc(minuslog10), len) %>%
+    select(pathway, padj, minuslog10, pval, hits, len)
+}
+
+
 # some other code for webpage functions
 jscode <- '
 $(function() {
@@ -446,17 +511,7 @@ ui <- fluidPage(
         tabPanel(
           "history",
           DT::dataTableOutput("historyl"),
-          style = "height:300px; overflow-y: scroll;",
-          uiOutput("history1"),
-          uiOutput("history2"),
-          uiOutput("history3"),
-          uiOutput("history4"),
-          uiOutput("history5"),
-          uiOutput("history6"),
-          uiOutput("history7"),
-          uiOutput("history8"),
-          uiOutput("history9"),
-          uiOutput("history10")
+          style = "height:300px; overflow-y: scroll;"
         ),
         tabPanel(
           "cart",
@@ -509,15 +564,15 @@ ui <- fluidPage(
           ),
           DT::dataTableOutput("tbl")
         ),
-        tabPanel(
-          title = "table_RF",
-          value = "table_RF",
-          downloadButton(
-            outputId = "saveFiltered2",
-            label = "download filtered data"
-          ),
-          DT::dataTableOutput("tbl2")
-        ),
+        # tabPanel(
+        #   title = "table_RF",
+        #   value = "table_RF",
+        #   downloadButton(
+        #     outputId = "saveFiltered2",
+        #     label = "download filtered data"
+        #   ),
+        #   DT::dataTableOutput("tbl2")
+        # ),
         tabPanel(
           title = "table_varsel",
           value = "table_varsel",
@@ -542,6 +597,16 @@ ui <- fluidPage(
           title = "line_plot",
           value = "line_plot",
           plotlyOutput("linePlot")
+        ),
+        tabPanel(
+          title = "enrichment_plot",
+          value = "enrichment_plot",
+          downloadButton("savePlot2", 
+                         label = "download plot"),
+          downloadButton(
+            outputId = "saveEnrich",
+            label = "download table"),
+          plotlyOutput("richPlot")
         )
       )
     )
@@ -564,6 +629,7 @@ server <- function(input, output, session) {
   rv$listn2 <- 0
   rv$cart <- 0
   rv$xsel <- "NA"
+  rv$richsel <- "NA"
   rv$line <- 0
   rv$line_refresh <- 0
   rv$mod_df <- data.frame()
@@ -1146,8 +1212,52 @@ server <- function(input, output, session) {
     }
     
   })
+  
+  richPlot1 <- reactive({
+    rv$line_refresh
+    set.seed(1)
+    if (length(historytablist) == 0) {
+      return(ggplotly(ggplot()))
+    }
+    genevec <- unique_to_clean(historytablist, namedvec) %>% str_to_upper()
+    tops <- fisher(genevec, gmtlist, length_detected_genes)
+    tops <<- tops %>% dplyr::slice(1 : max(min(which(tops$padj > 0.01)), 15))
+    ggplot(tops %>% dplyr::slice(1:15), aes(x = reorder(pathway, minuslog10), y = minuslog10, fill = -minuslog10, text = len)) +
+      geom_bar(stat = "identity") +
+      xlab(paste0("enriched : ", str_remove(gmt_short, "_"))) +
+      coord_flip() +
+      cowplot::theme_minimal_vgrid() +
+      theme(axis.text.y = element_text(size = 4),
+            axis.text.x = element_text(size = 10), 
+            axis.title.y = element_text(size = 10), 
+            axis.title.x = element_text(size = 10),
+            legend.position = "none") +
+      scale_y_continuous(expand = c(0, 0))
+  })
+  
+  output$richPlot <- renderPlotly({
+    ggplotly(richPlot1(), source = "richPlot", tooltip = "text", height = 600, width = 800) %>%
+      layout(autosize = F) %>% highlight()
+  })
 
-  # list cart genes as table
+  output$savePlot2 <- downloadHandler(
+    filename = "enriched.pdf",
+    content = function(file) {
+      ggplot2::ggsave(file, plot = richPlot1(), device = "pdf", width = 8, height = 6)
+    }
+  )
+  
+  observeEvent(event_data("plotly_click", source = "richPlot"), {
+    rv$richsel <- event_data("plotly_click", source = "richPlot")
+    carttablist <<- tops[16 - rv$richsel$y, ] %>% pull(hits) %>% str_split(",") %>% unlist()
+    rv$listn2 <- length(carttablist)
+  })
+  
+  output$saveEnrich <- downloadHandler("enrich_list.csv", content = function(file) {
+    write_csv(tops, file)
+  })
+  
+  # list history genes as table
   output$historyl <- DT::renderDataTable({
     inid()
     if (length(historytab) > 0) {
@@ -1171,9 +1281,10 @@ server <- function(input, output, session) {
 
   observeEvent(input$historyl_rows_selected, {
     rv$run2 <- 1
+    sel <- find_spelling(historytab[input$historyl_rows_selected], autocomplete_list)
     updateSelectizeInput(session,
       inputId = "geneID",
-      selected = historytab[input$historyl_rows_selected],
+      selected = sel,
       choices = autocomplete_list,
       server = T
     )
@@ -1259,9 +1370,10 @@ server <- function(input, output, session) {
 
   observeEvent(input$tbllist2_rows_selected, {
     rv$run2 <- 1
+    sel <- find_spelling(carttablist[input$tbllist2_rows_selected], autocomplete_list)
     updateSelectizeInput(session,
       inputId = "geneID",
-      selected = carttablist[input$tbllist2_rows_selected],
+      selected = sel,
       choices = autocomplete_list,
       server = T
     )
@@ -1273,9 +1385,10 @@ server <- function(input, output, session) {
       rv$listn <- 1
     }
     rv$run2 <- 1
+    sel <- find_spelling(historytablist[rv$listn], autocomplete_list)
     updateSelectizeInput(session,
       inputId = "geneID",
-      selected = historytablist[rv$listn],
+      selected = sel,
       choices = autocomplete_list,
       server = T
     )
@@ -1287,9 +1400,10 @@ server <- function(input, output, session) {
       rv$listn <- length(historytablist)
     }
     rv$run2 <- 1
+    sel <- find_spelling(historytablist[rv$listn], autocomplete_list)
     updateSelectizeInput(session,
       inputId = "geneID",
-      selected = historytablist[rv$listn],
+      selected = sel,
       choices = autocomplete_list,
       server = T
     )
@@ -1324,9 +1438,10 @@ server <- function(input, output, session) {
 
   observeEvent(input$tbllist_rows_selected, {
     rv$run2 <- 1
+    sel <- find_spelling(historytablist[input$tbllist_rows_selected], autocomplete_list)
     updateSelectizeInput(session,
       inputId = "geneID",
-      selected = historytablist[input$tbllist_rows_selected],
+      selected = sel,
       choices = autocomplete_list,
       server = T
     )
@@ -1452,9 +1567,11 @@ server <- function(input, output, session) {
   })
 
   output$oob <- renderPlotly({
-    ggplot(trf, aes(x = Number.Variables, y = OOB)) +
+    g <- ggplot(trf, aes(x = Number.Variables, y = OOB)) +
       geom_point() +
       theme_cowplot()
+    ggplotly(g, source = "oob", selectedpoints = list(9)) %>%
+      layout(xaxis = list(showspikes = TRUE))
   })
 
   output$oob2 <- renderPlotly({
@@ -1466,12 +1583,17 @@ server <- function(input, output, session) {
       layout(xaxis = list(showspikes = TRUE))
   })
 
+  plotlysel2 <- reactive({
+    rv$xsel <- event_data("plotly_click", source = "oob2")
+  })
+  
   plotlysel <- reactive({
-    event_data("plotly_click", source = "oob2")
+    rv$xsel <- event_data("plotly_click", source = "oob")
   })
 
   output$sel <- renderUI({
-    rv$xsel <<- plotlysel()
+    plotlysel()
+    plotlysel2()
     paste0("selected: ", as.character(rv$xsel$x))
   })
 
