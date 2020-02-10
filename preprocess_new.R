@@ -140,16 +140,28 @@ saveRDS(a2, "orf_frombed.rds")
 a2 <- readRDS("orf_frombed.rds")
 a2 <- a2 %>% select(chrom, start, end, site, orf, len, transcript) %>% left_join(bed)
 
-dataref <- read_tsv("/Users/rf/sandy/newtab/DESesq2_salmon_rlog_20200117/Hypothalamus.tsv.gz")
+dataref <- read_tsv("/Users/rf/sandy/newtab/DESesq2_salmon_rlog_20200130/Hypothalamus.tsv.gz")
 d <- dataref %>% select(gene_id, contains("_padj")) %>% select_all(.funs = funs(paste0("hy_", .)))
 colnames(d)[1] <- "gene_id"
 a3 <- left_join(a2, d, by = c("gene_id" = "gene_id"))
-dataref <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20191113/Forebrain.tsv.gz")
+dataref <- read_tsv("/Users/rf/sandy/newtab/DESesq2_salmon_rlog_20200130/Forebrain.tsv.gz")
 d <- dataref %>% select(gene_id, contains("_padj")) %>% select_all(.funs = funs(paste0("fore_", .)))
 colnames(d)[1] <- "gene_id"
 a3 <- left_join(a3, d, by = c("gene_id" = "gene_id"))
-dataref <- read_tsv("/Users/rf/sandy/newtab/DESeq2_salmon_rlog_20191113/Medulla.tsv.gz")
+dataref <- read_tsv("/Users/rf/sandy/newtab/DESesq2_salmon_rlog_20200130/Medulla.tsv.gz")
 d <- dataref %>% select(gene_id, contains("_padj")) %>% select_all(.funs = funs(paste0("med_", .)))
+colnames(d)[1] <- "gene_id"
+a3 <- left_join(a3, d, by = c("gene_id" = "gene_id"))
+dataref <- read_tsv("/Users/rf/sandy/newtab/DESesq2_salmon_rlog_20200130/Adrenal.tsv.gz")
+d <- dataref %>% select(gene_id, contains("_padj")) %>% select_all(.funs = funs(paste0("adr_", .)))
+colnames(d)[1] <- "gene_id"
+a3 <- left_join(a3, d, by = c("gene_id" = "gene_id"))
+dataref <- read_tsv("/Users/rf/sandy/newtab/DESesq2_salmon_rlog_20200130/Liver.tsv.gz")
+d <- dataref %>% select(gene_id, contains("_padj")) %>% select_all(.funs = funs(paste0("liv_", .)))
+colnames(d)[1] <- "gene_id"
+a3 <- left_join(a3, d, by = c("gene_id" = "gene_id"))
+dataref <- read_tsv("/Users/rf/sandy/newtab/DESesq2_salmon_rlog_20200130/Kidney.tsv.gz")
+d <- dataref %>% select(gene_id, contains("_padj")) %>% select_all(.funs = funs(paste0("kid_", .)))
 colnames(d)[1] <- "gene_id"
 a3 <- left_join(a3, d, by = c("gene_id" = "gene_id"))
 write_csv(a3, "padj_orf.csv")
@@ -199,4 +211,52 @@ writefasta(a4, "novels2020.fa")
 # hmmsearch --tblout novelse2_2020 --cpu 6 -E 1e-2 /Users/rf/Downloads/Pfam-A.hmm /Users/rf/newselect201905/sq_gen/sq_gen/novels2020.fa
 domains <- read_table2("/Users/rf/novelse2_2020", comment = "#", col_names = FALSE) %>% mutate(gene_id = X1, domain = X3) %>% select(gene_id, domain)
 write_csv(domains, "novel_domains.csv")
-```
+
+# venn diagram
+library(eulerr)
+loc <- "/Users/rf/sandy/newtab/DESesq2_salmon_rlog_20200130"
+a <- read_tsv(paste0(loc, "/Adrenal.tsv.gz"))
+f <- read_tsv(paste0(loc, "/Forebrain.tsv.gz"))
+k <- read_tsv(paste0(loc, "/Kidney.tsv.gz"))
+l <- read_tsv(paste0(loc, "/Liver.tsv.gz"))
+m <- read_tsv(paste0(loc, "/Medulla.tsv.gz"))
+h <- read_tsv(paste0(loc, "/Hypothalamus.tsv.gz"))
+
+data1 <- rbind(data.frame(gene = f$gene_id, test = "fore"),
+              data.frame(gene = h$gene_id, test = "hy"),
+              data.frame(gene = m$gene_id, test = "med"))
+data1 <- data1 %>% group_by(gene) %>% 
+  summarize(test = bazar::concat(test, sep = "&"), n = n())
+
+counts1 <- table(data1$test)
+ps1 <- as.vector(counts1)
+names(ps1) <- names(counts1)
+vd1 <- euler(ps1)
+plot(vd1, labels = list(cex = .5), quantities = list(cex = .5), adjust_labels = FALSE)
+pdf(file = "./3brainvd_small.pdf", width = 3, height = 3)
+plot(vd1, labels = list(cex = .5), quantities = list(cex = .5), adjust_labels = FALSE)
+dev.off()
+a <- read_tsv(paste0(loc, "/Adrenal_significant_001.tsv.gz"))
+f <- read_tsv(paste0(loc, "/Forebrain_significant_001.tsv.gz"))
+k <- read_tsv(paste0(loc, "/Kidney_significant_001.tsv.gz"))
+l <- read_tsv(paste0(loc, "/Liver_significant_001.tsv.gz"))
+m <- read_tsv(paste0(loc, "/Medulla_significant_001.tsv.gz"))
+h <- read_tsv(paste0(loc, "/Hypothalamus_significant_001.tsv.gz"))
+# data2 <- rbind(data.frame(gene = f %>% filter(LRT_padj <= 0.001) %>% pull(gene_id), test = "fore"),
+#                data.frame(gene = h %>% filter(LRT_padj <= 0.001) %>% pull(gene_id), test = "hy"),
+#                data.frame(gene = m %>% filter(LRT_padj <= 0.001) %>% pull(gene_id), test = "med"))
+data2 <- rbind(data.frame(gene = f$gene_id, test = "fore"),
+               data.frame(gene = h$gene_id, test = "hy"),
+               data.frame(gene = m$gene_id, test = "med"))
+data2 <- data2 %>% group_by(gene) %>% 
+  summarize(test = bazar::concat(test, sep = "&"), n = n())
+
+counts2 <- table(data2$test)
+ps2 <- as.vector(counts2)
+names(ps2) <- names(counts2)
+vd2 <- euler(ps2)
+plot(vd2, labels = list(cex = .5), quantities = list(cex = .5), adjust_labels = FALSE)
+
+pdf(file = "./sig3DEbrainvd_small.pdf", width = 3, height = 3)
+plot(vd2, labels = list(cex = .5), quantities = list(cex = .5), adjust_labels = FALSE)
+dev.off()
