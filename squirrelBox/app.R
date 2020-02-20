@@ -15,12 +15,15 @@ library(shinyBS)
 library(feather)
 library(crosstalk)
 library(purrr)
+library(shinythemes)
+
 options(stringsAsFactors = FALSE)
 theme_set(theme_cowplot())
 # options(shiny.reactlog = TRUE)
 
 
 ### general data settings
+set_shinytheme = "paper"
 track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
 gmt_file <- "c5.bp.v7.0.symbols.gmt"
@@ -42,8 +45,8 @@ orf_cols <- c("gene_id",
               "br_expr",
               "nonbr_expr",
               "transcript_id",
-              "majiq",
-              "orf"
+              "majiq"#,
+              #"orf"
               )
 ### sample settings, define state colors and order, region order
 state_cols <- c(
@@ -233,7 +236,7 @@ if (file.exists(paste0(gmt_file, ".rds"))) {
   gmtlist <- sapply(gmtlist, function(x) {
     intersect(x, str_to_upper(bed$clean_gene_symbol %>% unique()))
   })
-  gmtlist <- gmtlist[sapply(gmtlist, length) > 1] 
+  gmtlist <- gmtlist[sapply(gmtlist, length) >= 5] 
   saveRDS(gmtlist, paste0(gmt_file, ".rds"))
 }
 
@@ -391,7 +394,6 @@ fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
     }
     hitInSample <- length(intersect(genevec, x))
     hitInPop <- length(x)
-    # print(hitInPop)
     failInPop <- length_detected_genes - hitInPop
     stringofhits <- intersect(genevec, x) %>% str_c(collapse = ",")
     if (length(stringofhits) == 0) {
@@ -403,12 +405,14 @@ fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
   res <- data.frame(res) %>% data.table::transpose()
   names(res) <- c("hits", "pval")
   res$pathway <- names(gmtlist)
-  res$padj <- p.adjust(res$pval, method = "BH")
-  res %>% mutate(minuslog10 = -log10(padj)) %>%
+  res$padj <- p.adjust(as.numeric(res$pval), method = "fdr")
+  res %>% mutate(pval = as.numeric(pval)) %>% 
+    mutate(minuslog10 = -log10(padj)) %>%
     mutate(len = unlist(map(str_split(hits, ","), length))) %>% 
     mutate(len = ifelse(hits == "", 0, len)) %>% 
-    arrange(desc(minuslog10), len) %>%
-    select(pathway, padj, minuslog10, pval, hits, len)
+    mutate(go_len = lapply(gmtlist, length)) %>% 
+    arrange(desc(minuslog10), desc(len)) %>%
+    select(pathway, pval, padj, minuslog10, pval, hits, len, go_len)
 }
 
 
@@ -433,6 +437,7 @@ $(function() {
 
 # Define UI for application that draws the boxplot
 ui <- fluidPage(
+  theme = shinytheme(set_shinytheme),
   tags$style("
       .checkbox {
         line-height: 20px;
@@ -471,11 +476,11 @@ ui <- fluidPage(
         )
       ),
       div(style = "display: inline-block;vertical-align:top; width: 10px;", actionButton("Find", "Find")),
-      br(),
+      #br(.noWS="outside"),
       tabsetPanel(
         tabPanel(
           "options",
-          br(),
+          br(.noWS="outside"),
           checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
           checkboxInput("doPadj", "indicate sig", value = F, width = NULL),
           checkboxInput("doName", "label by sample", value = F, width = NULL),
@@ -489,15 +494,18 @@ ui <- fluidPage(
         ),
         tabPanel(
           "links",
-          br(),
+          #br(.noWS="outside"),
           uiOutput("conn"),
-          tags$hr(style = "border-color: green;"),
+          #tags$hr(style = "border-color: green;"),
           uiOutput("tab"), uiOutput("blastlink"),
           uiOutput("tab2"), uiOutput("tab3"), uiOutput("tab4"),
           downloadButton("savePlot", label = "download plot")
+        ),
+        tabPanel(
+          "hide",
         )
       ),
-      tags$hr(style = "border-color: green;"),
+      #tags$hr(style = "border-color: green;"),
       tabsetPanel(
         tabPanel(
           "file",
@@ -532,7 +540,7 @@ ui <- fluidPage(
       tabsetPanel(
         id = "tabMain",
         tabPanel(
-          title = "plot",
+          title = "Main",
           value = "plot",
           uiOutput("boxPlotUI"),
           bsModal("modalPDF",
@@ -542,16 +550,16 @@ ui <- fluidPage(
             htmlOutput("pdfview")
           ),
           uiOutput("EigenPlot"),
-          tags$hr(style = "border-color: green;"),
+          #tags$hr(style = "border-color: green;"),
           tableOutput("results"),
           tableOutput("orfinfo"),
-          tags$hr(style = "border-color: green;"),
+          #tags$hr(style = "border-color: green;"),
           htmlOutput("ucscPlot"),
-          tags$hr(style = "border-color: green;"),
+          #tags$hr(style = "border-color: green;"),
           tableOutput("gotab")
         ),
         tabPanel(
-          title = "table_orf",
+          title = "transcript_gene",
           value = "table_orf",
           div(style = "display: inline-block;width: 160px;",
           checkboxInput("doCollapse", 
@@ -574,7 +582,7 @@ ui <- fluidPage(
         #   DT::dataTableOutput("tbl2")
         # ),
         tabPanel(
-          title = "table_varsel",
+          title = "variable_selection",
           value = "table_varsel",
           div(
             plotlyOutput("mds", width = 400, height = 300, inline = TRUE),
@@ -599,7 +607,7 @@ ui <- fluidPage(
           plotlyOutput("linePlot")
         ),
         tabPanel(
-          title = "enrichment_plot",
+          title = "GO_enrichment_plot",
           value = "enrichment_plot",
           downloadButton("savePlot2", 
                          label = "download plot"),
