@@ -415,6 +415,7 @@ fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
     select(pathway, pval, padj, minuslog10, pval, hits, len, go_len)
 }
 
+maj <- read_tsv('MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz')
 
 # some other code for webpage functions
 jscode <- '
@@ -553,6 +554,7 @@ ui <- fluidPage(
           #tags$hr(style = "border-color: green;"),
           tableOutput("results"),
           tableOutput("orfinfo"),
+          tableOutput("majinfo"),
           #tags$hr(style = "border-color: green;"),
           htmlOutput("ucscPlot"),
           #tags$hr(style = "border-color: green;"),
@@ -571,6 +573,15 @@ ui <- fluidPage(
             label = "download filtered data"
           ),
           DT::dataTableOutput("tbl")
+        ),
+        tabPanel(
+          title = "majiq_alt",
+          value = "table_maj",
+          downloadButton(
+            outputId = "saveFiltered4",
+            label = "download filtered data"
+          ),
+          DT::dataTableOutput("alt")
         ),
         # tabPanel(
         #   title = "table_RF",
@@ -970,6 +981,18 @@ server <- function(input, output, session) {
     digits = 0
   )
 
+  # majik report table
+  output$majinfo <- renderTable(
+    {
+      temp <- maj %>% filter(unique_gene_symbol == outputtab()$unique_gene_symbol[1])
+      if (nrow(temp) == 0) {
+        temp <- data.frame()
+      }
+      temp
+    },
+    digits = 0
+  )
+  
   # goterm table
   output$gotab <- renderTable({
     if (input$doKegg != T) {
@@ -1498,6 +1521,44 @@ server <- function(input, output, session) {
     )
   })
 
+  # explore majiq table
+  output$alt <- DT::renderDataTable({
+    DT::datatable(
+      maj %>%
+        select(
+          unique_gene_symbol,
+          contains("significant"),
+          LSV_ID,A5SS,A3SS,ES,
+          everything()
+        ),
+      filter = "top",
+      escape = FALSE,
+      selection = "single",
+      rownames = FALSE
+    )
+  })
+  
+  output$saveFiltered4 <- downloadHandler("filtré.csv", content = function(file) {
+    s <- input$alt_rows_all
+    write_csv((maj %>%
+                  select(
+                    unique_gene_symbol,
+                    contains("significant"),
+                    LSV_ID,A5SS,A3SS,ES,
+                    everything()
+                  ))[s, ], file)
+  })
+  
+  observeEvent(input$alt_rows_selected, {
+    rv$run2 <- 1
+    updateSelectizeInput(session,
+                         inputId = "geneID",
+                         selected = maj[input$alt_rows_selected, "unique_gene_symbol"],
+                         choices = autocomplete_list,
+                         server = T
+    )
+  })
+  
   # explore feature importance table
   output$tbl2 <- DT::renderDataTable({
     DT::datatable(imp %>% select(
