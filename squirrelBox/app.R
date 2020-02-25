@@ -461,7 +461,7 @@ ui <- fluidPage(
   tags$head(tags$script(HTML(jscode))),
   titlePanel(div(
     class = "header", img(src = "logo.png", style = "width : 4%;"),
-    "13-lined ground squirrel gene-level RNA-seq expression"
+    "13-lined ground squirrel gene-level RNA-seq expression", style = "font-size:23px"
   )),
   fixedPanel(
     style = "z-index:100;",
@@ -490,11 +490,11 @@ ui <- fluidPage(
           "options",
           br(.noWS="outside"),
           checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
-          checkboxInput("doPadj", "indicate sig", value = F, width = NULL),
+          checkboxInput("doPadj", "indicate sig", value = T, width = NULL),
           checkboxInput("doName", "label by sample", value = F, width = NULL),
           checkboxInput("doBr", "plot brain", value = T, width = NULL),
           checkboxInput("doTis", "plot non-brain", value = F, width = NULL),
-          checkboxInput("doEigen", "plot cluster mockup", value = T, width = NULL),
+          checkboxInput("doEigen", "plot cluster mockup", value = F, width = NULL),
           checkboxInput("doUcsc", "download track", value = T, width = NULL),
           checkboxInput("doMod", "find module", value = T, width = NULL),
           checkboxInput("doKegg", "GO terms", value = T, width = NULL),
@@ -1063,7 +1063,7 @@ server <- function(input, output, session) {
     HTML(str_c(
       '<a href ="',
       url,
-      '">,',
+      '">',
       '<img src="',
       src,
       '">',
@@ -1373,6 +1373,8 @@ server <- function(input, output, session) {
         str_split(",", simplify = FALSE) %>%
         unlist() %>% 
         str_trim()
+    } else if (nrow(v_genes) == 0) {
+      v_genes <- ""
     } else {
       v_genes <- v_genes %>% pull(1)
     }
