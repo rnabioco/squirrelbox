@@ -45,7 +45,7 @@ orf_cols <- c("gene_id",
               "br_expr",
               "nonbr_expr",
               "transcript_id",
-              "majiq"#,
+              "majiq_directed"#,
               #"orf"
               )
 ### sample settings, define state colors and order, region order
@@ -133,9 +133,9 @@ bed <- read_tsv("final_tx_annotations_20200201.tsv.gz",
     "clean_gene_symbol",
     NA,
     NA,
-    "majiq"
+    "majiq_directed"
   ), skip = 1) %>% select(-contains("X")) %>%
-  mutate(majiq = factor(ifelse(is.na(majiq), 0, 1)))
+  mutate(majiq_directed = factor(ifelse(is.na(majiq_directed), 0, 1)))
 
 # read modules/clusters
 mod <- read_feather("clusters.feather")
@@ -265,7 +265,7 @@ orfs <- read_feather("padj_orf.feather") %>%
   mutate(domains = factor(ifelse(gene_id %in% domains$gene_id, 1, 0))) %>%
   mutate(br_expr = factor(ifelse(gene_id %in% br_expr, 1, 0)), 
          nonbr_expr = factor(ifelse(gene_id %in% nonbr_expr, 1, 0))) %>% 
-  mutate(majiq = factor(ifelse(is.na(majiq), 0, 1)))
+  mutate(majiq_directed = factor(ifelse(is.na(majiq), 0, 1)))
 
 fulltbl <- combined3 %>%
   select(-c(gene_symbol, clean_gene_symbol, original_gene_name)) %>%
@@ -415,7 +415,14 @@ fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
     select(pathway, pval, padj, minuslog10, pval, hits, len, go_len)
 }
 
-maj <- read_tsv('MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz')
+maj <- read_tsv('MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz') %>% 
+  mutate(region = factor(region),
+         comp = factor(comp)) %>% 
+  rename(comp_pair = "comp") %>% 
+  left_join(orfs %>% select(gene_id, contains("LRT")), by = "gene_id") %>% 
+  select(-gene_id) %>% 
+  distinct()
+  
 
 # some other code for webpage functions
 jscode <- '
@@ -488,7 +495,7 @@ ui <- fluidPage(
           checkboxInput("doBr", "plot brain", value = T, width = NULL),
           checkboxInput("doTis", "plot non-brain", value = F, width = NULL),
           checkboxInput("doEigen", "plot cluster mockup", value = T, width = NULL),
-          checkboxInput("doUcsc", "download track", value = F, width = NULL),
+          checkboxInput("doUcsc", "download track", value = T, width = NULL),
           checkboxInput("doMod", "find module", value = T, width = NULL),
           checkboxInput("doKegg", "GO terms", value = T, width = NULL),
           checkboxInput("doNorm", "SA-norm", value = F, width = NULL),
@@ -553,12 +560,18 @@ ui <- fluidPage(
           uiOutput("EigenPlot"),
           #tags$hr(style = "border-color: green;"),
           tableOutput("results"),
-          tableOutput("orfinfo"),
-          tableOutput("majinfo"),
+          bsCollapse(id = "tabs", multiple = TRUE,
+            bsCollapsePanel(tableOutput("orfinfo"), title = "called_orfs",
+                            style = "primary"),
+            bsCollapsePanel(tableOutput("majinfo"), title = "majiq_alternative_splicing",
+                            style = "warning"),
           #tags$hr(style = "border-color: green;"),
-          htmlOutput("ucscPlot"),
+            bsCollapsePanel(htmlOutput("ucscPlot"), title = "UCSC browser plot",
+                            style = "success"),
           #tags$hr(style = "border-color: green;"),
-          tableOutput("gotab")
+            bsCollapsePanel(tableOutput("gotab") , title = "go_terms/domains",
+                            style = "info")
+          )
         ),
         tabPanel(
           title = "transcript_gene",
@@ -652,6 +665,11 @@ server <- function(input, output, session) {
   rv$line <- 0
   rv$line_refresh <- 0
   rv$mod_df <- data.frame()
+  
+  # hide some checkboxes
+  hide("doKegg")
+  hide("doMod")
+  hide("doUcsc")
 
   # empty history list to start
   historytab <- c()
