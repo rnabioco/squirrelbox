@@ -548,6 +548,7 @@ ui <- fluidPage(
           "cart",
           uiOutput("listn2"),
           actionButton("Add", "Add"),
+          actionButton("Load", "Load"),
           downloadButton(
             outputId = "saveList",
             label = "cart to TXT"
@@ -1524,6 +1525,11 @@ server <- function(input, output, session) {
 
   output$saveList <- downloadHandler("cart.txt", content = function(file) {
     write_lines(carttablist, file)
+  })
+  
+  onclick("Load", {
+    historytablist <- carttablist
+    rv$line_refresh <- rv$line_refresh +1
   })
 
   # list cart genes as table
