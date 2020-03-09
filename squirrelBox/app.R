@@ -19,6 +19,7 @@ library(shinythemes)
 library(shinycssloaders)
 
 options(stringsAsFactors = FALSE)
+options(spinner.type = 6)
 theme_set(theme_cowplot())
 # options(shiny.reactlog = TRUE)
 
@@ -442,6 +443,18 @@ $(function() {
     }
   );
 });
+$(function() {
+    setTimeout(function(){
+      var vals = [0];
+      var powStart = 3;
+      var powStop = 0;
+      for (i = powStart; i >= powStop; i--) {
+        var val = Math.pow(10, -i);
+        val = parseFloat(val.toFixed(8));
+        vals.push(val);
+      }
+      $("#pvalue").data("ionRangeSlider").update({"values":vals})
+}, 5)});
 '
 
 # Define UI for application that draws the boxplot
@@ -496,7 +509,7 @@ ui <- fluidPage(
           checkboxInput("doBr", "plot brain data", value = T, width = NULL),
           checkboxInput("doTis", "plot non-brain data", value = F, width = NULL),
           checkboxInput("doEigen", "plot model clusters", value = F, width = NULL),
-          checkboxInput("doUcsc", "download track", value = T, width = NULL),
+          checkboxInput("doUcsc", "pull track", value = T, width = NULL),
           checkboxInput("doMod", "find module", value = T, width = NULL),
           checkboxInput("doKegg", "GO terms", value = T, width = NULL),
           checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL),
@@ -508,7 +521,7 @@ ui <- fluidPage(
           #tags$hr(style = "border-color: green;"),
           uiOutput("tab"), uiOutput("blastlink"),
           uiOutput("tab2"), uiOutput("tab3"), uiOutput("tab4"),
-          downloadButton("savePlot", label = "download plot")
+          downloadButton("savePlot", label = "save plot")
         ),
         tabPanel(
           "hide",
@@ -544,6 +557,12 @@ ui <- fluidPage(
       )
     ),
     mainPanel(
+      # sliderInput("pvalue",
+      #             "PValue:",
+      #             min = 0,
+      #             max = 1e-2,
+      #             value = c(0, 1e-2)
+      # ),
       width = 9,
       style = "z-index:1;margin-top: 60px;",
       tabsetPanel(
@@ -584,7 +603,7 @@ ui <- fluidPage(
                         width = NULL)),
           downloadButton(
             outputId = "saveFiltered",
-            label = "download filtered data"
+            label = "save filtered data"
           ),
           DT::dataTableOutput("tbl")
         ),
@@ -593,7 +612,7 @@ ui <- fluidPage(
           value = "table_maj",
           downloadButton(
             outputId = "saveFiltered4",
-            label = "download filtered data"
+            label = "save filtered data"
           ),
           DT::dataTableOutput("alt")
         ),
@@ -610,17 +629,17 @@ ui <- fluidPage(
           title = "variable_selection",
           value = "table_varsel",
           div(
-            plotlyOutput("mds", width = 400, height = 300, inline = TRUE) %>% withSpinner(),
+            plotlyOutput("mds", width = 400, height = 300, inline = TRUE),
             plotlyOutput("mds2", width = 400, height = 300, inline = TRUE) %>% withSpinner()
           ),
           div(
-            plotlyOutput("oob", width = 400, height = 300, inline = TRUE) %>% withSpinner(),
+            plotlyOutput("oob", width = 400, height = 300, inline = TRUE),
             plotlyOutput("oob2", width = 400, height = 300, inline = TRUE) %>% withSpinner()
           ),
           div(
             downloadButton(
               outputId = "saveFiltered3",
-              label = "download gene list"
+              label = "save gene list"
             ),
             uiOutput("sel", inline = TRUE)
           ),
@@ -632,13 +651,20 @@ ui <- fluidPage(
           plotlyOutput("linePlot") %>% withSpinner()
         ),
         tabPanel(
+          title = "heat_plot",
+          value = "heat_plot",
+          downloadButton("savePlot3", 
+                         label = "save plot"),
+          plotOutput("heatPlot") %>% withSpinner()
+        ),
+        tabPanel(
           title = "GO_enrichment",
           value = "enrichment_plot",
           downloadButton("savePlot2", 
-                         label = "download plot"),
+                         label = "save plot"),
           downloadButton(
             outputId = "saveEnrich",
-            label = "download table"),
+            label = "save table"),
           plotlyOutput("richPlot") %>% withSpinner()
         )
       )
