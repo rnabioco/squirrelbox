@@ -15,10 +15,12 @@ library(shinyBS)
 library(feather)
 library(crosstalk)
 library(purrr)
+library(ComplexHeatmap)
 library(shinythemes)
 library(shinycssloaders)
 
 options(stringsAsFactors = FALSE)
+options(spinner.type = 6)
 theme_set(theme_cowplot())
 # options(shiny.reactlog = TRUE)
 
@@ -442,6 +444,18 @@ $(function() {
     }
   );
 });
+$(function() {
+    setTimeout(function(){
+      var vals = [0];
+      var powStart = 3;
+      var powStop = 0;
+      for (i = powStart; i >= powStop; i--) {
+        var val = Math.pow(10, -i);
+        val = parseFloat(val.toFixed(8));
+        vals.push(val);
+      }
+      $("#pvalue").data("ionRangeSlider").update({"values":vals})
+}, 5)});
 '
 
 # Define UI for application that draws the boxplot
@@ -496,7 +510,7 @@ ui <- fluidPage(
           checkboxInput("doBr", "plot brain data", value = T, width = NULL),
           checkboxInput("doTis", "plot non-brain data", value = F, width = NULL),
           checkboxInput("doEigen", "plot model clusters", value = F, width = NULL),
-          checkboxInput("doUcsc", "download track", value = T, width = NULL),
+          checkboxInput("doUcsc", "pull track", value = T, width = NULL),
           checkboxInput("doMod", "find module", value = T, width = NULL),
           checkboxInput("doKegg", "GO terms", value = T, width = NULL),
           checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL),
@@ -508,7 +522,7 @@ ui <- fluidPage(
           #tags$hr(style = "border-color: green;"),
           uiOutput("tab"), uiOutput("blastlink"),
           uiOutput("tab2"), uiOutput("tab3"), uiOutput("tab4"),
-          downloadButton("savePlot", label = "download plot")
+          downloadButton("savePlot", label = "save plot")
         ),
         tabPanel(
           "hide",
@@ -534,6 +548,7 @@ ui <- fluidPage(
           "cart",
           uiOutput("listn2"),
           actionButton("Add", "Add"),
+          actionButton("Load", "Load"),
           downloadButton(
             outputId = "saveList",
             label = "cart to TXT"
@@ -544,6 +559,12 @@ ui <- fluidPage(
       )
     ),
     mainPanel(
+      # sliderInput("pvalue",
+      #             "PValue:",
+      #             min = 0,
+      #             max = 1e-2,
+      #             value = c(0, 1e-2)
+      # ),
       width = 9,
       style = "z-index:1;margin-top: 60px;",
       tabsetPanel(
@@ -584,7 +605,7 @@ ui <- fluidPage(
                         width = NULL)),
           downloadButton(
             outputId = "saveFiltered",
-            label = "download filtered data"
+            label = "save filtered data"
           ),
           DT::dataTableOutput("tbl")
         ),
@@ -593,7 +614,7 @@ ui <- fluidPage(
           value = "table_maj",
           downloadButton(
             outputId = "saveFiltered4",
-            label = "download filtered data"
+            label = "save filtered data"
           ),
           DT::dataTableOutput("alt")
         ),
@@ -610,17 +631,17 @@ ui <- fluidPage(
           title = "variable_selection",
           value = "table_varsel",
           div(
-            plotlyOutput("mds", width = 400, height = 300, inline = TRUE) %>% withSpinner(),
+            plotlyOutput("mds", width = 400, height = 300, inline = TRUE),
             plotlyOutput("mds2", width = 400, height = 300, inline = TRUE) %>% withSpinner()
           ),
           div(
-            plotlyOutput("oob", width = 400, height = 300, inline = TRUE) %>% withSpinner(),
+            plotlyOutput("oob", width = 400, height = 300, inline = TRUE),
             plotlyOutput("oob2", width = 400, height = 300, inline = TRUE) %>% withSpinner()
           ),
           div(
             downloadButton(
               outputId = "saveFiltered3",
-              label = "download gene list"
+              label = "save gene list"
             ),
             uiOutput("sel", inline = TRUE)
           ),
@@ -632,13 +653,49 @@ ui <- fluidPage(
           plotlyOutput("linePlot") %>% withSpinner()
         ),
         tabPanel(
+          title = "heat_plot",
+          value = "heat_plot",
+          br(),
+          fluidRow(
+            column(width = 3 ,
+          checkboxInput("doRowcluster", 
+                        "cluster rows",
+                        value = T, 
+                        width = NULL),
+          checkboxInput("doColumncluster", 
+                        "cluster columns",
+                        value = F, 
+                        width = NULL)),
+          column(width = 3,
+          checkboxInput("doPivot", 
+                        "pivot plot",
+                        value = F, 
+                        width = NULL),
+          checkboxInput("doSplit", 
+                        "split by region",
+                        value = F, 
+                        width = NULL)),
+          column(width = 3,
+          checkboxInput("doLabelgene", 
+                        "label genes",
+                        value = T, 
+                        width = NULL),
+          checkboxInput("doAutoresize", 
+                        "resize on saving",
+                        value = F, 
+                        width = NULL)),
+          downloadButton("savePlot3", 
+                         label = "save plot")),
+          plotOutput("heatPlot") %>% withSpinner()
+        ),
+        tabPanel(
           title = "GO_enrichment",
           value = "enrichment_plot",
           downloadButton("savePlot2", 
-                         label = "download plot"),
+                         label = "save plot"),
           downloadButton(
             outputId = "saveEnrich",
-            label = "download table"),
+            label = "save table"),
           plotlyOutput("richPlot") %>% withSpinner()
         )
       )
@@ -1263,6 +1320,78 @@ server <- function(input, output, session) {
     
   })
   
+  # heatmap
+  heatPlot1 <- reactive({
+    set.seed(1)
+    temp <- linetemp()
+    if (length(historytablist) == 0) {
+      return(NA)
+    }
+    temp2 <- temp %>% select(-log2_counts) %>% 
+      pivot_wider(names_from = state, values_from = counts) %>% 
+      unite(region, unique_gene_symbol, col = "id") %>% 
+      column_to_rownames("id")
+    if (input$doPivot) {
+      temp2 <- scale(t(temp2))
+    } else {
+      temp2 <- t(scale(t(temp2)))
+    }
+    
+    if (input$doSplit) {
+      if (input$doPivot) {
+        Heatmap(temp2,
+                cluster_rows = input$doRowcluster,
+                cluster_columns = input$doColumncluster,
+                column_split = str_remove(colnames(temp2), "_.+"),
+                column_labels = str_remove(colnames(temp2), "^.+_"),
+                show_column_names = input$doLabelgene,
+                heatmap_legend_param = list(title = "Z-Score")
+        )
+      } else {
+        Heatmap(temp2,
+                cluster_rows = input$doRowcluster,
+                cluster_columns = input$doColumncluster,
+                row_split = str_remove(rownames(temp2), "_.+"),
+                row_labels = str_remove(rownames(temp2), "^.+_"),
+                show_row_names = input$doLabelgene,
+                heatmap_legend_param = list(title = "Z-Score")
+        )
+      }
+    } else {
+      if (input$doPivot) {
+        Heatmap(temp2,
+                cluster_rows = input$doRowcluster,
+                cluster_columns = input$doColumncluster,
+                heatmap_legend_param = list(title = "Z-Score"),
+                show_column_names = input$doLabelgene
+                )
+      } else {
+        Heatmap(temp2,
+                cluster_rows = input$doRowcluster,
+                cluster_columns = input$doColumncluster,
+                heatmap_legend_param = list(title = "Z-Score"),
+                show_row_names = input$doLabelgene
+        )
+      }
+    }
+  })
+  
+  output$heatPlot <- renderPlot(heatPlot1())
+  
+  output$savePlot3 <- downloadHandler(
+    filename = "heatplot.pdf",
+    content = function(file) {
+      h <- heatPlot1()
+      if (input$doAutoresize) {
+        pdf(file, width = (h@matrix %>% dim())[2], height = (h@matrix %>% dim())[1])
+      } else {
+        pdf(file, width = 8, height = 8)
+      }
+      print(h)
+      dev.off()
+      }
+  )
+  
   richPlot1 <- reactive({
     rv$line_refresh
     set.seed(1)
@@ -1396,6 +1525,11 @@ server <- function(input, output, session) {
 
   output$saveList <- downloadHandler("cart.txt", content = function(file) {
     write_lines(carttablist, file)
+  })
+  
+  onclick("Load", {
+    historytablist <- carttablist
+    rv$line_refresh <- rv$line_refresh +1
   })
 
   # list cart genes as table
