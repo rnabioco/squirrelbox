@@ -16,6 +16,7 @@ library(feather)
 library(crosstalk)
 library(purrr)
 library(ComplexHeatmap)
+library(transite)
 library(shinythemes)
 library(shinycssloaders)
 
@@ -26,6 +27,8 @@ theme_set(theme_cowplot())
 
 
 ### general data settings
+usecores <- parallel::detectCores() - 1
+print(usecores)
 set_shinytheme = "paper"
 track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
@@ -425,7 +428,35 @@ maj <- read_tsv('MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz') %>%
   left_join(orfs %>% select(gene_id, contains("LRT")), by = "gene_id") %>% 
   select(-gene_id) %>% 
   distinct()
-  
+
+# seqs for kmer
+seqs <- read_feather("utrs_sq.feather")
+
+calc_kmer <- function(df = seqs, gene_vec, col = "utr3", k = 6, len = 0, thres = 0) {
+  enq <- df %>%
+    filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>% pull(col) %>% na.omit()
+  if (length(enq) == 0) {
+    return(NA)
+  }
+  bac <- df %>% pull(col) %>% na.omit()
+  if (len > 0) {
+    enq <- str_sub(enq, 1, len)
+    bac <- str_sub(bac, 1, len)
+  } else if (len < 0) {
+    enq <- str_sub(enq, len)
+    bac <- str_sub(bac, 1, len)
+  }
+  res <- calculateKmerEnrichment(foreground.sets = list(enq),
+                                 background.set = bac,
+                                 k = k,
+                                 permutation = FALSE, 
+                                 chisq.p.value.threshold = thres,
+                                 p.adjust.method = "BH", 
+                                 n.cores = usecores)
+  resdf <- res$dfs[[1]]
+  resdf$kmer <- res$kmers
+  resdf %>% arrange(adj.p.value)
+}
 
 # some other code for webpage functions
 jscode <- '
@@ -531,7 +562,7 @@ ui <- fluidPage(
       #tags$hr(style = "border-color: green;"),
       tabsetPanel(
         tabPanel(
-          "file",
+          "load",
           fileInput("file", label = NULL),
           actionButton("Prev", "Prev"),
           actionButton("Next", "Next"),
@@ -607,6 +638,7 @@ ui <- fluidPage(
             outputId = "saveFiltered",
             label = "save filtered data"
           ),
+          actionButton("loadtab", "load"),
           DT::dataTableOutput("tbl")
         ),
         tabPanel(
@@ -697,6 +729,16 @@ ui <- fluidPage(
             outputId = "saveEnrich",
             label = "save table"),
           plotlyOutput("richPlot") %>% withSpinner()
+        ),
+        tabPanel(
+          title = "kmer",
+          value = "kmer_analysis",
+          downloadButton("savePlot4", 
+                         label = "save plot"),
+          downloadButton(
+            outputId = "saveK",
+            label = "save table"),
+          plotlyOutput("kmerPlot") %>% withSpinner()
         )
       )
     )
@@ -1436,6 +1478,55 @@ server <- function(input, output, session) {
     write_csv(tops, file)
   })
   
+  # kmer analysis
+  kmerPlot1 <- reactive({
+    rv$line_refresh
+    set.seed(1)
+    if (length(historytablist) == 0) {
+      return(ggplotly(ggplot()))
+    }
+    genevec <- unique_to_clean(historytablist, namedvec) %>% str_to_upper()
+    topsk <- calc_kmer(gene_vec = genevec, len = 300)
+    topsk <- topsk %>% dplyr::slice(1 : max(min(which(topsk$adj.p.value > 0.05)), 15)) %>% 
+      mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment))
+    ggplot(topsk, aes(x = reorder(kmer, minuslog10), y = minuslog10, text = enrichment)) +
+      geom_bar(stat = "identity", aes(fill = enrichment)) +
+      scale_fill_gradient2(
+        low = "blue",
+        mid = "white",
+        high = "red",
+        midpoint = 0
+      ) +
+      coord_flip() +
+      xlab("kmer") +
+      labs(fill = "log2(enrichment)") +
+      cowplot::theme_minimal_vgrid() +
+      theme(axis.text.y = element_text(size = 4),
+            axis.text.x = element_text(size = 10), 
+            axis.title.y = element_text(size = 10), 
+            axis.title.x = element_text(size = 10),
+            legend.position = "right",
+            legend.title = element_text(size = 6),
+            legend.text = element_text(size = 6)) +
+      scale_y_continuous(expand = c(0, 0))
+  })
+  
+  output$kmerPlot <- renderPlotly({
+    ggplotly(kmerPlot1(), source = "kmerPlot", tooltip = "text", height = 600, width = 800) %>%
+      layout(autosize = F) %>% highlight()
+  })
+  
+  output$savePlot4 <- downloadHandler(
+    filename = "kmers.pdf",
+    content = function(file) {
+      ggplot2::ggsave(file, plot = kmerPlot1(), device = "pdf", width = 8, height = 6)
+    }
+  )
+  
+  output$saveK <- downloadHandler("enrich_kmer.csv", content = function(file) {
+    write_csv(topsk, file)
+  })
+  
   # list history genes as table
   output$historyl <- DT::renderDataTable({
     inid()
@@ -1664,6 +1755,12 @@ server <- function(input, output, session) {
                    unique_gene_symbol,
                    contains("LRT"),
                    everything()) %>% select(unique_gene_symbol, everything()))[s, ], file)
+  })
+  
+  onclick("loadtab", {
+    s <- input$tbl_rows_all
+    historytablist <- orftbl()[s,] %>% pull(unique_gene_symbol)
+    rv$line_refresh <- rv$line_refresh +1
   })
 
   observeEvent(input$tbl_rows_selected, {
