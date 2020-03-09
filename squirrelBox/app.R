@@ -15,6 +15,7 @@ library(shinyBS)
 library(feather)
 library(crosstalk)
 library(purrr)
+library(ComplexHeatmap)
 library(shinythemes)
 library(shinycssloaders)
 
@@ -653,8 +654,37 @@ ui <- fluidPage(
         tabPanel(
           title = "heat_plot",
           value = "heat_plot",
+          br(),
+          fluidRow(
+            column(width = 3 ,
+          checkboxInput("doRowcluster", 
+                        "cluster rows",
+                        value = T, 
+                        width = NULL),
+          checkboxInput("doColumncluster", 
+                        "cluster columns",
+                        value = F, 
+                        width = NULL)),
+          column(width = 3,
+          checkboxInput("doPivot", 
+                        "pivot plot",
+                        value = F, 
+                        width = NULL),
+          checkboxInput("doSplit", 
+                        "split by region",
+                        value = F, 
+                        width = NULL)),
+          column(width = 3,
+          checkboxInput("doLabelgene", 
+                        "label genes",
+                        value = T, 
+                        width = NULL),
+          checkboxInput("doAutoresize", 
+                        "resize on saving",
+                        value = F, 
+                        width = NULL)),
           downloadButton("savePlot3", 
-                         label = "save plot"),
+                         label = "save plot")),
           plotOutput("heatPlot") %>% withSpinner()
         ),
         tabPanel(
@@ -1288,6 +1318,78 @@ server <- function(input, output, session) {
     }
     
   })
+  
+  # heatmap
+  heatPlot1 <- reactive({
+    set.seed(1)
+    temp <- linetemp()
+    if (length(historytablist) == 0) {
+      return(NA)
+    }
+    temp2 <- temp %>% select(-log2_counts) %>% 
+      pivot_wider(names_from = state, values_from = counts) %>% 
+      unite(region, unique_gene_symbol, col = "id") %>% 
+      column_to_rownames("id")
+    if (input$doPivot) {
+      temp2 <- scale(t(temp2))
+    } else {
+      temp2 <- t(scale(t(temp2)))
+    }
+    
+    if (input$doSplit) {
+      if (input$doPivot) {
+        Heatmap(temp2,
+                cluster_rows = input$doRowcluster,
+                cluster_columns = input$doColumncluster,
+                column_split = str_remove(colnames(temp2), "_.+"),
+                column_labels = str_remove(colnames(temp2), "^.+_"),
+                show_column_names = input$doLabelgene,
+                heatmap_legend_param = list(title = "Z-Score")
+        )
+      } else {
+        Heatmap(temp2,
+                cluster_rows = input$doRowcluster,
+                cluster_columns = input$doColumncluster,
+                row_split = str_remove(rownames(temp2), "_.+"),
+                row_labels = str_remove(rownames(temp2), "^.+_"),
+                show_row_names = input$doLabelgene,
+                heatmap_legend_param = list(title = "Z-Score")
+        )
+      }
+    } else {
+      if (input$doPivot) {
+        Heatmap(temp2,
+                cluster_rows = input$doRowcluster,
+                cluster_columns = input$doColumncluster,
+                heatmap_legend_param = list(title = "Z-Score"),
+                show_column_names = input$doLabelgene
+                )
+      } else {
+        Heatmap(temp2,
+                cluster_rows = input$doRowcluster,
+                cluster_columns = input$doColumncluster,
+                heatmap_legend_param = list(title = "Z-Score"),
+                show_row_names = input$doLabelgene
+        )
+      }
+    }
+  })
+  
+  output$heatPlot <- renderPlot(heatPlot1())
+  
+  output$savePlot3 <- downloadHandler(
+    filename = "heatplot.pdf",
+    content = function(file) {
+      h <- heatPlot1()
+      if (input$doAutoresize) {
+        pdf(file, width = (h@matrix %>% dim())[2], height = (h@matrix %>% dim())[1])
+      } else {
+        pdf(file, width = 8, height = 8)
+      }
+      print(h)
+      dev.off()
+      }
+  )
   
   richPlot1 <- reactive({
     rv$line_refresh
