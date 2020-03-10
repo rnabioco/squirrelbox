@@ -17,6 +17,7 @@ library(crosstalk)
 library(purrr)
 library(ComplexHeatmap)
 library(transite)
+library(ggrepel)
 library(shinythemes)
 library(shinycssloaders)
 
@@ -27,32 +28,34 @@ theme_set(theme_cowplot())
 
 
 ### general data settings
-usecores <- parallel::detectCores() - 1
-set_shinytheme = "paper"
+set_shinytheme <- "paper"
 track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
 gmt_file <- "c5.bp.v7.0.symbols.gmt"
 gmt_short <- "GO_"
 sig_cut <- 0.001
-table_cols <- c("gene_id", # comment out to remove from table outputs
-                "unique_gene_symbol", 
-                "gene_symbol", 
-                "clean_gene_symbol", 
-                "original_gene_name", 
-                "source")
-orf_cols <- c("gene_id", 
-              "orf_len",
-              "exons", 
-              "rna_len", 
-              "novel", 
-              "min_sig", 
-              "domains",
-              "br_expr",
-              "nonbr_expr",
-              "transcript_id",
-              "majiq_directed"#,
-              #"orf"
-              )
+table_cols <- c(
+  "gene_id", # comment out to remove from table outputs
+  "unique_gene_symbol",
+  "gene_symbol",
+  "clean_gene_symbol",
+  "original_gene_name",
+  "source"
+)
+orf_cols <- c(
+  "gene_id",
+  "orf_len",
+  "exons",
+  "rna_len",
+  "novel",
+  "min_sig",
+  "domains",
+  "br_expr",
+  "nonbr_expr",
+  "transcript_id",
+  "majiq_directed" # ,
+  # "orf"
+)
 ### sample settings, define state colors and order, region order
 state_cols <- c(
   SA = rgb(255, 0, 0, maxColorValue = 255),
@@ -119,7 +122,7 @@ if (file.exists("combined2.feather")) {
 
 # read annotation file to find ucsc track
 bed <- read_tsv("final_tx_annotations_20200201.tsv.gz",
-  col_names =c(
+  col_names = c(
     "chrom",
     "start",
     "end",
@@ -139,7 +142,9 @@ bed <- read_tsv("final_tx_annotations_20200201.tsv.gz",
     NA,
     NA,
     "majiq_directed"
-  ), skip = 1) %>% select(-contains("X")) %>%
+  ), skip = 1
+) %>%
+  select(-contains("X")) %>%
   mutate(majiq_directed = factor(ifelse(is.na(majiq_directed), 0, 1)))
 
 # read modules/clusters
@@ -164,19 +169,19 @@ eigen_gg[["empty"]] <- ggplot()
 
 # query function
 comb_fil_factor <- function(combined2, combined3, inid) {
-  combined3 <- combined3 %>% 
+  combined3 <- combined3 %>%
     filter(gene_id %in% inid | unique_gene_symbol %in% inid)
   combined2 <- combined2 %>%
     filter(gene_id %in% inid | gene_id %in% (combined3$gene_id %>%
-                                               unique())) %>%
+      unique())) %>%
     mutate(sample = (str_remove(sample, "[A-Z]+")))
   combined <- combined3 %>% inner_join(combined2, by = "gene_id")
   combined %>% mutate(
     state = factor(state,
-                   levels = state_order
+      levels = state_order
     ),
     region = factor(region,
-                    levels = region_order
+      levels = region_order
     )
   )
 }
@@ -184,17 +189,20 @@ comb_fil_factor <- function(combined2, combined3, inid) {
 # lists of genes
 autocomplete_list <- str_sort(c(
   combined3$unique_gene_symbol,
-  combined3$gene_id) %>% unique(), decreasing = T)
+  combined3$gene_id
+) %>% unique(), decreasing = T)
 
 find_spelling <- function(entry, dict) {
-  temp <- intersect(c(entry, str_to_upper(entry), str_to_title(entry)),
-            dict)
+  temp <- intersect(
+    c(entry, str_to_upper(entry), str_to_title(entry)),
+    dict
+  )
   if (length(temp) == 0) {
     return("")
   } else {
     temp[1]
   }
-} 
+}
 
 namedvec <- combined3$clean_gene_symbol
 names(namedvec) <- combined3$unique_gene_symbol
@@ -241,18 +249,20 @@ if (file.exists(paste0(gmt_file, ".rds"))) {
   gmtlist <- sapply(gmtlist, function(x) {
     intersect(x, str_to_upper(bed$clean_gene_symbol %>% unique()))
   })
-  gmtlist <- gmtlist[sapply(gmtlist, length) >= 5] 
+  gmtlist <- gmtlist[sapply(gmtlist, length) >= 5]
   saveRDS(gmtlist, paste0(gmt_file, ".rds"))
 }
 
 
 domains <- read_csv("novel_domains.csv", col_types = "cc")
 
-br_expr <- combined2 %>% filter(region %in% region_main) %>%
+br_expr <- combined2 %>%
+  filter(region %in% region_main) %>%
   pull(gene_id) %>%
   unique()
 
-nonbr_expr <- combined2 %>% filter(region %in% region_main2) %>%
+nonbr_expr <- combined2 %>%
+  filter(region %in% region_main2) %>%
   pull(gene_id) %>%
   unique()
 
@@ -265,29 +275,33 @@ orfs <- read_feather("padj_orf.feather") %>%
     orf,
     unique_gene_symbol,
     everything()
-  ) %>% mutate(novel = factor(ifelse(str_detect(gene_id, "^G"), 1, 0))) %>%
-  mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fore_LRT_padj, na.rm = T)) %>% 
+  ) %>%
+  mutate(novel = factor(ifelse(str_detect(gene_id, "^G"), 1, 0))) %>%
+  mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fore_LRT_padj, na.rm = T)) %>%
   mutate(domains = factor(ifelse(gene_id %in% domains$gene_id, 1, 0))) %>%
-  mutate(br_expr = factor(ifelse(gene_id %in% br_expr, 1, 0)), 
-         nonbr_expr = factor(ifelse(gene_id %in% nonbr_expr, 1, 0))) %>% 
+  mutate(
+    br_expr = factor(ifelse(gene_id %in% br_expr, 1, 0)),
+    nonbr_expr = factor(ifelse(gene_id %in% nonbr_expr, 1, 0))
+  ) %>%
   mutate(majiq_directed = factor(ifelse(is.na(majiq), 0, 1)))
 
 fulltbl <- combined3 %>%
   select(-c(gene_symbol, clean_gene_symbol, original_gene_name)) %>%
   left_join(orfs %>% select(orf_cols, contains("LRT")), by = "gene_id") %>%
-  left_join(mod, by = c("unique_gene_symbol" = "gene")) %>% 
+  left_join(mod, by = c("unique_gene_symbol" = "gene")) %>%
   mutate(source = factor(source)) %>%
-  mutate_at(vars(contains("cluster")), factor) %>% 
+  mutate_at(vars(contains("cluster")), factor) %>%
   distinct()
 
-fulltbl_collapse <- fulltbl %>% group_by(gene_id) %>%
-  arrange(desc(orf_len), .by_group = TRUE) %>% 
+fulltbl_collapse <- fulltbl %>%
+  group_by(gene_id) %>%
+  arrange(desc(orf_len), .by_group = TRUE) %>%
   dplyr::slice(1)
 
 length_detected_genes <- orfs %>%
   filter(br_expr == 1) %>%
   pull(gene_id) %>%
-  unique() %>% 
+  unique() %>%
   length()
 
 # padj functions
@@ -304,8 +318,8 @@ find_padj <- function(region, state, tbl) {
 
 sig_cols <- colnames(orfs)[colnames(orfs) %>% str_detect("vs")]
 sig_sym <- data.frame(
-  call = rep(1,length(sig_cols)), # place holder only
-  #call = letters[1:length(sig_cols)],
+  call = rep(1, length(sig_cols)), # place holder only
+  # call = letters[1:length(sig_cols)],
   row.names = sig_cols
 )
 
@@ -364,32 +378,6 @@ groups_to_letters_igraph <- function(df) {
   do.call(rbind, g)
 }
 
-# read in rf importance
-imp <- read_csv("rf_imp.csv")
-
-# read in rf mds df
-dfmds <- readRDS("MDSdf.rds")
-
-# read in rf selection results
-rf.vs1 <- readRDS("rfvs.rds")
-trf <- rf.vs1$selec.history %>%
-  as_tibble() %>%
-  mutate(Vars.in.Forest = str_split(Vars.in.Forest, " \\+ "))
-rfvars <- trf$Vars.in.Forest %>%
-  unlist() %>%
-  table() %>%
-  sort(decreasing = TRUE) %>%
-  as.data.frame(stringsAsFactors = FALSE) %>%
-  mutate(rank = rank(-Freq, ties.method = "min")) %>%
-  select(-2)
-colnames(rfvars) <- c("gene", "rank")
-
-vars_set <- function(rfvars, n) {
-  rfvars %>%
-    filter(rank <= n) %>%
-    pull(gene)
-}
-
 fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
   genevec <- intersect(genevec, unlist(gmtlist) %>% unique())
   sampleSize <- length(genevec)
@@ -402,30 +390,33 @@ fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
     failInPop <- length_detected_genes - hitInPop
     stringofhits <- intersect(genevec, x) %>% str_c(collapse = ",")
     if (length(stringofhits) == 0) {
-      stringofhits = ""
+      stringofhits <- ""
     }
-    pval <- phyper(hitInSample-1, hitInPop, failInPop, sampleSize, lower.tail= FALSE)
+    pval <- phyper(hitInSample - 1, hitInPop, failInPop, sampleSize, lower.tail = FALSE)
     return(c(hits = stringofhits, pval = pval))
   }, simplify = FALSE)
   res <- data.frame(res) %>% data.table::transpose()
   names(res) <- c("hits", "pval")
   res$pathway <- names(gmtlist)
   res$padj <- p.adjust(as.numeric(res$pval), method = "fdr")
-  res %>% mutate(pval = as.numeric(pval)) %>% 
+  res %>%
+    mutate(pval = as.numeric(pval)) %>%
     mutate(minuslog10 = -log10(padj)) %>%
-    mutate(len = unlist(map(str_split(hits, ","), length))) %>% 
-    mutate(len = ifelse(hits == "", 0, len)) %>% 
-    mutate(go_len = lapply(gmtlist, length)) %>% 
+    mutate(len = unlist(map(str_split(hits, ","), length))) %>%
+    mutate(len = ifelse(hits == "", 0, len)) %>%
+    mutate(go_len = lapply(gmtlist, length)) %>%
     arrange(desc(minuslog10), desc(len)) %>%
     select(pathway, pval, padj, minuslog10, pval, hits, len, go_len)
 }
 
-maj <- read_tsv('MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz') %>% 
-  mutate(region = factor(region),
-         comp = factor(comp)) %>% 
-  rename(comp_pair = "comp") %>% 
-  left_join(orfs %>% select(gene_id, contains("LRT")), by = "gene_id") %>% 
-  select(-gene_id) %>% 
+maj <- read_tsv("MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz") %>%
+  mutate(
+    region = factor(region),
+    comp = factor(comp)
+  ) %>%
+  rename(comp_pair = "comp") %>%
+  left_join(orfs %>% select(gene_id, contains("LRT")), by = "gene_id") %>%
+  select(-gene_id) %>%
   distinct()
 
 # seqs for kmer
@@ -436,67 +427,44 @@ if (file.exists("seqs_precal.rds")) {
   seqs_precal <- readRDS("seqs_precal.rds")
 } else {
   seqs_precal <- list()
-  seqs_precal[["5mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 50) %>% pull(utr3), 
-                                               k = 5)
-  seqs_precal[["7mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 50) %>% pull(utr3), 
-                                               k = 7)
+  seqs_precal[["5mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 50) %>% pull(utr3),
+    k = 5
+  )
+  seqs_precal[["7mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 50) %>% pull(utr3),
+    k = 7
+  )
   seqs_precal[["5mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 50) %>% pull(utr5),
-                                               k = 5)
-  seqs_precal[["7mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 50) %>% pull(utr5), 
-                                               k = 7)
+    k = 5
+  )
+  seqs_precal[["7mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 50) %>% pull(utr5),
+    k = 7
+  )
   saveRDS(seqs_precal, "seqs_precal.rds")
 }
 
-calc_kmer <- function(df = seqs, gene_vec, col = "utr3", k = 5, len = 0, thres = 0, cutoff = 100) {
-  enq <- df %>%
-    filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>% pull(col) %>% na.omit()
-  if (length(enq) == 0) {
-    return(NA)
-  }
-  bac <- df %>% pull(col) %>% na.omit()
-  if (len > 0) {
-    enq <- str_sub(enq, 1, len)
-    bac <- str_sub(bac, 1, len)
-  } else if (len < 0) {
-    enq <- str_sub(enq, len)
-    bac <- str_sub(bac, 1, len)
-  }
-  enq <- enq[str_length(enq) >= cutoff]
-  bac <- bac[str_length(bac) >= cutoff]
-  print(length(enq))
-  print(length(bac))
-  res <- calculateKmerEnrichment(foreground.sets = list(enq),
-                                 background.set = bac,
-                                 k = k,
-                                 permutation = FALSE, 
-                                 chisq.p.value.threshold = thres,
-                                 p.adjust.method = "BH", 
-                                 n.cores = usecores)
-  resdf <- res$dfs[[1]]
-  resdf$kmer <- res$kmers
-  resdf %>% arrange(adj.p.value)
-}
-
-comp_kmer <- function(df = seqs, 
-                      gene_vec, 
+comp_kmer <- function(df = seqs,
+                      gene_vec,
                       col = "utr3",
                       bac = seqs_precal[["5mers_utr3"]],
-                      k = 5, 
+                      k = 5,
                       cutoff = 50) {
   enq <- df %>%
-    filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>% pull(col) %>% na.omit()
+    filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>%
+    pull(col) %>%
+    na.omit()
   if (length(enq) == 0) {
     return(NA)
   }
   enq <- enq[str_length(enq) >= cutoff]
 
   enq_res <- generateKmers(enq, k)
-    
-  res <- computeKmerEnrichment(enq_res, 
-                               bac,
-                               permutation = FALSE, 
-                               chisq.p.value.threshold = 0,
-                               p.adjust.method = "BH")
+
+  res <- computeKmerEnrichment(enq_res,
+    bac,
+    permutation = FALSE,
+    chisq.p.value.threshold = 0,
+    p.adjust.method = "BH"
+  )
   res$kmer <- str_replace_all(names(bac), "T", "U")
   res %>% arrange(adj.p.value)
 }
@@ -576,11 +544,11 @@ ui <- fluidPage(
         )
       ),
       div(style = "display: inline-block;vertical-align:top; width: 10px;", actionButton("Find", "Find")),
-      #br(.noWS="outside"),
+      # br(.noWS="outside"),
       tabsetPanel(
         tabPanel(
           "options",
-          br(.noWS="outside"),
+          br(.noWS = "outside"),
           checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
           checkboxInput("doPadj", "indicate sig", value = T, width = NULL),
           checkboxInput("doName", "label by sample", value = F, width = NULL),
@@ -594,9 +562,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           "links",
-          #br(.noWS="outside"),
           uiOutput("conn"),
-          #tags$hr(style = "border-color: green;"),
           uiOutput("tab"), uiOutput("blastlink"),
           uiOutput("tab2"), uiOutput("tab3"), uiOutput("tab4"),
           downloadButton("savePlot", label = "save plot")
@@ -605,7 +571,6 @@ ui <- fluidPage(
           "hide",
         )
       ),
-      #tags$hr(style = "border-color: green;"),
       tabsetPanel(
         tabPanel(
           "load",
@@ -636,12 +601,6 @@ ui <- fluidPage(
       )
     ),
     mainPanel(
-      # sliderInput("pvalue",
-      #             "PValue:",
-      #             min = 0,
-      #             max = 1e-2,
-      #             value = c(0, 1e-2)
-      # ),
       width = 9,
       style = "z-index:1;margin-top: 60px;",
       tabsetPanel(
@@ -650,36 +609,39 @@ ui <- fluidPage(
           title = "main",
           value = "plot",
           uiOutput("boxPlotUI") %>% withSpinner(),
-          # bsModal("modalPDF",
-          #   title = "module-trait",
-          #   trigger = "conn",
-          #   size = "large",
-          #   htmlOutput("pdfview")
-          # ),
           uiOutput("EigenPlot") %>% withSpinner(),
-          #tags$hr(style = "border-color: green;"),
           tableOutput("results"),
-          bsCollapse(id = "tabs", multiple = TRUE, open = "called_orfs",
-            bsCollapsePanel(tableOutput("orfinfo") %>% withSpinner(), title = "called_orfs",
-                            style = "primary"),
-            bsCollapsePanel(tableOutput("majinfo") %>% withSpinner(), title = "majiq_alternative_splicing",
-                            style = "warning"),
-          #tags$hr(style = "border-color: green;"),
-            bsCollapsePanel(htmlOutput("ucscPlot") %>% withSpinner(), title = "UCSC browser plot",
-                            style = "success"),
-          #tags$hr(style = "border-color: green;"),
-            bsCollapsePanel(tableOutput("gotab") %>% withSpinner(), title = "go_terms/domains",
-                            style = "info")
+          bsCollapse(
+            id = "tabs", multiple = TRUE, open = "called_orfs",
+            bsCollapsePanel(tableOutput("orfinfo") %>% withSpinner(),
+              title = "called_orfs",
+              style = "primary"
+            ),
+            bsCollapsePanel(tableOutput("majinfo") %>% withSpinner(),
+              title = "majiq_alternative_splicing",
+              style = "warning"
+            ),
+            bsCollapsePanel(htmlOutput("ucscPlot") %>% withSpinner(),
+              title = "UCSC browser plot",
+              style = "success"
+            ),
+            bsCollapsePanel(tableOutput("gotab") %>% withSpinner(),
+              title = "go_terms/domains",
+              style = "info"
+            )
           )
         ),
         tabPanel(
           title = "transcript_gene",
           value = "table_orf",
-          div(style = "display: inline-block;width: 160px;",
-          checkboxInput("doCollapse", 
-                        "longest transcript",
-                        value = T, 
-                        width = NULL)),
+          div(
+            style = "display: inline-block;width: 160px;",
+            checkboxInput("doCollapse",
+              "longest transcript",
+              value = T,
+              width = NULL
+            )
+          ),
           downloadButton(
             outputId = "saveFiltered",
             label = "save filtered data"
@@ -696,35 +658,6 @@ ui <- fluidPage(
           ),
           DT::dataTableOutput("alt")
         ),
-        # tabPanel(
-        #   title = "table_RF",
-        #   value = "table_RF",
-        #   downloadButton(
-        #     outputId = "saveFiltered2",
-        #     label = "download filtered data"
-        #   ),
-        #   DT::dataTableOutput("tbl2")
-        # ),
-        # tabPanel(
-        #   title = "variable_selection",
-        #   value = "table_varsel",
-        #   div(
-        #     plotlyOutput("mds", width = 400, height = 300, inline = TRUE),
-        #     plotlyOutput("mds2", width = 400, height = 300, inline = TRUE) %>% withSpinner()
-        #   ),
-        #   div(
-        #     plotlyOutput("oob", width = 400, height = 300, inline = TRUE),
-        #     plotlyOutput("oob2", width = 400, height = 300, inline = TRUE) %>% withSpinner()
-        #   ),
-        #   div(
-        #     downloadButton(
-        #       outputId = "saveFiltered3",
-        #       label = "save gene list"
-        #     ),
-        #     uiOutput("sel", inline = TRUE)
-        #   ),
-        #   DT::dataTableOutput("tbl3")
-        # ),
         tabPanel(
           title = "line_plot",
           value = "line_plot",
@@ -735,65 +668,88 @@ ui <- fluidPage(
           value = "heat_plot",
           br(),
           fluidRow(
-            column(width = 3 ,
-          checkboxInput("doRowcluster", 
-                        "cluster rows",
-                        value = T, 
-                        width = NULL),
-          checkboxInput("doColumncluster", 
-                        "cluster columns",
-                        value = F, 
-                        width = NULL)),
-          column(width = 3,
-          checkboxInput("doPivot", 
-                        "pivot plot",
-                        value = F, 
-                        width = NULL),
-          checkboxInput("doSplit", 
-                        "split by region",
-                        value = F, 
-                        width = NULL)),
-          column(width = 3,
-          checkboxInput("doLabelgene", 
-                        "label genes",
-                        value = T, 
-                        width = NULL),
-          checkboxInput("doAutoresize", 
-                        "resize on saving",
-                        value = F, 
-                        width = NULL)),
-          downloadButton("savePlot3", 
-                         label = "save plot")),
+            column(
+              width = 3,
+              checkboxInput("doRowcluster",
+                "cluster rows",
+                value = T,
+                width = NULL
+              ),
+              checkboxInput("doColumncluster",
+                "cluster columns",
+                value = F,
+                width = NULL
+              )
+            ),
+            column(
+              width = 3,
+              checkboxInput("doSplit",
+                "split by region",
+                value = TRUE,
+                width = NULL
+              ),
+              checkboxInput("doPivot",
+                            "pivot plot",
+                            value = F,
+                            width = NULL
+              )
+            ),
+            column(
+              width = 3,
+              checkboxInput("doLabelgene",
+                "label genes",
+                value = T,
+                width = NULL
+              ),
+              checkboxInput("doAutoresize",
+                "resize on saving",
+                value = F,
+                width = NULL
+              )
+            ),
+            downloadButton("savePlot3",
+              label = "save plot"
+            )
+          ),
           plotOutput("heatPlot") %>% withSpinner()
         ),
         tabPanel(
           title = "GO_enrichment",
           value = "enrichment_plot",
-          downloadButton("savePlot2", 
-                         label = "save plot"),
+          downloadButton("savePlot2",
+            label = "save plot"
+          ),
           downloadButton(
             outputId = "saveEnrich",
-            label = "save table"),
+            label = "save table"
+          ),
           plotlyOutput("richPlot") %>% withSpinner()
         ),
         tabPanel(
           title = "kmer",
           value = "kmer_analysis",
-          downloadButton("savePlot4", 
-                         label = "save plot"),
+          downloadButton("savePlot4",
+            label = "save plot"
+          ),
           downloadButton(
             outputId = "saveK",
-            label = "save table"),
+            label = "save table"
+          ),
           tags$style(HTML(".radio-inline {margin-left: 5px;margin-right: 25px;}")),
-          div(style="display: inline-block;vertical-align:top;",
-            #p("  UTR choice"),
-            radioButtons("utr", "UTR choice", c("5UTR", "3UTR"), selected = "3UTR", inline = TRUE)),
-          div(style="display: inline-block;vertical-align:top;",
-              #p("  kmer length"),
-              radioButtons("km", "kmer length", c("5", "7"), selected = "5", inline = TRUE)),
-          #radioButtons("utrlen", "", c("full", "200nt"), selected = "full", inline = TRUE))),
+          div(
+            style = "display: inline-block;vertical-align:top;",
+            radioButtons("utr", "UTR choice", c("5UTR", "3UTR"), selected = "3UTR", inline = TRUE)
+          ),
+          div(
+            style = "display: inline-block;vertical-align:top;",
+            radioButtons("km", "kmer length", c("5", "7"), selected = "5", inline = TRUE)
+          ),
+          div(
+            style = "display: inline-block;vertical-align:top;",
+            radioButtons("kmlab", "annotate kmer", c("yes", "no"), selected = "yes", inline = TRUE)
+          ),
           selectInput("utrlen", NULL, choices = c(200, 500, 1000, "full length"), selected = "full length"),
-          plotlyOutput("kmerPlot") %>% withSpinner()
+          plotOutput("kmerPlot") %>% withSpinner()
         )
       )
     )
@@ -820,7 +776,7 @@ server <- function(input, output, session) {
   rv$line <- 0
   rv$line_refresh <- 0
   rv$mod_df <- data.frame()
-  
+
   # hide some checkboxes
   hide("doKegg")
   hide("doMod")
@@ -901,7 +857,7 @@ server <- function(input, output, session) {
 
     if (length(mis) > 0) {
       for (element in mis) {
-        l <- as.list(plot_temp[1,])
+        l <- as.list(plot_temp[1, ])
         l$region <- element
         l$sample <- "0"
         l$log2_counts <- NA
@@ -967,7 +923,7 @@ server <- function(input, output, session) {
         agg_min <- aggregate(log2_counts ~ state + region, plot_temp, min)
         agg$min <- agg_min$log2_counts
         agg2 <- agg %>%
-          mutate(region = factor(region, level = region_order)) %>% 
+          mutate(region = factor(region, level = region_order)) %>%
           group_by(region) %>%
           mutate(
             maxy = max(log2_counts),
@@ -977,7 +933,7 @@ server <- function(input, output, session) {
         agg3 <- agg2 %>%
           left_join(temp3 %>% select(region, state, letter)) %>%
           replace_na(list(letter = list("")))
-  
+
         g <- g +
           geom_text(data = agg3, aes(
             text = letter,
@@ -1079,7 +1035,6 @@ server <- function(input, output, session) {
   outputtab <- reactive({
     inid <- inid()
     if ((inid %in% orfs$gene_id) | (inid %in% orfs$unique_gene_symbol)) {
-      
       temp_orfs <- orfs %>% filter((gene_id == inid) | (unique_gene_symbol == inid))
       if (nrow(temp_orfs) == 0) {
         rv$blast <<- ""
@@ -1166,7 +1121,7 @@ server <- function(input, output, session) {
     },
     digits = 0
   )
-  
+
   # goterm table
   output$gotab <- renderTable({
     if (input$doKegg != T) {
@@ -1407,17 +1362,18 @@ server <- function(input, output, session) {
 
     fac <- input$doTis + input$doBr
     if (input$doName == T) {
-      
+
       # highlight(ggplotly(g, tooltip = "text"),"plotly_hover")
-      ggplotly(g, tooltip = "text", height = 300 * fac, width = 800) %>% layout(autosize = FALSE, 
-                                                                                showlegend = TRUE)
+      ggplotly(g, tooltip = "text", height = 300 * fac, width = 800) %>% layout(
+        autosize = FALSE,
+        showlegend = TRUE
+      )
     } else {
       # highlight(ggplotly(g, tooltip = "text"),"plotly_hover")
       ggplotly(g, tooltip = "text", height = 300 * fac, width = 800)
     }
-    
   })
-  
+
   # heatmap
   heatPlot1 <- reactive({
     set.seed(1)
@@ -1425,57 +1381,58 @@ server <- function(input, output, session) {
     if (length(historytablist) == 0) {
       return(NA)
     }
-    temp2 <- temp %>% select(-log2_counts) %>% 
-      pivot_wider(names_from = state, values_from = counts) %>% 
-      unite(region, unique_gene_symbol, col = "id", sep = ":") %>% 
+    temp2 <- temp %>%
+      select(-log2_counts) %>%
+      pivot_wider(names_from = state, values_from = counts) %>%
+      unite(region, unique_gene_symbol, col = "id", sep = ":") %>%
       column_to_rownames("id")
     if (input$doPivot) {
       temp2 <- scale(t(temp2))
     } else {
       temp2 <- t(scale(t(temp2)))
     }
-    
+
     if (input$doSplit) {
       if (input$doPivot) {
         Heatmap(temp2,
-                cluster_rows = input$doRowcluster,
-                cluster_columns = input$doColumncluster,
-                column_split = str_remove(colnames(temp2), ":.+"),
-                column_labels = str_remove(colnames(temp2), "^.+:"),
-                show_column_names = input$doLabelgene,
-                heatmap_legend_param = list(title = "Z-Score")
+          cluster_rows = input$doRowcluster,
+          cluster_columns = input$doColumncluster,
+          column_split = str_remove(colnames(temp2), ":.+"),
+          column_labels = str_remove(colnames(temp2), "^.+:"),
+          show_column_names = input$doLabelgene,
+          heatmap_legend_param = list(title = "Z-Score")
         )
       } else {
         Heatmap(temp2,
-                cluster_rows = input$doRowcluster,
-                cluster_columns = input$doColumncluster,
-                row_split = str_remove(rownames(temp2), ":.+"),
-                row_labels = str_remove(rownames(temp2), "^.+:"),
-                show_row_names = input$doLabelgene,
-                heatmap_legend_param = list(title = "Z-Score")
+          cluster_rows = input$doRowcluster,
+          cluster_columns = input$doColumncluster,
+          row_split = str_remove(rownames(temp2), ":.+"),
+          row_labels = str_remove(rownames(temp2), "^.+:"),
+          show_row_names = input$doLabelgene,
+          heatmap_legend_param = list(title = "Z-Score")
         )
       }
     } else {
       if (input$doPivot) {
         Heatmap(temp2,
-                cluster_rows = input$doRowcluster,
-                cluster_columns = input$doColumncluster,
-                heatmap_legend_param = list(title = "Z-Score"),
-                show_column_names = input$doLabelgene
-                )
+          cluster_rows = input$doRowcluster,
+          cluster_columns = input$doColumncluster,
+          heatmap_legend_param = list(title = "Z-Score"),
+          show_column_names = input$doLabelgene
+        )
       } else {
         Heatmap(temp2,
-                cluster_rows = input$doRowcluster,
-                cluster_columns = input$doColumncluster,
-                heatmap_legend_param = list(title = "Z-Score"),
-                show_row_names = input$doLabelgene
+          cluster_rows = input$doRowcluster,
+          cluster_columns = input$doColumncluster,
+          heatmap_legend_param = list(title = "Z-Score"),
+          show_row_names = input$doLabelgene
         )
       }
     }
   })
-  
+
   output$heatPlot <- renderPlot(heatPlot1())
-  
+
   output$savePlot3 <- downloadHandler(
     filename = "heatplot.pdf",
     content = function(file) {
@@ -1487,9 +1444,9 @@ server <- function(input, output, session) {
       }
       print(h)
       dev.off()
-      }
+    }
   )
-  
+
   richPlot1 <- reactive({
     rv$line_refresh
     set.seed(1)
@@ -1498,24 +1455,27 @@ server <- function(input, output, session) {
     }
     genevec <- unique_to_clean(historytablist, namedvec) %>% str_to_upper()
     tops <- fisher(genevec, gmtlist, length_detected_genes)
-    tops <- tops %>% dplyr::slice(1 : max(min(which(tops$padj > 0.01)), 15))
-    tops <<- tops 
+    tops <- tops %>% dplyr::slice(1:max(min(which(tops$padj > 0.01)), 15))
+    tops <<- tops
     ggplot(tops %>% dplyr::slice(1:15), aes(x = reorder(pathway, minuslog10), y = minuslog10, fill = -minuslog10, text = len)) +
       geom_bar(stat = "identity") +
       xlab(paste0("enriched : ", str_remove(gmt_short, "_"))) +
       coord_flip() +
       cowplot::theme_minimal_vgrid() +
-      theme(axis.text.y = element_text(size = 4),
-            axis.text.x = element_text(size = 10), 
-            axis.title.y = element_text(size = 10), 
-            axis.title.x = element_text(size = 10),
-            legend.position = "none") +
+      theme(
+        axis.text.y = element_text(size = 4),
+        axis.text.x = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.title.x = element_text(size = 10),
+        legend.position = "none"
+      ) +
       scale_y_continuous(expand = c(0, 0))
   })
-  
+
   output$richPlot <- renderPlotly({
     ggplotly(richPlot1(), source = "richPlot", tooltip = "text", height = 600, width = 800) %>%
-      layout(autosize = F) %>% highlight()
+      layout(autosize = F) %>%
+      highlight()
   })
 
   output$savePlot2 <- downloadHandler(
@@ -1524,19 +1484,23 @@ server <- function(input, output, session) {
       ggplot2::ggsave(file, plot = richPlot1(), device = "pdf", width = 8, height = 6)
     }
   )
-  
+
   observeEvent(event_data("plotly_click", source = "richPlot"), {
     rv$richsel <- event_data("plotly_click", source = "richPlot")
-    carttablist <<- tops[16 - rv$richsel$y, ] %>% pull(hits) %>% str_split(",") %>% unlist()
+    carttablist <<- tops[16 - rv$richsel$y, ] %>%
+      pull(hits) %>%
+      str_split(",") %>%
+      unlist()
     rv$listn2 <- length(carttablist)
   })
-  
+
   output$saveEnrich <- downloadHandler("enrich_list.csv", content = function(file) {
     write_csv(tops, file)
   })
-  
+
   # kmer analysis
-  kmerPlot1 <- reactive({
+
+  kmertemp <- reactive({
     rv$line_refresh
     set.seed(1)
     if (length(historytablist) == 0) {
@@ -1544,7 +1508,7 @@ server <- function(input, output, session) {
     }
     genevec <- unique_to_clean(historytablist, namedvec) %>% str_to_upper()
     if (input$utrlen == "full length") {
-      lenchoice = 0
+      lenchoice <- 0
     } else {
       lenchoice <- input$utrlen
     }
@@ -1553,47 +1517,79 @@ server <- function(input, output, session) {
     } else {
       utrchoice <- "utr5"
       lenchoice <- -lenchoice
-    } 
-    precal <- paste0(input$km, "mers_", utrchoice)
-    # topsk <- calc_kmer(gene_vec = genevec, len = lenchoice, col = utrchoice, k = as.numeric(input$km))
-    topsk <- comp_kmer(gene_vec = genevec, bac = seqs_precal[[precal]], col = utrchoice, k = as.numeric(input$km))
-    if (input$km == "5") {
-      topsk <- topsk %>%
-        dplyr::slice(1 : max(min(which(topsk$adj.p.value > 0.05)), 15)) %>% 
-        mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>% 
-        left_join(fivemers, by = c("kmer" = "fivemer"))
-    } else {
-      topsk <- topsk %>%
-        dplyr::slice(1 : max(min(which(topsk$adj.p.value > 0.05)), 15)) %>% 
-        mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>% 
-        left_join(sevenmers, by = c("kmer" = "sevenmer")) %>% rename(RBP = "mir")
     }
-    topsk <<- topsk
-    ggplot(topsk %>% dplyr::slice(1:15), aes(x = reorder(kmer, minuslog10), y = minuslog10, text = RBP)) +
-      geom_bar(stat = "identity", aes(fill = enrichment)) +
-      scale_fill_gradient2(
-        low = "blue",
-        mid = "white",
-        high = "red",
-        midpoint = 0
-      ) +
-      coord_flip() +
-      xlab("kmer") +
-      labs(fill = "log2(enrichment)") +
-      cowplot::theme_minimal_vgrid() +
-      theme(axis.text.y = element_text(size = 6),
-            axis.text.x = element_text(size = 10), 
-            axis.title.y = element_text(size = 10), 
-            axis.title.x = element_text(size = 10),
-            legend.position = "right",
-            legend.title = element_text(size = 6),
-            legend.text = element_text(size = 6)) +
-      scale_y_continuous(expand = c(0, 0))
+    precal <- paste0(input$km, "mers_", utrchoice)
+    topsk <- comp_kmer(gene_vec = genevec,
+                       bac = seqs_precal[[precal]], 
+                       col = utrchoice, 
+                       k = as.numeric(input$km))
+    topsk <- topsk %>%
+      mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment))
+    if (input$km == "5") {
+      # topsk <- topsk %>%
+      #   dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
+      #   mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
+      #   left_join(fivemers, by = c("kmer" = "fivemer"))
+      topsk <- topsk %>% left_join(fivemers, by = c("kmer" = "fivemer"))
+    } else {
+      # topsk <- topsk %>%
+      #   dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
+      #   mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
+      #   left_join(sevenmers, by = c("kmer" = "sevenmer")) %>%
+      #   rename(RBP = "mir")
+      topsk <- topsk %>%
+        left_join(sevenmers, by = c("kmer" = "sevenmer")) %>%
+        rename(RBP = "mir")
+    }
+    topsk
   })
   
-  output$kmerPlot <- renderPlotly({
-    ggplotly(kmerPlot1(), source = "kmerPlot", tooltip = "text", height = 500, width = 800) %>%
-      layout(autosize = F) %>% highlight()
+  kmerPlot1 <- reactive({
+    topsk <- kmertemp()
+    if (input$kmlab == "yes") {
+      topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= 2, "sig", "insig"))) %>%
+        mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), ""))
+    } else {
+      topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= 2, "sig", "insig"))) %>%
+        mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), kmer, ""))
+    }
+    # ggplot(topsk %>% dplyr::slice(1:15), aes(x = reorder(kmer, minuslog10), y = minuslog10, text = RBP)) +
+    #   geom_bar(stat = "identity", aes(fill = enrichment)) +
+    #   scale_fill_gradient2(
+    #     low = "blue",
+    #     mid = "white",
+    #     high = "red",
+    #     midpoint = 0
+    #   ) +
+    #   coord_flip() +
+    #   xlab("kmer") +
+    #   labs(fill = "log2(enrichment)") +
+    #   cowplot::theme_minimal_vgrid() +
+    #   theme(
+    #     axis.text.y = element_text(size = 6),
+    #     axis.text.x = element_text(size = 10),
+    #     axis.title.y = element_text(size = 10),
+    #     axis.title.x = element_text(size = 10),
+    #     legend.position = "right",
+    #     legend.title = element_text(size = 6),
+    #     legend.text = element_text(size = 6)
+    #   ) +
+    #   scale_y_continuous(expand = c(0, 0))
+    ggplot(topsk, aes(x = enrichment,
+                      y = minuslog10, 
+                      text = str_c(kmer, RBP, sep = "\n"),
+                      label = text2)) +
+      geom_point(aes(color = sig)) +
+      scale_color_manual(values = c("gray", "red")) +
+      ggrepel::geom_text_repel(box.padding = 0.05, size = 3) +
+      xlab("log2enrichment") +
+      labs(color = "")
+  })
+
+  output$kmerPlot <- renderPlot({
+    kmerPlot1()
+    # ggplotly(kmerPlot1(), source = "kmerPlot", tooltip = "text", height = 600, width = 800) %>%
+    #   layout(autosize = F)
   })
   
   output$savePlot4 <- downloadHandler(
@@ -1602,11 +1598,11 @@ server <- function(input, output, session) {
       ggplot2::ggsave(file, plot = kmerPlot1(), device = "pdf", width = 8, height = 6)
     }
   )
-  
+
   output$saveK <- downloadHandler("enrich_kmer.csv", content = function(file) {
-    write_csv(topsk, file)
+    write_csv(kmertemp(), file)
   })
-  
+
   # list history genes as table
   output$historyl <- DT::renderDataTable({
     inid()
@@ -1669,18 +1665,20 @@ server <- function(input, output, session) {
       v_genes <- read_csv(path, col_names = FALSE)
     }
     if (nrow(v_genes) == 1) {
-      v_genes <- v_genes[1,] %>% unlist() %>% str_split(", ", simplify = FALSE) %>%
+      v_genes <- v_genes[1, ] %>%
+        unlist() %>%
+        str_split(", ", simplify = FALSE) %>%
         unlist() %>%
         str_split(",", simplify = FALSE) %>%
-        unlist() %>% 
+        unlist() %>%
         str_trim()
     } else if (nrow(v_genes) == 0) {
       v_genes <- ""
     } else {
       v_genes <- v_genes %>% pull(1)
     }
-    historytablist <<- autocomplete_list[str_to_upper(autocomplete_list) %in% str_to_upper(v_genes %>% 
-                                                                                             unique())]
+    historytablist <<- autocomplete_list[str_to_upper(autocomplete_list) %in% str_to_upper(v_genes %>%
+      unique())]
     rv$line_refresh <- rv$line_refresh + 1
   })
 
@@ -1697,10 +1695,10 @@ server <- function(input, output, session) {
   output$saveList <- downloadHandler("cart.txt", content = function(file) {
     write_lines(carttablist, file)
   })
-  
+
   onclick("Load", {
     historytablist <- carttablist
-    rv$line_refresh <- rv$line_refresh +1
+    rv$line_refresh <- rv$line_refresh + 1
   })
 
   # list cart genes as table
@@ -1811,44 +1809,49 @@ server <- function(input, output, session) {
       fulltbl
     }
   })
-  
+
   # explore bed table
   output$tbl <- DT::renderDataTable({
     DT::datatable(
       orftbl() %>%
         select(
-      unique_gene_symbol,
-      contains("LRT"),
-      contains("cluster"),
-      everything()
-    ),
-    filter = "top",
-    escape = FALSE,
-    selection = "single",
-    rownames = FALSE,
-    options = list(columnDefs = list(list(targets=c(7), visible=TRUE, width='150px'),
-                                     list(targets=c(8), visible=TRUE, width='150px'),
-                                     list(targets=c(9), visible=TRUE, width='150px')),
-               scrollX = TRUE,
-               autoWidth = TRUE)
-    ) %>% 
-      DT::formatRound(columns = c(2,3,4,5,6,7), digits = 4)
+          unique_gene_symbol,
+          contains("LRT"),
+          contains("cluster"),
+          everything()
+        ),
+      filter = "top",
+      escape = FALSE,
+      selection = "single",
+      rownames = FALSE,
+      options = list(
+        columnDefs = list(
+          list(targets = c(7), visible = TRUE, width = "150px"),
+          list(targets = c(8), visible = TRUE, width = "150px"),
+          list(targets = c(9), visible = TRUE, width = "150px")
+        ),
+        scrollX = TRUE,
+        autoWidth = TRUE
+      )
+    ) %>%
+      DT::formatRound(columns = c(2, 3, 4, 5, 6, 7), digits = 4)
   })
 
   output$saveFiltered <- downloadHandler("filtré.csv", content = function(file) {
     s <- input$tbl_rows_all
     write_csv((orftbl() %>%
-                 select(
-                   unique_gene_symbol,
-                   contains("LRT"),
-                   contains("cluster"),
-                   everything()) %>% select(unique_gene_symbol, everything()))[s, ], file)
+      select(
+        unique_gene_symbol,
+        contains("LRT"),
+        contains("cluster"),
+        everything()
+      ) %>% select(unique_gene_symbol, everything()))[s, ], file)
   })
-  
+
   onclick("loadtab", {
     s <- input$tbl_rows_all
-    historytablist <- orftbl()[s,] %>% pull(unique_gene_symbol)
-    rv$line_refresh <- rv$line_refresh +1
+    historytablist <- orftbl()[s, ] %>% pull(unique_gene_symbol)
+    rv$line_refresh <- rv$line_refresh + 1
   })
 
   observeEvent(input$tbl_rows_selected, {
@@ -1868,7 +1871,7 @@ server <- function(input, output, session) {
         select(
           unique_gene_symbol,
           contains("significant"),
-          LSV_ID,A5SS,A3SS,ES,
+          LSV_ID, A5SS, A3SS, ES,
           everything()
         ),
       filter = "top",
@@ -1877,137 +1880,26 @@ server <- function(input, output, session) {
       rownames = FALSE
     )
   })
-  
+
   output$saveFiltered4 <- downloadHandler("filtré.csv", content = function(file) {
     s <- input$alt_rows_all
     write_csv((maj %>%
-                  select(
-                    unique_gene_symbol,
-                    contains("significant"),
-                    LSV_ID,A5SS,A3SS,ES,
-                    everything()
-                  ))[s, ], file)
+      select(
+        unique_gene_symbol,
+        contains("significant"),
+        LSV_ID, A5SS, A3SS, ES,
+        everything()
+      ))[s, ], file)
   })
-  
+
   observeEvent(input$alt_rows_selected, {
     rv$run2 <- 1
     updateSelectizeInput(session,
-                         inputId = "geneID",
-                         selected = maj[input$alt_rows_selected, "unique_gene_symbol"],
-                         choices = autocomplete_list,
-                         server = T
-    )
-  })
-  
-  # explore feature importance table
-  output$tbl2 <- DT::renderDataTable({
-    DT::datatable(imp %>% select(
-      unique_gene_symbol,
-      contains("rank"),
-      everything()
-    ),
-    filter = "top",
-    escape = FALSE,
-    selection = "single",
-    rownames = FALSE
-    )
-  })
-
-  output$saveFiltered2 <- downloadHandler("filtré2.csv", content = function(file) {
-    s <- input$tbl_rows_all
-    write_csv((imp %>% select(unique_gene_symbol, contains("rank"), everything()))[s, ], file)
-  })
-
-  observeEvent(input$tbl2_rows_selected, {
-    rv$run2 <- 1
-    updateSelectizeInput(session,
       inputId = "geneID",
-      selected = imp[input$tbl2_rows_selected, "unique_gene_symbol"],
+      selected = maj[input$alt_rows_selected, "unique_gene_symbol"],
       choices = autocomplete_list,
       server = T
     )
-  })
-
-  # explore RF table
-  output$tbl3 <- DT::renderDataTable({
-    DT::datatable(
-      rfvars,
-      filter = "top",
-      escape = FALSE,
-      selection = "single",
-      rownames = FALSE
-    )
-  })
-
-  observeEvent(input$tbl3_rows_selected, {
-    rv$run2 <- 1
-    updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = rfvars[input$tbl3_rows_selected, "gene"],
-      choices = autocomplete_list,
-      server = T
-    )
-  })
-
-  output$mds <- renderPlotly({
-    plot_ly(
-      x = dfmds$`Dim 1`,
-      y = dfmds$`Dim 2`,
-      z = dfmds$`Dim 3`,
-      type = "scatter3d",
-      mode = "text",
-      color = state_cols[dfmds$state],
-      name = dfmds$state,
-      text = dfmds$region
-    ) %>% hide_legend()
-  })
-
-  output$mds2 <- renderPlotly({
-    plot_ly(
-      x = dfmds$`Dim 1`,
-      y = dfmds$`Dim 2`,
-      z = dfmds$`Dim 3`,
-      type = "scatter3d",
-      mode = "text",
-      color = state_cols[dfmds$region],
-      name = dfmds$region,
-      text = dfmds$sample
-    ) %>% hide_legend()
-  })
-
-  output$oob <- renderPlotly({
-    g <- ggplot(trf, aes(x = Number.Variables, y = OOB)) +
-      geom_point() +
-      theme_cowplot()
-    ggplotly(g, source = "oob", selectedpoints = list(9)) %>%
-      layout(xaxis = list(showspikes = TRUE))
-  })
-
-  output$oob2 <- renderPlotly({
-    g <- ggplot(trf, aes(x = Number.Variables, y = OOB)) +
-      geom_point() +
-      theme_cowplot() +
-      xlim(0, 50)
-    ggplotly(g, source = "oob2", selectedpoints = list(9)) %>%
-      layout(xaxis = list(showspikes = TRUE))
-  })
-
-  plotlysel2 <- reactive({
-    rv$xsel <- event_data("plotly_click", source = "oob2")
-  })
-  
-  plotlysel <- reactive({
-    rv$xsel <- event_data("plotly_click", source = "oob")
-  })
-
-  output$sel <- renderUI({
-    plotlysel()
-    plotlysel2()
-    paste0("selected: ", as.character(rv$xsel$x))
-  })
-
-  output$saveFiltered3 <- downloadHandler("var_list.txt", content = function(file) {
-    write_lines(vars_set(rfvars, rv$xsel$x), file)
   })
 
   # back to top
