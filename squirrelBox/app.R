@@ -17,6 +17,7 @@ library(crosstalk)
 library(purrr)
 library(ComplexHeatmap)
 library(transite)
+library(ggrepel)
 library(shinythemes)
 library(shinycssloaders)
 
@@ -682,15 +683,15 @@ ui <- fluidPage(
             ),
             column(
               width = 3,
-              checkboxInput("doPivot",
-                "pivot plot",
-                value = F,
-                width = NULL
-              ),
               checkboxInput("doSplit",
                 "split by region",
-                value = F,
+                value = TRUE,
                 width = NULL
+              ),
+              checkboxInput("doPivot",
+                            "pivot plot",
+                            value = F,
+                            width = NULL
               )
             ),
             column(
@@ -743,8 +744,12 @@ ui <- fluidPage(
             style = "display: inline-block;vertical-align:top;",
             radioButtons("km", "kmer length", c("5", "7"), selected = "5", inline = TRUE)
           ),
+          div(
+            style = "display: inline-block;vertical-align:top;",
+            radioButtons("kmlab", "annotate kmer", c("yes", "no"), selected = "yes", inline = TRUE)
+          ),
           selectInput("utrlen", NULL, choices = c(200, 500, 1000, "full length"), selected = "full length"),
-          plotlyOutput("kmerPlot") %>% withSpinner()
+          plotOutput("kmerPlot") %>% withSpinner()
         )
       )
     )
@@ -1494,7 +1499,8 @@ server <- function(input, output, session) {
   })
 
   # kmer analysis
-  kmerPlot1 <- reactive({
+
+  kmertemp <- reactive({
     rv$line_refresh
     set.seed(1)
     if (length(historytablist) == 0) {
@@ -1513,50 +1519,79 @@ server <- function(input, output, session) {
       lenchoice <- -lenchoice
     }
     precal <- paste0(input$km, "mers_", utrchoice)
-    topsk <- comp_kmer(gene_vec = genevec, bac = seqs_precal[[precal]], col = utrchoice, k = as.numeric(input$km))
+    topsk <- comp_kmer(gene_vec = genevec,
+                       bac = seqs_precal[[precal]], 
+                       col = utrchoice, 
+                       k = as.numeric(input$km))
+    topsk <- topsk %>%
+      mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment))
     if (input$km == "5") {
-      topsk <- topsk %>%
-        dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
-        mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
-        left_join(fivemers, by = c("kmer" = "fivemer"))
+      # topsk <- topsk %>%
+      #   dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
+      #   mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
+      #   left_join(fivemers, by = c("kmer" = "fivemer"))
+      topsk <- topsk %>% left_join(fivemers, by = c("kmer" = "fivemer"))
     } else {
+      # topsk <- topsk %>%
+      #   dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
+      #   mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
+      #   left_join(sevenmers, by = c("kmer" = "sevenmer")) %>%
+      #   rename(RBP = "mir")
       topsk <- topsk %>%
-        dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
-        mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
         left_join(sevenmers, by = c("kmer" = "sevenmer")) %>%
         rename(RBP = "mir")
     }
-    topsk <<- topsk
-    ggplot(topsk %>% dplyr::slice(1:15), aes(x = reorder(kmer, minuslog10), y = minuslog10, text = RBP)) +
-      geom_bar(stat = "identity", aes(fill = enrichment)) +
-      scale_fill_gradient2(
-        low = "blue",
-        mid = "white",
-        high = "red",
-        midpoint = 0
-      ) +
-      coord_flip() +
-      xlab("kmer") +
-      labs(fill = "log2(enrichment)") +
-      cowplot::theme_minimal_vgrid() +
-      theme(
-        axis.text.y = element_text(size = 6),
-        axis.text.x = element_text(size = 10),
-        axis.title.y = element_text(size = 10),
-        axis.title.x = element_text(size = 10),
-        legend.position = "right",
-        legend.title = element_text(size = 6),
-        legend.text = element_text(size = 6)
-      ) +
-      scale_y_continuous(expand = c(0, 0))
+    topsk
+  })
+  
+  kmerPlot1 <- reactive({
+    topsk <- kmertemp()
+    if (input$kmlab == "yes") {
+      topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= 2, "sig", "insig"))) %>%
+        mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), ""))
+    } else {
+      topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= 2, "sig", "insig"))) %>%
+        mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), kmer, ""))
+    }
+    # ggplot(topsk %>% dplyr::slice(1:15), aes(x = reorder(kmer, minuslog10), y = minuslog10, text = RBP)) +
+    #   geom_bar(stat = "identity", aes(fill = enrichment)) +
+    #   scale_fill_gradient2(
+    #     low = "blue",
+    #     mid = "white",
+    #     high = "red",
+    #     midpoint = 0
+    #   ) +
+    #   coord_flip() +
+    #   xlab("kmer") +
+    #   labs(fill = "log2(enrichment)") +
+    #   cowplot::theme_minimal_vgrid() +
+    #   theme(
+    #     axis.text.y = element_text(size = 6),
+    #     axis.text.x = element_text(size = 10),
+    #     axis.title.y = element_text(size = 10),
+    #     axis.title.x = element_text(size = 10),
+    #     legend.position = "right",
+    #     legend.title = element_text(size = 6),
+    #     legend.text = element_text(size = 6)
+    #   ) +
+    #   scale_y_continuous(expand = c(0, 0))
+    ggplot(topsk, aes(x = enrichment,
+                      y = minuslog10, 
+                      text = str_c(kmer, RBP, sep = "\n"),
+                      label = text2)) +
+      geom_point(aes(color = sig)) +
+      scale_color_manual(values = c("gray", "red")) +
+      ggrepel::geom_text_repel(box.padding = 0.05, size = 3) +
+      xlab("log2enrichment") +
+      labs(color = "")
   })
 
-  output$kmerPlot <- renderPlotly({
-    ggplotly(kmerPlot1(), source = "kmerPlot", tooltip = "text", height = 500, width = 800) %>%
-      layout(autosize = F) %>%
-      highlight()
+  output$kmerPlot <- renderPlot({
+    kmerPlot1()
+    # ggplotly(kmerPlot1(), source = "kmerPlot", tooltip = "text", height = 600, width = 800) %>%
+    #   layout(autosize = F)
   })
-
+  
   output$savePlot4 <- downloadHandler(
     filename = "kmers.pdf",
     content = function(file) {
@@ -1565,7 +1600,7 @@ server <- function(input, output, session) {
   )
 
   output$saveK <- downloadHandler("enrich_kmer.csv", content = function(file) {
-    write_csv(topsk, file)
+    write_csv(kmertemp(), file)
   })
 
   # list history genes as table
