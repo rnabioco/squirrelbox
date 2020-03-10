@@ -1427,7 +1427,7 @@ server <- function(input, output, session) {
     }
     temp2 <- temp %>% select(-log2_counts) %>% 
       pivot_wider(names_from = state, values_from = counts) %>% 
-      unite(region, unique_gene_symbol, col = "id") %>% 
+      unite(region, unique_gene_symbol, col = "id", sep = ":") %>% 
       column_to_rownames("id")
     if (input$doPivot) {
       temp2 <- scale(t(temp2))
@@ -1440,8 +1440,8 @@ server <- function(input, output, session) {
         Heatmap(temp2,
                 cluster_rows = input$doRowcluster,
                 cluster_columns = input$doColumncluster,
-                column_split = str_remove(colnames(temp2), "_.+"),
-                column_labels = str_remove(colnames(temp2), "^.+_"),
+                column_split = str_remove(colnames(temp2), ":.+"),
+                column_labels = str_remove(colnames(temp2), "^.+:"),
                 show_column_names = input$doLabelgene,
                 heatmap_legend_param = list(title = "Z-Score")
         )
@@ -1449,8 +1449,8 @@ server <- function(input, output, session) {
         Heatmap(temp2,
                 cluster_rows = input$doRowcluster,
                 cluster_columns = input$doColumncluster,
-                row_split = str_remove(rownames(temp2), "_.+"),
-                row_labels = str_remove(rownames(temp2), "^.+_"),
+                row_split = str_remove(rownames(temp2), ":.+"),
+                row_labels = str_remove(rownames(temp2), "^.+:"),
                 show_row_names = input$doLabelgene,
                 heatmap_legend_param = list(title = "Z-Score")
         )
