@@ -27,7 +27,6 @@ theme_set(theme_cowplot())
 
 
 ### general data settings
-usecores <- parallel::detectCores() - 1
 set_shinytheme = "paper"
 track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
@@ -364,32 +363,6 @@ groups_to_letters_igraph <- function(df) {
   do.call(rbind, g)
 }
 
-# read in rf importance
-imp <- read_csv("rf_imp.csv")
-
-# read in rf mds df
-dfmds <- readRDS("MDSdf.rds")
-
-# read in rf selection results
-rf.vs1 <- readRDS("rfvs.rds")
-trf <- rf.vs1$selec.history %>%
-  as_tibble() %>%
-  mutate(Vars.in.Forest = str_split(Vars.in.Forest, " \\+ "))
-rfvars <- trf$Vars.in.Forest %>%
-  unlist() %>%
-  table() %>%
-  sort(decreasing = TRUE) %>%
-  as.data.frame(stringsAsFactors = FALSE) %>%
-  mutate(rank = rank(-Freq, ties.method = "min")) %>%
-  select(-2)
-colnames(rfvars) <- c("gene", "rank")
-
-vars_set <- function(rfvars, n) {
-  rfvars %>%
-    filter(rank <= n) %>%
-    pull(gene)
-}
-
 fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
   genevec <- intersect(genevec, unlist(gmtlist) %>% unique())
   sampleSize <- length(genevec)
@@ -445,36 +418,6 @@ if (file.exists("seqs_precal.rds")) {
   seqs_precal[["7mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 50) %>% pull(utr5), 
                                                k = 7)
   saveRDS(seqs_precal, "seqs_precal.rds")
-}
-
-calc_kmer <- function(df = seqs, gene_vec, col = "utr3", k = 5, len = 0, thres = 0, cutoff = 100) {
-  enq <- df %>%
-    filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>% pull(col) %>% na.omit()
-  if (length(enq) == 0) {
-    return(NA)
-  }
-  bac <- df %>% pull(col) %>% na.omit()
-  if (len > 0) {
-    enq <- str_sub(enq, 1, len)
-    bac <- str_sub(bac, 1, len)
-  } else if (len < 0) {
-    enq <- str_sub(enq, len)
-    bac <- str_sub(bac, 1, len)
-  }
-  enq <- enq[str_length(enq) >= cutoff]
-  bac <- bac[str_length(bac) >= cutoff]
-  print(length(enq))
-  print(length(bac))
-  res <- calculateKmerEnrichment(foreground.sets = list(enq),
-                                 background.set = bac,
-                                 k = k,
-                                 permutation = FALSE, 
-                                 chisq.p.value.threshold = thres,
-                                 p.adjust.method = "BH", 
-                                 n.cores = usecores)
-  resdf <- res$dfs[[1]]
-  resdf$kmer <- res$kmers
-  resdf %>% arrange(adj.p.value)
 }
 
 comp_kmer <- function(df = seqs, 
@@ -594,9 +537,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           "links",
-          #br(.noWS="outside"),
           uiOutput("conn"),
-          #tags$hr(style = "border-color: green;"),
           uiOutput("tab"), uiOutput("blastlink"),
           uiOutput("tab2"), uiOutput("tab3"), uiOutput("tab4"),
           downloadButton("savePlot", label = "save plot")
@@ -605,7 +546,6 @@ ui <- fluidPage(
           "hide",
         )
       ),
-      #tags$hr(style = "border-color: green;"),
       tabsetPanel(
         tabPanel(
           "load",
@@ -636,12 +576,6 @@ ui <- fluidPage(
       )
     ),
     mainPanel(
-      # sliderInput("pvalue",
-      #             "PValue:",
-      #             min = 0,
-      #             max = 1e-2,
-      #             value = c(0, 1e-2)
-      # ),
       width = 9,
       style = "z-index:1;margin-top: 60px;",
       tabsetPanel(
@@ -650,24 +584,15 @@ ui <- fluidPage(
           title = "main",
           value = "plot",
           uiOutput("boxPlotUI") %>% withSpinner(),
-          # bsModal("modalPDF",
-          #   title = "module-trait",
-          #   trigger = "conn",
-          #   size = "large",
-          #   htmlOutput("pdfview")
-          # ),
           uiOutput("EigenPlot") %>% withSpinner(),
-          #tags$hr(style = "border-color: green;"),
           tableOutput("results"),
           bsCollapse(id = "tabs", multiple = TRUE, open = "called_orfs",
             bsCollapsePanel(tableOutput("orfinfo") %>% withSpinner(), title = "called_orfs",
                             style = "primary"),
             bsCollapsePanel(tableOutput("majinfo") %>% withSpinner(), title = "majiq_alternative_splicing",
                             style = "warning"),
-          #tags$hr(style = "border-color: green;"),
             bsCollapsePanel(htmlOutput("ucscPlot") %>% withSpinner(), title = "UCSC browser plot",
                             style = "success"),
-          #tags$hr(style = "border-color: green;"),
             bsCollapsePanel(tableOutput("gotab") %>% withSpinner(), title = "go_terms/domains",
                             style = "info")
           )
@@ -696,35 +621,6 @@ ui <- fluidPage(
           ),
           DT::dataTableOutput("alt")
         ),
-        # tabPanel(
-        #   title = "table_RF",
-        #   value = "table_RF",
-        #   downloadButton(
-        #     outputId = "saveFiltered2",
-        #     label = "download filtered data"
-        #   ),
-        #   DT::dataTableOutput("tbl2")
-        # ),
-        # tabPanel(
-        #   title = "variable_selection",
-        #   value = "table_varsel",
-        #   div(
-        #     plotlyOutput("mds", width = 400, height = 300, inline = TRUE),
-        #     plotlyOutput("mds2", width = 400, height = 300, inline = TRUE) %>% withSpinner()
-        #   ),
-        #   div(
-        #     plotlyOutput("oob", width = 400, height = 300, inline = TRUE),
-        #     plotlyOutput("oob2", width = 400, height = 300, inline = TRUE) %>% withSpinner()
-        #   ),
-        #   div(
-        #     downloadButton(
-        #       outputId = "saveFiltered3",
-        #       label = "save gene list"
-        #     ),
-        #     uiOutput("sel", inline = TRUE)
-        #   ),
-        #   DT::dataTableOutput("tbl3")
-        # ),
         tabPanel(
           title = "line_plot",
           value = "line_plot",
@@ -786,12 +682,9 @@ ui <- fluidPage(
             label = "save table"),
           tags$style(HTML(".radio-inline {margin-left: 5px;margin-right: 25px;}")),
           div(style="display: inline-block;vertical-align:top;",
-            #p("  UTR choice"),
             radioButtons("utr", "UTR choice", c("5UTR", "3UTR"), selected = "3UTR", inline = TRUE)),
           div(style="display: inline-block;vertical-align:top;",
-              #p("  kmer length"),
               radioButtons("km", "kmer length", c("5", "7"), selected = "5", inline = TRUE)),
-          #radioButtons("utrlen", "", c("full", "200nt"), selected = "full", inline = TRUE))),
           selectInput("utrlen", NULL, choices = c(200, 500, 1000, "full length"), selected = "full length"),
           plotlyOutput("kmerPlot") %>% withSpinner()
         )
@@ -1555,7 +1448,6 @@ server <- function(input, output, session) {
       lenchoice <- -lenchoice
     } 
     precal <- paste0(input$km, "mers_", utrchoice)
-    # topsk <- calc_kmer(gene_vec = genevec, len = lenchoice, col = utrchoice, k = as.numeric(input$km))
     topsk <- comp_kmer(gene_vec = genevec, bac = seqs_precal[[precal]], col = utrchoice, k = as.numeric(input$km))
     if (input$km == "5") {
       topsk <- topsk %>%
@@ -1897,117 +1789,6 @@ server <- function(input, output, session) {
                          choices = autocomplete_list,
                          server = T
     )
-  })
-  
-  # explore feature importance table
-  output$tbl2 <- DT::renderDataTable({
-    DT::datatable(imp %>% select(
-      unique_gene_symbol,
-      contains("rank"),
-      everything()
-    ),
-    filter = "top",
-    escape = FALSE,
-    selection = "single",
-    rownames = FALSE
-    )
-  })
-
-  output$saveFiltered2 <- downloadHandler("filtré2.csv", content = function(file) {
-    s <- input$tbl_rows_all
-    write_csv((imp %>% select(unique_gene_symbol, contains("rank"), everything()))[s, ], file)
-  })
-
-  observeEvent(input$tbl2_rows_selected, {
-    rv$run2 <- 1
-    updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = imp[input$tbl2_rows_selected, "unique_gene_symbol"],
-      choices = autocomplete_list,
-      server = T
-    )
-  })
-
-  # explore RF table
-  output$tbl3 <- DT::renderDataTable({
-    DT::datatable(
-      rfvars,
-      filter = "top",
-      escape = FALSE,
-      selection = "single",
-      rownames = FALSE
-    )
-  })
-
-  observeEvent(input$tbl3_rows_selected, {
-    rv$run2 <- 1
-    updateSelectizeInput(session,
-      inputId = "geneID",
-      selected = rfvars[input$tbl3_rows_selected, "gene"],
-      choices = autocomplete_list,
-      server = T
-    )
-  })
-
-  output$mds <- renderPlotly({
-    plot_ly(
-      x = dfmds$`Dim 1`,
-      y = dfmds$`Dim 2`,
-      z = dfmds$`Dim 3`,
-      type = "scatter3d",
-      mode = "text",
-      color = state_cols[dfmds$state],
-      name = dfmds$state,
-      text = dfmds$region
-    ) %>% hide_legend()
-  })
-
-  output$mds2 <- renderPlotly({
-    plot_ly(
-      x = dfmds$`Dim 1`,
-      y = dfmds$`Dim 2`,
-      z = dfmds$`Dim 3`,
-      type = "scatter3d",
-      mode = "text",
-      color = state_cols[dfmds$region],
-      name = dfmds$region,
-      text = dfmds$sample
-    ) %>% hide_legend()
-  })
-
-  output$oob <- renderPlotly({
-    g <- ggplot(trf, aes(x = Number.Variables, y = OOB)) +
-      geom_point() +
-      theme_cowplot()
-    ggplotly(g, source = "oob", selectedpoints = list(9)) %>%
-      layout(xaxis = list(showspikes = TRUE))
-  })
-
-  output$oob2 <- renderPlotly({
-    g <- ggplot(trf, aes(x = Number.Variables, y = OOB)) +
-      geom_point() +
-      theme_cowplot() +
-      xlim(0, 50)
-    ggplotly(g, source = "oob2", selectedpoints = list(9)) %>%
-      layout(xaxis = list(showspikes = TRUE))
-  })
-
-  plotlysel2 <- reactive({
-    rv$xsel <- event_data("plotly_click", source = "oob2")
-  })
-  
-  plotlysel <- reactive({
-    rv$xsel <- event_data("plotly_click", source = "oob")
-  })
-
-  output$sel <- renderUI({
-    plotlysel()
-    plotlysel2()
-    paste0("selected: ", as.character(rv$xsel$x))
-  })
-
-  output$saveFiltered3 <- downloadHandler("var_list.txt", content = function(file) {
-    write_lines(vars_set(rfvars, rv$xsel$x), file)
   })
 
   # back to top
