@@ -16,6 +16,7 @@ library(feather)
 library(crosstalk)
 library(purrr)
 library(ComplexHeatmap)
+library(transite)
 library(shinythemes)
 library(shinycssloaders)
 
@@ -26,6 +27,7 @@ theme_set(theme_cowplot())
 
 
 ### general data settings
+usecores <- parallel::detectCores() - 1
 set_shinytheme = "paper"
 track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
@@ -425,7 +427,82 @@ maj <- read_tsv('MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz') %>%
   left_join(orfs %>% select(gene_id, contains("LRT")), by = "gene_id") %>% 
   select(-gene_id) %>% 
   distinct()
-  
+
+# seqs for kmer
+seqs <- read_feather("utrs_sq.feather") %>% filter(gene_id %in% combined3$gene_id)
+
+if (file.exists("seqs_precal.rds")) {
+  print("load")
+  seqs_precal <- readRDS("seqs_precal.rds")
+} else {
+  seqs_precal <- list()
+  seqs_precal[["5mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 50) %>% pull(utr3), 
+                                               k = 5)
+  seqs_precal[["7mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 50) %>% pull(utr3), 
+                                               k = 7)
+  seqs_precal[["5mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 50) %>% pull(utr5),
+                                               k = 5)
+  seqs_precal[["7mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 50) %>% pull(utr5), 
+                                               k = 7)
+  saveRDS(seqs_precal, "seqs_precal.rds")
+}
+
+calc_kmer <- function(df = seqs, gene_vec, col = "utr3", k = 5, len = 0, thres = 0, cutoff = 100) {
+  enq <- df %>%
+    filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>% pull(col) %>% na.omit()
+  if (length(enq) == 0) {
+    return(NA)
+  }
+  bac <- df %>% pull(col) %>% na.omit()
+  if (len > 0) {
+    enq <- str_sub(enq, 1, len)
+    bac <- str_sub(bac, 1, len)
+  } else if (len < 0) {
+    enq <- str_sub(enq, len)
+    bac <- str_sub(bac, 1, len)
+  }
+  enq <- enq[str_length(enq) >= cutoff]
+  bac <- bac[str_length(bac) >= cutoff]
+  print(length(enq))
+  print(length(bac))
+  res <- calculateKmerEnrichment(foreground.sets = list(enq),
+                                 background.set = bac,
+                                 k = k,
+                                 permutation = FALSE, 
+                                 chisq.p.value.threshold = thres,
+                                 p.adjust.method = "BH", 
+                                 n.cores = usecores)
+  resdf <- res$dfs[[1]]
+  resdf$kmer <- res$kmers
+  resdf %>% arrange(adj.p.value)
+}
+
+comp_kmer <- function(df = seqs, 
+                      gene_vec, 
+                      col = "utr3",
+                      bac = seqs_precal[["5mers_utr3"]],
+                      k = 5, 
+                      cutoff = 50) {
+  enq <- df %>%
+    filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>% pull(col) %>% na.omit()
+  if (length(enq) == 0) {
+    return(NA)
+  }
+  enq <- enq[str_length(enq) >= cutoff]
+
+  enq_res <- generateKmers(enq, k)
+    
+  res <- computeKmerEnrichment(enq_res, 
+                               bac,
+                               permutation = FALSE, 
+                               chisq.p.value.threshold = 0,
+                               p.adjust.method = "BH")
+  res$kmer <- str_replace_all(names(bac), "T", "U")
+  res %>% arrange(adj.p.value)
+}
+
+fivemers <- read_csv("RBP_5mer.csv")
+sevenmers <- read_csv("mir_7mer.csv")
 
 # some other code for webpage functions
 jscode <- '
@@ -531,7 +608,7 @@ ui <- fluidPage(
       #tags$hr(style = "border-color: green;"),
       tabsetPanel(
         tabPanel(
-          "file",
+          "load",
           fileInput("file", label = NULL),
           actionButton("Prev", "Prev"),
           actionButton("Next", "Next"),
@@ -607,6 +684,7 @@ ui <- fluidPage(
             outputId = "saveFiltered",
             label = "save filtered data"
           ),
+          actionButton("loadtab", "load"),
           DT::dataTableOutput("tbl")
         ),
         tabPanel(
@@ -627,26 +705,26 @@ ui <- fluidPage(
         #   ),
         #   DT::dataTableOutput("tbl2")
         # ),
-        tabPanel(
-          title = "variable_selection",
-          value = "table_varsel",
-          div(
-            plotlyOutput("mds", width = 400, height = 300, inline = TRUE),
-            plotlyOutput("mds2", width = 400, height = 300, inline = TRUE) %>% withSpinner()
-          ),
-          div(
-            plotlyOutput("oob", width = 400, height = 300, inline = TRUE),
-            plotlyOutput("oob2", width = 400, height = 300, inline = TRUE) %>% withSpinner()
-          ),
-          div(
-            downloadButton(
-              outputId = "saveFiltered3",
-              label = "save gene list"
-            ),
-            uiOutput("sel", inline = TRUE)
-          ),
-          DT::dataTableOutput("tbl3")
-        ),
+        # tabPanel(
+        #   title = "variable_selection",
+        #   value = "table_varsel",
+        #   div(
+        #     plotlyOutput("mds", width = 400, height = 300, inline = TRUE),
+        #     plotlyOutput("mds2", width = 400, height = 300, inline = TRUE) %>% withSpinner()
+        #   ),
+        #   div(
+        #     plotlyOutput("oob", width = 400, height = 300, inline = TRUE),
+        #     plotlyOutput("oob2", width = 400, height = 300, inline = TRUE) %>% withSpinner()
+        #   ),
+        #   div(
+        #     downloadButton(
+        #       outputId = "saveFiltered3",
+        #       label = "save gene list"
+        #     ),
+        #     uiOutput("sel", inline = TRUE)
+        #   ),
+        #   DT::dataTableOutput("tbl3")
+        # ),
         tabPanel(
           title = "line_plot",
           value = "line_plot",
@@ -697,6 +775,25 @@ ui <- fluidPage(
             outputId = "saveEnrich",
             label = "save table"),
           plotlyOutput("richPlot") %>% withSpinner()
+        ),
+        tabPanel(
+          title = "kmer",
+          value = "kmer_analysis",
+          downloadButton("savePlot4", 
+                         label = "save plot"),
+          downloadButton(
+            outputId = "saveK",
+            label = "save table"),
+          tags$style(HTML(".radio-inline {margin-left: 5px;margin-right: 25px;}")),
+          div(style="display: inline-block;vertical-align:top;",
+            #p("  UTR choice"),
+            radioButtons("utr", "UTR choice", c("5UTR", "3UTR"), selected = "3UTR", inline = TRUE)),
+          div(style="display: inline-block;vertical-align:top;",
+              #p("  kmer length"),
+              radioButtons("km", "kmer length", c("5", "7"), selected = "5", inline = TRUE)),
+          #radioButtons("utrlen", "", c("full", "200nt"), selected = "full", inline = TRUE))),
+          selectInput("utrlen", NULL, choices = c(200, 500, 1000, "full length"), selected = "full length"),
+          plotlyOutput("kmerPlot") %>% withSpinner()
         )
       )
     )
@@ -728,6 +825,7 @@ server <- function(input, output, session) {
   hide("doKegg")
   hide("doMod")
   hide("doUcsc")
+  hide("utrlen")
 
   # empty history list to start
   historytab <- c()
@@ -1329,7 +1427,7 @@ server <- function(input, output, session) {
     }
     temp2 <- temp %>% select(-log2_counts) %>% 
       pivot_wider(names_from = state, values_from = counts) %>% 
-      unite(region, unique_gene_symbol, col = "id") %>% 
+      unite(region, unique_gene_symbol, col = "id", sep = ":") %>% 
       column_to_rownames("id")
     if (input$doPivot) {
       temp2 <- scale(t(temp2))
@@ -1342,8 +1440,8 @@ server <- function(input, output, session) {
         Heatmap(temp2,
                 cluster_rows = input$doRowcluster,
                 cluster_columns = input$doColumncluster,
-                column_split = str_remove(colnames(temp2), "_.+"),
-                column_labels = str_remove(colnames(temp2), "^.+_"),
+                column_split = str_remove(colnames(temp2), ":.+"),
+                column_labels = str_remove(colnames(temp2), "^.+:"),
                 show_column_names = input$doLabelgene,
                 heatmap_legend_param = list(title = "Z-Score")
         )
@@ -1351,8 +1449,8 @@ server <- function(input, output, session) {
         Heatmap(temp2,
                 cluster_rows = input$doRowcluster,
                 cluster_columns = input$doColumncluster,
-                row_split = str_remove(rownames(temp2), "_.+"),
-                row_labels = str_remove(rownames(temp2), "^.+_"),
+                row_split = str_remove(rownames(temp2), ":.+"),
+                row_labels = str_remove(rownames(temp2), "^.+:"),
                 show_row_names = input$doLabelgene,
                 heatmap_legend_param = list(title = "Z-Score")
         )
@@ -1400,7 +1498,8 @@ server <- function(input, output, session) {
     }
     genevec <- unique_to_clean(historytablist, namedvec) %>% str_to_upper()
     tops <- fisher(genevec, gmtlist, length_detected_genes)
-    tops <<- tops %>% dplyr::slice(1 : max(min(which(tops$padj > 0.01)), 15))
+    tops <- tops %>% dplyr::slice(1 : max(min(which(tops$padj > 0.01)), 15))
+    tops <<- tops 
     ggplot(tops %>% dplyr::slice(1:15), aes(x = reorder(pathway, minuslog10), y = minuslog10, fill = -minuslog10, text = len)) +
       geom_bar(stat = "identity") +
       xlab(paste0("enriched : ", str_remove(gmt_short, "_"))) +
@@ -1434,6 +1533,78 @@ server <- function(input, output, session) {
   
   output$saveEnrich <- downloadHandler("enrich_list.csv", content = function(file) {
     write_csv(tops, file)
+  })
+  
+  # kmer analysis
+  kmerPlot1 <- reactive({
+    rv$line_refresh
+    set.seed(1)
+    if (length(historytablist) == 0) {
+      return(ggplotly(ggplot()))
+    }
+    genevec <- unique_to_clean(historytablist, namedvec) %>% str_to_upper()
+    if (input$utrlen == "full length") {
+      lenchoice = 0
+    } else {
+      lenchoice <- input$utrlen
+    }
+    if (input$utr == "3UTR") {
+      utrchoice <- "utr3"
+    } else {
+      utrchoice <- "utr5"
+      lenchoice <- -lenchoice
+    } 
+    precal <- paste0(input$km, "mers_", utrchoice)
+    # topsk <- calc_kmer(gene_vec = genevec, len = lenchoice, col = utrchoice, k = as.numeric(input$km))
+    topsk <- comp_kmer(gene_vec = genevec, bac = seqs_precal[[precal]], col = utrchoice, k = as.numeric(input$km))
+    if (input$km == "5") {
+      topsk <- topsk %>%
+        dplyr::slice(1 : max(min(which(topsk$adj.p.value > 0.05)), 15)) %>% 
+        mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>% 
+        left_join(fivemers, by = c("kmer" = "fivemer"))
+    } else {
+      topsk <- topsk %>%
+        dplyr::slice(1 : max(min(which(topsk$adj.p.value > 0.05)), 15)) %>% 
+        mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>% 
+        left_join(sevenmers, by = c("kmer" = "sevenmer")) %>% rename(RBP = "mir")
+    }
+    topsk <<- topsk
+    ggplot(topsk %>% dplyr::slice(1:15), aes(x = reorder(kmer, minuslog10), y = minuslog10, text = RBP)) +
+      geom_bar(stat = "identity", aes(fill = enrichment)) +
+      scale_fill_gradient2(
+        low = "blue",
+        mid = "white",
+        high = "red",
+        midpoint = 0
+      ) +
+      coord_flip() +
+      xlab("kmer") +
+      labs(fill = "log2(enrichment)") +
+      cowplot::theme_minimal_vgrid() +
+      theme(axis.text.y = element_text(size = 6),
+            axis.text.x = element_text(size = 10), 
+            axis.title.y = element_text(size = 10), 
+            axis.title.x = element_text(size = 10),
+            legend.position = "right",
+            legend.title = element_text(size = 6),
+            legend.text = element_text(size = 6)) +
+      scale_y_continuous(expand = c(0, 0))
+  })
+  
+  output$kmerPlot <- renderPlotly({
+    ggplotly(kmerPlot1(), source = "kmerPlot", tooltip = "text", height = 500, width = 800) %>%
+      layout(autosize = F) %>% highlight()
+  })
+  
+  output$savePlot4 <- downloadHandler(
+    filename = "kmers.pdf",
+    content = function(file) {
+      ggplot2::ggsave(file, plot = kmerPlot1(), device = "pdf", width = 8, height = 6)
+    }
+  )
+  
+  output$saveK <- downloadHandler("enrich_kmer.csv", content = function(file) {
+    write_csv(topsk, file)
   })
   
   # list history genes as table
@@ -1648,13 +1819,20 @@ server <- function(input, output, session) {
         select(
       unique_gene_symbol,
       contains("LRT"),
+      contains("cluster"),
       everything()
     ),
     filter = "top",
     escape = FALSE,
     selection = "single",
-    rownames = FALSE
-    )
+    rownames = FALSE,
+    options = list(columnDefs = list(list(targets=c(7), visible=TRUE, width='150px'),
+                                     list(targets=c(8), visible=TRUE, width='150px'),
+                                     list(targets=c(9), visible=TRUE, width='150px')),
+               scrollX = TRUE,
+               autoWidth = TRUE)
+    ) %>% 
+      DT::formatRound(columns = c(2,3,4,5,6,7), digits = 4)
   })
 
   output$saveFiltered <- downloadHandler("filtré.csv", content = function(file) {
@@ -1663,7 +1841,14 @@ server <- function(input, output, session) {
                  select(
                    unique_gene_symbol,
                    contains("LRT"),
+                   contains("cluster"),
                    everything()) %>% select(unique_gene_symbol, everything()))[s, ], file)
+  })
+  
+  onclick("loadtab", {
+    s <- input$tbl_rows_all
+    historytablist <- orftbl()[s,] %>% pull(unique_gene_symbol)
+    rv$line_refresh <- rv$line_refresh +1
   })
 
   observeEvent(input$tbl_rows_selected, {
