@@ -1,23 +1,22 @@
-library(shiny)
 library(dplyr)
-library(ggplot2)
-library(cowplot)
+library(tibble)
+library(purrr)
 library(readr)
 library(stringr)
-library(shinyjs)
-library(visNetwork)
-library(valr)
-library(igraph)
-library(tibble)
-library(plotly)
 library(tidyr)
-library(shinyBS)
 library(feather)
-library(crosstalk)
-library(purrr)
-library(ComplexHeatmap)
-library(transite)
+library(ggplot2)
 library(ggrepel)
+library(cowplot)
+library(ComplexHeatmap)
+library(igraph)
+library(valr)
+library(transite)
+library(plotly)
+library(crosstalk)
+library(shiny)
+library(shinyjs)
+library(shinyBS)
 library(shinythemes)
 library(shinycssloaders)
 
@@ -435,7 +434,6 @@ maj <- read_tsv("MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz") %>%
 seqs <- read_feather("utrs_sq.feather") %>% filter(gene_id %in% combined3$gene_id)
 
 if (file.exists("seqs_precal.rds")) {
-  print("load")
   seqs_precal <- readRDS("seqs_precal.rds")
 } else {
   seqs_precal <- list()
@@ -569,7 +567,9 @@ ui <- fluidPage(
           uiOutput("tab3"), 
           uiOutput("tab4"),
           downloadButton("savePlot", label = "plot"),
-          downloadButton(outputId = "saveTable",label = "table")
+          downloadButton(outputId = "saveTable",label = "table"),
+          bsTooltip("savePlot", "save plot as pdf"),
+          bsTooltip("saveTable", "save filtered/result table as csv"),
         ),
         tabPanel(
           span("options", title = "options specific to each main tab"),
@@ -760,7 +760,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           title = span("GO_enrichment",
-                       title= "GO term enrichment for loaded gene list"),
+                       title= "GO term enrichment for loaded gene list (slow)"),
           value = "enrichment_plot",
           # downloadButton("savePlot2",
           #   label = "save plot"
@@ -773,7 +773,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           title = span("kmer",
-                       title= "kmer enrichment analysis and annotation for loaded gene list"),
+                       title= "kmer enrichment analysis and annotation for loaded gene list (slow)"),
           value = "kmer_analysis",
           # downloadButton("savePlot4",
           #   label = "save plot"
@@ -1419,6 +1419,7 @@ server <- function(input, output, session) {
     if (length(historytablist) == 0) {
       return(ggplotly(ggplot()))
     }
+    
     g <- ggplot(d, aes(state, log2_counts,
       group = unique_gene_symbol,
       text = unique_gene_symbol
@@ -1435,7 +1436,6 @@ server <- function(input, output, session) {
     g <- linePlot1()
     fac <- input$doTis + input$doBr
     if (input$doName == T) {
-
       # highlight(ggplotly(g, tooltip = "text"),"plotly_hover")
       ggplotly(g, tooltip = "text", height = 300 * fac, width = 800) %>% layout(
         autosize = FALSE,
@@ -1537,7 +1537,6 @@ server <- function(input, output, session) {
     genevec <- unique_to_clean(historytablist, namedvec) %>% str_to_upper()
     tops <- fisher(genevec, gmtlist, length_detected_genes)
     tops <- tops %>% dplyr::slice(1:max(min(which(tops$padj > 0.01)), 15))
-    tops2 <<- tops
     tops
    
   })
@@ -1632,7 +1631,7 @@ server <- function(input, output, session) {
         left_join(sevenmers, by = c("kmer" = "sevenmer")) %>%
         rename(RBP = "mir")
     }
-    topsk
+    topsk %>% replace_na(list(RBP = ""))
   })
   
   kmerPlot1 <- reactive({
@@ -1642,10 +1641,12 @@ server <- function(input, output, session) {
     }
     if (input$kmlab == "yes") {
       topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= 2, "sig", "insig"))) %>%
-        mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), ""))
+        mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), "")) %>% 
+        mutate(text1 = str_c(kmer, RBP, sep = "\n"))
     } else {
       topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= 2, "sig", "insig"))) %>%
-        mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), kmer, ""))
+        mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), kmer, "")) %>% 
+        mutate(text1 = kmer)
     }
     # ggplot(topsk %>% dplyr::slice(1:15), aes(x = reorder(kmer, minuslog10), y = minuslog10, text = RBP)) +
     #   geom_bar(stat = "identity", aes(fill = enrichment)) +
@@ -1671,11 +1672,12 @@ server <- function(input, output, session) {
     #   scale_y_continuous(expand = c(0, 0))
     ggplot(topsk, aes(x = enrichment,
                       y = minuslog10, 
-                      text = str_c(kmer, RBP, sep = "\n"),
+                      text = text1,
+                      text2 = RBP,
                       label = text2)) +
       geom_point(aes(color = sig)) +
       scale_color_manual(values = c("gray", "red")) +
-      ggrepel::geom_text_repel(box.padding = 0.05, size = 3) +
+      ggrepel::geom_text_repel(box.padding = 0.05, size = 3, aes(label = text2)) +
       xlab("log2enrichment") +
       labs(color = "")
   })
@@ -2149,6 +2151,14 @@ server <- function(input, output, session) {
         output$saveTable <- saveK
       }
     })
+  
+  # observeEvent(input$Cancel, {
+  #   updateTabsetPanel(session,
+  #                     "tabMain",
+  #                     selected = "plot"
+  #   )
+  #   removeModal()
+  # })
 }
 
 # Run the application
