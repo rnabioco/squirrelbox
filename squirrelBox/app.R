@@ -104,6 +104,14 @@ region_short <- c(
   "kid",
   "liv"
 )
+region_one <- c(
+  "f",
+  "h",
+  "m",
+  "a",
+  "k",
+  "l"
+)
 
 # read database
 if (file.exists("combined2.feather")) {
@@ -785,7 +793,9 @@ ui <- fluidPage(
           uiOutput("GOversion"),
           uiOutput("version"),
           uiOutput("GitHub"),
-          uiOutput("contact")
+          uiOutput("contact"),
+          column(width =4, DT::dataTableOutput("explain"))
+          
         )
       )
     )
@@ -1998,6 +2008,21 @@ server <- function(input, output, session) {
                href = url
     )
     tagList(tags$h6("squirrelBox version: ", clean))
+  })
+  
+  output$explain <- DT::renderDataTable({
+    dfreg <- data.frame(region = region_order,
+                     short = region_short,
+                     letter = region_one)
+    DT::datatable(dfreg,
+                  escape = FALSE,
+                  selection = "none",
+                  rownames = FALSE,
+                  options = list(searchable = FALSE, 
+                                 dom = "t", 
+                                 paging = FALSE,
+                                 columnDefs = list(list(className = 'dt-center', targets = 0:2)))
+    )
   })
 }
 
