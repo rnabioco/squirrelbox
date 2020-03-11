@@ -1,23 +1,22 @@
-library(shiny)
 library(dplyr)
-library(ggplot2)
-library(cowplot)
+library(tibble)
+library(purrr)
 library(readr)
 library(stringr)
-library(shinyjs)
-library(visNetwork)
-library(valr)
-library(igraph)
-library(tibble)
-library(plotly)
 library(tidyr)
-library(shinyBS)
 library(feather)
-library(crosstalk)
-library(purrr)
-library(ComplexHeatmap)
-library(transite)
+library(ggplot2)
 library(ggrepel)
+library(cowplot)
+library(ComplexHeatmap)
+library(igraph)
+library(valr)
+library(transite)
+library(plotly)
+library(crosstalk)
+library(shiny)
+library(shinyjs)
+library(shinyBS)
 library(shinythemes)
 library(shinycssloaders)
 
@@ -54,9 +53,9 @@ orf_cols <- c(
   "br_expr",
   "nonbr_expr",
   "transcript_id",
-  "majiq_directed" # ,
-  # "orf"
+  "majiq_directed"
 )
+
 ### sample settings, define state colors and order, region order
 state_cols <- c(
   SA = rgb(255, 0, 0, maxColorValue = 255),
@@ -158,6 +157,8 @@ bed <- read_tsv("final_tx_annotations_20200201.tsv.gz",
 
 # read modules/clusters
 mod <- read_feather("clusters.feather")
+mod <- mod[, c("gene", intersect(str_c("cluster_", region_one), colnames(mod)))]
+
 eigen <- read_tsv("cluster_patterns_matrices/reference_patterns.tsv") %>%
   rename(state = X1) %>%
   mutate(state = factor(state,
@@ -174,7 +175,9 @@ for (clu in colnames(eigen[, -1])) {
     ylab("expr") +
     theme(legend.position = "none")
 }
-eigen_gg[["empty"]] <- ggplot()
+eigen_gg[["filtered"]] <- ggplot(df_plot, aes(state, value, group = 1))
+eigen_gg[["insig"]] <- ggplot(df_plot, aes(state, value, group = 1))
+eigen_gg[["Unassigned"]] <- ggplot(df_plot, aes(state, value, group = 1))
 
 # query function
 comb_fil_factor <- function(combined2, combined3, inid) {
@@ -328,7 +331,6 @@ find_padj <- function(region, state, tbl) {
 sig_cols <- colnames(orfs)[colnames(orfs) %>% str_detect("vs")]
 sig_sym <- data.frame(
   call = rep(1, length(sig_cols)), # place holder only
-  # call = letters[1:length(sig_cols)],
   row.names = sig_cols
 )
 
@@ -413,7 +415,7 @@ fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
     mutate(minuslog10 = -log10(padj)) %>%
     mutate(len = unlist(map(str_split(hits, ","), length))) %>%
     mutate(len = ifelse(hits == "", 0, len)) %>%
-    mutate(go_len = lapply(gmtlist, length)) %>%
+    mutate(go_len = unlist(lapply(gmtlist, length))) %>%
     arrange(desc(minuslog10), desc(len)) %>%
     select(pathway, pval, padj, minuslog10, pval, hits, len, go_len)
 }
@@ -432,7 +434,6 @@ maj <- read_tsv("MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz") %>%
 seqs <- read_feather("utrs_sq.feather") %>% filter(gene_id %in% combined3$gene_id)
 
 if (file.exists("seqs_precal.rds")) {
-  print("load")
   seqs_precal <- readRDS("seqs_precal.rds")
 } else {
   seqs_precal <- list()
@@ -539,7 +540,7 @@ ui <- fluidPage(
     right = 10,
     bottom = 10
   ),
-  sidebarLayout(
+ sidebarLayout(
     sidebarPanel(
       style = "position:fixed;width:23%;margin-top: 60px;z-index:10;",
       width = 3,
@@ -555,17 +556,30 @@ ui <- fluidPage(
       ),
       div(style = "display: inline-block;vertical-align:top; width: 10px;", actionButton("Find", "Find")),
       bsTooltip("Find", "gene id/symbols accepted"),
-      # br(.noWS="outside"),
       tabsetPanel(
+        id = "side1",
         tabPanel(
-          "options",
+          span("link", title = "save file and external links"),
+          #tipify(uiOutput("conn"), "cluster assignment via kmeans for 3 brain regions"),
+          uiOutput("tab"), 
+          uiOutput("blastlink"),
+          uiOutput("tab2"),
+          uiOutput("tab3"), 
+          uiOutput("tab4"),
+          downloadButton("savePlot", label = "plot"),
+          downloadButton(outputId = "saveTable",label = "table"),
+          bsTooltip("savePlot", "save plot as pdf"),
+          bsTooltip("saveTable", "save filtered/result table as csv"),
+        ),
+        tabPanel(
+          span("options", title = "options specific to each main tab"),
           br(.noWS = "outside"),
           div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL)),
           div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL)),
           div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL)),
           checkboxInput("doBr", "plot brain data", value = T, width = NULL),
           checkboxInput("doTis", "plot non-brain data", value = F, width = NULL),
-          div(id = "doEigendiv", checkboxInput("doEigen", "plot model clusters", value = F, width = NULL)),
+          div(id = "doEigendiv", checkboxInput("doEigen", "plot model clusters", value = T, width = NULL)),
           checkboxInput("doUcsc", "pull track", value = T, width = NULL),
           checkboxInput("doMod", "find module", value = T, width = NULL),
           checkboxInput("doKegg", "GO terms", value = T, width = NULL),
@@ -578,22 +592,17 @@ ui <- fluidPage(
           bsTooltip("doNormdiv", "otherwise centered by mean")
         ),
         tabPanel(
-          "links",
-          uiOutput("conn"),
-          uiOutput("tab"), uiOutput("blastlink"),
-          uiOutput("tab2"), uiOutput("tab3"), uiOutput("tab4"),
-          downloadButton("savePlot", label = "save plot")
-        ),
-        tabPanel(
-          "hide",
+          span("hide", title = "hide this tab bar")
         )
       ),
       tabsetPanel(
+        id = "side2",
         tabPanel(
           span("load", title = "load list of genes for analysis from file or interactive table"),
-          fileInput("file", label = NULL),
+          div(id = "filediv", fileInput("file", label = NULL)),
           actionButton("Prev", "Prev"),
           actionButton("Next", "Next"),
+          bsTooltip("filediv", "expects gene symbols as first column, or comma separated"),
           bsTooltip("Prev", "query previous gene on loaded list"),
           bsTooltip("Next", "query next gene on loaded list"),
           uiOutput("listn"),
@@ -627,14 +636,19 @@ ui <- fluidPage(
       tabsetPanel(
         id = "tabMain",
         tabPanel(
-          title = span("main", 
+          title = span(icon("pencil-ruler", class = NULL, lib = "font-awesome"),
+                       "main", 
                        title= "Plot expression box plot and other info of query gene"),
           value = "plot",
           uiOutput("boxPlotUI") %>% withSpinner(),
-          uiOutput("EigenPlot") %>% withSpinner(),
           tableOutput("results"),
           bsCollapse(
-            id = "tabs", multiple = TRUE, open = "called_orfs",
+            id = "tabs", multiple = TRUE, open = "clusts",
+            bsCollapsePanel(# tableOutput("conn") %>% withSpinner(),
+                            uiOutput("EigenPlot") %>% withSpinner(),
+                            title = "cluster_assignments",
+                            style = "danger"
+            ),
             bsCollapsePanel(tableOutput("orfinfo") %>% withSpinner(),
               title = "called_orfs",
               style = "primary"
@@ -654,9 +668,10 @@ ui <- fluidPage(
           )
         ),
         tabPanel(
-          title = span("transcript_gene", 
+          title = span(icon("table", class = NULL, lib = "font-awesome"),
+                       "transcript_gene", 
                        title= "Table of expression and other info of all genes/transcripts"),
-          value = "table_orf",
+          value = "table_data",
           div(id = "doCollapsediv",
             style = "display: inline-block;width: 160px;",
             checkboxInput("doCollapse",
@@ -666,10 +681,10 @@ ui <- fluidPage(
             )
           ),
           bsTooltip("doCollapsediv", "only show longest orf transcript for each gene"),
-          downloadButton(
-            outputId = "saveFiltered",
-            label = "save filtered data"
-          ),
+          # downloadButton(
+          #   outputId = "saveFiltered",
+          #   label = "save filtered data"
+          # ),
           actionButton("loadtab", "load"),
           bsTooltip("loadtab", "sent to loaded list in side panel"),
           DT::dataTableOutput("tbl")
@@ -677,11 +692,11 @@ ui <- fluidPage(
         tabPanel(
           title = span("majiq_alt",
                        title= "Table of majiq output for alternative splicing events"),
-          value = "table_maj",
-          downloadButton(
-            outputId = "saveFiltered4",
-            label = "save filtered data"
-          ),
+          value = "table_AS",
+          # downloadButton(
+          #   outputId = "saveFilteredAS",
+          #   label = "save filtered data"
+          # ),
           DT::dataTableOutput("alt")
         ),
         tabPanel(
@@ -696,11 +711,11 @@ ui <- fluidPage(
           value = "heat_plot",
           br(),
           fluidRow(
-            column(width = 2,
-              downloadButton("savePlot3",
-                            label = "save plot"
-              ),
-            ),
+            # column(width = 2,
+            #   downloadButton("savePlot3",
+            #                 label = "save plot"
+            #   ),
+            # ),
             column(
               width = 3,
               checkboxInput("doRowcluster",
@@ -745,28 +760,28 @@ ui <- fluidPage(
         ),
         tabPanel(
           title = span("GO_enrichment",
-                       title= "GO term enrichment for loaded gene list"),
+                       title= "GO term enrichment for loaded gene list (slow)"),
           value = "enrichment_plot",
-          downloadButton("savePlot2",
-            label = "save plot"
-          ),
-          downloadButton(
-            outputId = "saveEnrich",
-            label = "save table"
-          ),
+          # downloadButton("savePlot2",
+          #   label = "save plot"
+          # ),
+          # downloadButton(
+          #   outputId = "saveEnrich",
+          #   label = "save table"
+          # ),
           plotlyOutput("richPlot") %>% withSpinner()
         ),
         tabPanel(
           title = span("kmer",
-                       title= "kmer enrichment analysis and annotation for loaded gene list"),
+                       title= "kmer enrichment analysis and annotation for loaded gene list (slow)"),
           value = "kmer_analysis",
-          downloadButton("savePlot4",
-            label = "save plot"
-          ),
-          downloadButton(
-            outputId = "saveK",
-            label = "save table"
-          ),
+          # downloadButton("savePlot4",
+          #   label = "save plot"
+          # ),
+          # downloadButton(
+          #   outputId = "saveK",
+          #   label = "save table"
+          # ),
           tags$style(HTML(".radio-inline {margin-left: 5px;margin-right: 25px;}")),
           div(
             style = "display: inline-block;vertical-align:top;",
@@ -781,11 +796,13 @@ ui <- fluidPage(
             radioButtons("kmlab", "annotate kmer", c("yes", "no"), selected = "yes", inline = TRUE)
           ),
           selectInput("utrlen", NULL, choices = c(200, 500, 1000, "full length"), selected = "full length"),
-          plotOutput("kmerPlot") %>% withSpinner()
+          uiOutput("kmerPlotUI") %>% withSpinner()
         ),
         tabPanel(
-          span("about", 
-               title = "View version and author info"),
+          span(icon("question", class = NULL, lib = "font-awesome"),
+               "about", 
+               title = "View version and author info",
+               ),
           value = "about",
           uiOutput("intro"),
           uiOutput("track"),
@@ -794,8 +811,9 @@ ui <- fluidPage(
           uiOutput("version"),
           uiOutput("GitHub"),
           uiOutput("contact"),
-          column(width =4, DT::dataTableOutput("explain"))
-          
+          column(width = 4, DT::dataTableOutput("explain")),
+          column(width = 1),
+          column(width = 4, DT::dataTableOutput("explain2"))
         )
       )
     )
@@ -828,6 +846,7 @@ server <- function(input, output, session) {
   hide("doMod")
   hide("doUcsc")
   hide("utrlen")
+  # hide("conn")
 
   # empty history list to start
   historytab <- c()
@@ -1044,38 +1063,43 @@ server <- function(input, output, session) {
       outputtab <- outputtab()
       inid <- outputtab$unique_gene_symbol
       if (nrow(rv$mod_df) == 0) {
-        mods <- c("empty", "empty", "empty")
+        mods <- c("filtered", "filtered", "filtered")
+        reg <- colnames(mod)[-1]
+      } else {
+        mods <- (rv$mod_df[1, ] %>% unlist())[-1]
+        reg <- names(rv$mod_df)[-1]
       }
-      mods <- (rv$mod_df[1, ] %>% unlist())[-1]
       cowplot::plot_grid(
         plotlist = map(mods, function(x) eigen_gg[[x]]),
+        labels = str_c(str_remove(reg, "cluster_"), mods, sep = ": "),
         ncol = 3
       )
     }
   })
 
   # finding module/cluster info
-  output$conn <- renderUI({
-    if (input$doMod != T) {
-      return()
-    }
-
-    if (nrow(rv$mod_df) == 0) {
-      mod1 <- "low expression everywhere"
-    } else {
-      mod1 <- rv$mod_df %>%
-        t() %>%
-        as.data.frame() %>%
-        rownames_to_column() %>%
-        mutate(text = str_c(rowname, V1, sep = ":")) %>%
-        pull(text) %>%
-        str_c(collapse = "<br>")
-    }
-
-    HTML(str_c(
-      mod1 # , r
-    ))
-  })
+  # output$conn <- renderTable({
+  #   if (input$doMod != T) {
+  #     return()
+  #   }
+  # 
+  #   if (nrow(rv$mod_df) == 0) {
+  #     mod1 <- "low expression everywhere"
+  #   } else {
+  #     mod1 <- rv$mod_df %>%
+  #       t() %>%
+  #       as.data.frame() %>%
+  #       rownames_to_column() %>%
+  #       pull %>% (V1)
+  #       # mutate(text = str_c(rowname, V1, sep = ": ")) %>%
+  #       # pull(text) %>%
+  #       # str_c(collapse = "<br>")
+  #   }
+# 
+#     HTML(str_c(
+#       mod1 # , r
+#     ))
+#   })
 
   # filter data
   outputtab <- reactive({
@@ -1161,7 +1185,7 @@ server <- function(input, output, session) {
     {
       temp <- maj %>% filter(unique_gene_symbol == outputtab()$unique_gene_symbol[1])
       if (nrow(temp) == 0) {
-        temp <- data.frame()
+        temp <- data.frame(`no alternative splicing` = "")
       }
       temp
     },
@@ -1318,7 +1342,7 @@ server <- function(input, output, session) {
   })
 
   # save plot as pdf
-  output$savePlot <- downloadHandler(
+  savePlot <- downloadHandler(
     filename = function() {
       outputtab <- outputtab()
       if (nrow(outputtab) > 1) {
@@ -1367,7 +1391,6 @@ server <- function(input, output, session) {
       for (element in mis) {
         l <- as.list(plot_temp[1, ])
         l$region <- element
-        # l$sample <- "0"
         l$log2_counts <- NA
         l$state <- state_order[1]
         plot_temp <- rbind(plot_temp, l)
@@ -1390,12 +1413,13 @@ server <- function(input, output, session) {
   })
 
   # actually draw line plot
-  output$linePlot <- renderPlotly({
+  linePlot1 <- reactive({
     set.seed(1)
     linetemp()
     if (length(historytablist) == 0) {
       return(ggplotly(ggplot()))
     }
+    
     g <- ggplot(d, aes(state, log2_counts,
       group = unique_gene_symbol,
       text = unique_gene_symbol
@@ -1405,10 +1429,13 @@ server <- function(input, output, session) {
       theme(legend.position = "none") +
       geom_point(aes(color = unique_gene_symbol)) +
       geom_line(aes(color = unique_gene_symbol))
+    g
+  })
 
+  output$linePlot <- renderPlotly({
+    g <- linePlot1()
     fac <- input$doTis + input$doBr
     if (input$doName == T) {
-
       # highlight(ggplotly(g, tooltip = "text"),"plotly_hover")
       ggplotly(g, tooltip = "text", height = 300 * fac, width = 800) %>% layout(
         autosize = FALSE,
@@ -1420,6 +1447,14 @@ server <- function(input, output, session) {
     }
   })
 
+  savePlot5 <- downloadHandler(
+    filename = "lineplot.pdf",
+    content = function(file) {
+      fac <- input$doTis + input$doBr
+      ggplot2::ggsave(file, plot = linePlot1(), device = "pdf", width = 8, height = 3 * fac)
+    }
+  )
+  
   # heatmap
   heatPlot1 <- reactive({
     set.seed(1)
@@ -1479,7 +1514,7 @@ server <- function(input, output, session) {
 
   output$heatPlot <- renderPlot(heatPlot1())
 
-  output$savePlot3 <- downloadHandler(
+  savePlot3 <- downloadHandler(
     filename = "heatplot.pdf",
     content = function(file) {
       h <- heatPlot1()
@@ -1492,17 +1527,25 @@ server <- function(input, output, session) {
       dev.off()
     }
   )
-
-  richPlot1 <- reactive({
+  
+  richtemp <- reactive({
     rv$line_refresh
     set.seed(1)
     if (length(historytablist) == 0) {
-      return(ggplotly(ggplot()))
+      return(data.frame())
     }
     genevec <- unique_to_clean(historytablist, namedvec) %>% str_to_upper()
     tops <- fisher(genevec, gmtlist, length_detected_genes)
     tops <- tops %>% dplyr::slice(1:max(min(which(tops$padj > 0.01)), 15))
-    tops <<- tops
+    tops
+   
+  })
+  
+  richPlot1 <- reactive({
+    tops <- richtemp()
+    if (nrow(tops) == 0) {
+      return(ggplot())
+    }
     ggplot(tops %>% dplyr::slice(1:15), aes(x = reorder(pathway, minuslog10), y = minuslog10, fill = -minuslog10, text = len)) +
       geom_bar(stat = "identity") +
       xlab(paste0("enriched : ", str_remove(gmt_short, "_"))) +
@@ -1524,7 +1567,7 @@ server <- function(input, output, session) {
       highlight()
   })
 
-  output$savePlot2 <- downloadHandler(
+  savePlot2 <- downloadHandler(
     filename = "enriched.pdf",
     content = function(file) {
       ggplot2::ggsave(file, plot = richPlot1(), device = "pdf", width = 8, height = 6)
@@ -1532,6 +1575,7 @@ server <- function(input, output, session) {
   )
 
   observeEvent(event_data("plotly_click", source = "richPlot"), {
+    tops <- richtemp()
     rv$richsel <- event_data("plotly_click", source = "richPlot")
     carttablist <<- tops[16 - rv$richsel$y, ] %>%
       pull(hits) %>%
@@ -1540,8 +1584,8 @@ server <- function(input, output, session) {
     rv$listn2 <- length(carttablist)
   })
 
-  output$saveEnrich <- downloadHandler("enrich_list.csv", content = function(file) {
-    write_csv(tops, file)
+  saveEnrich <- downloadHandler("enrich_list.csv", content = function(file) {
+    write_csv(richtemp(), file)
   })
 
   # kmer analysis
@@ -1550,7 +1594,6 @@ server <- function(input, output, session) {
     rv$line_refresh
     set.seed(1)
     if (length(historytablist) == 0) {
-      # return(ggplotly(ggplot()))
       return(data.frame())
     }
     genevec <- unique_to_clean(historytablist, namedvec) %>% str_to_upper()
@@ -1588,7 +1631,7 @@ server <- function(input, output, session) {
         left_join(sevenmers, by = c("kmer" = "sevenmer")) %>%
         rename(RBP = "mir")
     }
-    topsk
+    topsk %>% replace_na(list(RBP = ""))
   })
   
   kmerPlot1 <- reactive({
@@ -1598,10 +1641,12 @@ server <- function(input, output, session) {
     }
     if (input$kmlab == "yes") {
       topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= 2, "sig", "insig"))) %>%
-        mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), ""))
+        mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), "")) %>% 
+        mutate(text1 = str_c(kmer, RBP, sep = "\n"))
     } else {
       topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= 2, "sig", "insig"))) %>%
-        mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), kmer, ""))
+        mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), kmer, "")) %>% 
+        mutate(text1 = kmer)
     }
     # ggplot(topsk %>% dplyr::slice(1:15), aes(x = reorder(kmer, minuslog10), y = minuslog10, text = RBP)) +
     #   geom_bar(stat = "identity", aes(fill = enrichment)) +
@@ -1627,29 +1672,45 @@ server <- function(input, output, session) {
     #   scale_y_continuous(expand = c(0, 0))
     ggplot(topsk, aes(x = enrichment,
                       y = minuslog10, 
-                      text = str_c(kmer, RBP, sep = "\n"),
+                      text = text1,
+                      text2 = RBP,
                       label = text2)) +
       geom_point(aes(color = sig)) +
       scale_color_manual(values = c("gray", "red")) +
-      ggrepel::geom_text_repel(box.padding = 0.05, size = 3) +
+      ggrepel::geom_text_repel(box.padding = 0.05, size = 3, aes(label = text2)) +
       xlab("log2enrichment") +
       labs(color = "")
   })
 
-  output$kmerPlot <- renderPlot({
-    kmerPlot1()
-    # ggplotly(kmerPlot1(), source = "kmerPlot", tooltip = "text", height = 600, width = 800) %>%
-    #   layout(autosize = F)
+  kmerPlotr <- reactive({
+    output$kmerPlot <- renderPlot(kmerPlot1())
+    plotOutput("kmerPlot", width = 800, height = 600)
   })
   
-  output$savePlot4 <- downloadHandler(
+  kmerPlotlyr <- reactive({
+    g <- kmerPlot1()
+    g2 <- ggplotly(g, source = "kmerPlotly", tooltip = "text", height = 600, width = 800) %>%
+      layout(autosize = F)
+    output$kmerPlot2 <- renderPlotly(g2)
+    plotlyOutput("kmerPlot2", width = 800, height = 300)
+  })
+  
+  output$kmerPlotUI <- renderUI({
+    if (input$doPlotly == FALSE) {
+      kmerPlotr()
+    } else {
+      kmerPlotlyr()
+    }
+  })
+  
+  savePlot4 <- downloadHandler(
     filename = "kmers.pdf",
     content = function(file) {
       ggplot2::ggsave(file, plot = kmerPlot1(), device = "pdf", width = 8, height = 6)
     }
   )
 
-  output$saveK <- downloadHandler("enrich_kmer.csv", content = function(file) {
+  saveK <- downloadHandler("enrich_kmer.csv", content = function(file) {
     write_csv(kmertemp(), file)
   })
 
@@ -1887,7 +1948,7 @@ server <- function(input, output, session) {
       DT::formatRound(columns = c(2, 3, 4, 5, 6, 7), digits = 4)
   })
 
-  output$saveFiltered <- downloadHandler("filtré.csv", content = function(file) {
+  saveFiltered <- downloadHandler("filtré.csv", content = function(file) {
     s <- input$tbl_rows_all
     write_csv((orftbl() %>%
       select(
@@ -1934,7 +1995,7 @@ server <- function(input, output, session) {
     )
   })
 
-  output$saveFiltered4 <- downloadHandler("filtré.csv", content = function(file) {
+  saveFilteredAS <- downloadHandler("filtré.csv", content = function(file) {
     s <- input$alt_rows_all
     write_csv((maj %>%
       select(
@@ -2024,6 +2085,80 @@ server <- function(input, output, session) {
                                  columnDefs = list(list(className = 'dt-center', targets = 0:2)))
     )
   })
+  
+  output$explain2 <- DT::renderDataTable({
+    dfreg2 <- data.frame(state = c("SA",
+                                   "IBA",
+                                   "Ent",
+                                   "LT",
+                                   "Ar",
+                                   "SpD"),
+                         full_name = c("Summer Active",
+                                       "InterBout Arousal",
+                                       "Entrance",
+                                       "Late Torpor ",
+                                       "Arousing",
+                                       "Spring Dark"),
+                         body_temp = c("37°C",
+                                       "34.1 ± 2.9°C",
+                                       "25.4 ± 1.8°C",
+                                       "&nbsp;5.9 ± 0.5°C",
+                                       "&nbsp;8.7 ± 2.1°C",
+                                       "37°C")
+    )
+    DT::datatable(dfreg2,
+                  escape = FALSE,
+                  selection = "none",
+                  rownames = FALSE,
+                  options = list(searchable = FALSE, 
+                                 dom = "t", 
+                                 paging = FALSE,
+                                 columnDefs = list(list(className = 'dt-center', targets = 0:1)))
+    )
+  })
+  
+  # graying out buttons
+  observe({
+      if (input$tabMain == "plot") {
+        enable("savePlot")
+        disable("saveTable")
+        output$savePlot <- savePlot
+      } else if (input$tabMain == "table_data") {
+        disable("savePlot")
+        enable("saveTable")
+        output$saveTable <- saveFiltered
+      } else if (input$tabMain == "table_AS") {
+        disable("savePlot")
+        enable("saveTable")
+        output$saveTable <- saveFilteredAS
+      } else if (input$tabMain == "line_plot") {
+        enable("savePlot")
+        disable("saveTable")
+        output$savePlot <- savePlot5
+      } else if (input$tabMain == "enrichment_plot") {
+        enable("savePlot")
+        enable("saveTable")
+        output$savePlot <- savePlot2
+        output$saveTable <- saveEnrich
+      } else if (input$tabMain == "heat_plot") {
+        enable("savePlot")
+        disable("saveTable")
+        output$savePlot <- savePlot3
+      } else if (input$tabMain == "kmer_analysis") {
+        enable("savePlot")
+        enable("saveTable")
+        output$savePlot <- savePlot4
+        output$saveTable <- saveK
+      }
+    })
+  
+  # observeEvent(input$Cancel, {
+  #   updateTabsetPanel(session,
+  #                     "tabMain",
+  #                     selected = "plot"
+  #   )
+  #   removeModal()
+  # })
 }
 
 # Run the application
