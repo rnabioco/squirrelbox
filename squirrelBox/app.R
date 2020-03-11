@@ -19,6 +19,7 @@ library(shinyjs)
 library(shinyBS)
 library(shinythemes)
 library(shinycssloaders)
+library(shinyjqui)
 
 options(stringsAsFactors = FALSE)
 options(spinner.type = 6)
@@ -559,7 +560,7 @@ ui <- fluidPage(
       tabsetPanel(
         id = "side1",
         tabPanel(
-          span("link", title = "save file and external links"),
+          span("link", title = "save files and external links"),
           #tipify(uiOutput("conn"), "cluster assignment via kmeans for 3 brain regions"),
           uiOutput("tab"), 
           uiOutput("blastlink"),
@@ -633,13 +634,14 @@ ui <- fluidPage(
     mainPanel(
       width = 9,
       style = "z-index:1;margin-top: 60px;",
-      tabsetPanel(
+      sortableTabsetPanel(
         id = "tabMain",
         tabPanel(
           title = span(icon("pencil-ruler", class = NULL, lib = "font-awesome"),
                        "main", 
                        title= "Plot expression box plot and other info of query gene"),
           value = "plot",
+          jqui_sortable(div(id = "sorted",
           uiOutput("boxPlotUI") %>% withSpinner(),
           tableOutput("results"),
           bsCollapse(
@@ -664,7 +666,7 @@ ui <- fluidPage(
             bsCollapsePanel(tableOutput("gotab") %>% withSpinner(),
               title = "go_terms/domains",
               style = "info"
-            )
+            )))
           )
         ),
         tabPanel(
