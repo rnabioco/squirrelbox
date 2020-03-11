@@ -26,8 +26,9 @@ options(spinner.type = 6)
 theme_set(theme_cowplot())
 # options(shiny.reactlog = TRUE)
 
-
 ### general data settings
+versionN <- 0.97
+geoN <- "G1234"
 set_shinytheme <- "paper"
 track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
@@ -102,6 +103,14 @@ region_short <- c(
   "adr",
   "kid",
   "liv"
+)
+region_one <- c(
+  "f",
+  "h",
+  "m",
+  "a",
+  "k",
+  "l"
 )
 
 # read database
@@ -505,6 +514,7 @@ $(function() {
 
 # Define UI for application that draws the boxplot
 ui <- fluidPage(
+  title = "squirrelBox",
   theme = shinytheme(set_shinytheme),
   tags$style("
       .checkbox {
@@ -544,21 +554,28 @@ ui <- fluidPage(
         )
       ),
       div(style = "display: inline-block;vertical-align:top; width: 10px;", actionButton("Find", "Find")),
+      bsTooltip("Find", "gene id/symbols accepted"),
       # br(.noWS="outside"),
       tabsetPanel(
         tabPanel(
           "options",
           br(.noWS = "outside"),
-          checkboxInput("doPlotly", "interactive padj", value = F, width = NULL),
-          checkboxInput("doPadj", "indicate sig", value = T, width = NULL),
-          checkboxInput("doName", "label by sample", value = F, width = NULL),
+          div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL)),
+          div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL)),
+          div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL)),
           checkboxInput("doBr", "plot brain data", value = T, width = NULL),
           checkboxInput("doTis", "plot non-brain data", value = F, width = NULL),
-          checkboxInput("doEigen", "plot model clusters", value = F, width = NULL),
+          div(id = "doEigendiv", checkboxInput("doEigen", "plot model clusters", value = F, width = NULL)),
           checkboxInput("doUcsc", "pull track", value = T, width = NULL),
           checkboxInput("doMod", "find module", value = T, width = NULL),
           checkboxInput("doKegg", "GO terms", value = T, width = NULL),
-          checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL),
+          div(id = "doNormdiv", checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL)),
+          checkboxInput("doTooltips", "show hover tips", value = T, width = NULL),
+          bsTooltip("doPlotlydiv", "toggles main and kmer plot"),
+          bsTooltip("doPadjdiv", str_c("p<=", sig_cut)),
+          bsTooltip("doNamediv", "samples in main, gene in line plot"),
+          bsTooltip("doEigendiv", "assigned per region"),
+          bsTooltip("doNormdiv", "otherwise centered by mean")
         ),
         tabPanel(
           "links",
@@ -573,28 +590,32 @@ ui <- fluidPage(
       ),
       tabsetPanel(
         tabPanel(
-          "load",
+          span("load", title = "load list of genes for analysis from file or interactive table"),
           fileInput("file", label = NULL),
           actionButton("Prev", "Prev"),
           actionButton("Next", "Next"),
+          bsTooltip("Prev", "query previous gene on loaded list"),
+          bsTooltip("Next", "query next gene on loaded list"),
           uiOutput("listn"),
           DT::dataTableOutput("tbllist"),
           style = "height:300px; overflow-y: scroll;"
         ),
         tabPanel(
-          "history",
+          span("history", title = "history list of query genes"),
           DT::dataTableOutput("historyl"),
           style = "height:300px; overflow-y: scroll;"
         ),
         tabPanel(
-          "cart",
+          span("cart", title = "cart list of genes to save and export"),
           uiOutput("listn2"),
           actionButton("Add", "Add"),
           actionButton("Load", "Load"),
           downloadButton(
             outputId = "saveList",
-            label = "cart to TXT"
+            label = "save"
           ),
+          bsTooltip("Add", "add current query gene to cart"),
+          bsTooltip("Load", "sent to loaded list in side panel"),
           DT::dataTableOutput("tbllist2"),
           style = "height:300px; overflow-y: scroll;"
         )
@@ -606,7 +627,8 @@ ui <- fluidPage(
       tabsetPanel(
         id = "tabMain",
         tabPanel(
-          title = "main",
+          title = span("main", 
+                       title= "Plot expression box plot and other info of query gene"),
           value = "plot",
           uiOutput("boxPlotUI") %>% withSpinner(),
           uiOutput("EigenPlot") %>% withSpinner(),
@@ -632,9 +654,10 @@ ui <- fluidPage(
           )
         ),
         tabPanel(
-          title = "transcript_gene",
+          title = span("transcript_gene", 
+                       title= "Table of expression and other info of all genes/transcripts"),
           value = "table_orf",
-          div(
+          div(id = "doCollapsediv",
             style = "display: inline-block;width: 160px;",
             checkboxInput("doCollapse",
               "longest transcript",
@@ -642,15 +665,18 @@ ui <- fluidPage(
               width = NULL
             )
           ),
+          bsTooltip("doCollapsediv", "only show longest orf transcript for each gene"),
           downloadButton(
             outputId = "saveFiltered",
             label = "save filtered data"
           ),
           actionButton("loadtab", "load"),
+          bsTooltip("loadtab", "sent to loaded list in side panel"),
           DT::dataTableOutput("tbl")
         ),
         tabPanel(
-          title = "majiq_alt",
+          title = span("majiq_alt",
+                       title= "Table of majiq output for alternative splicing events"),
           value = "table_maj",
           downloadButton(
             outputId = "saveFiltered4",
@@ -659,15 +685,22 @@ ui <- fluidPage(
           DT::dataTableOutput("alt")
         ),
         tabPanel(
-          title = "line_plot",
+          title = span("line_plot",
+                       title= "Plot expression of loaded gene list"),
           value = "line_plot",
           plotlyOutput("linePlot") %>% withSpinner()
         ),
         tabPanel(
-          title = "heat_plot",
+          title = span("heat_plot",
+                       title= "Plot Z-Score of loaded gene list as heat map"),
           value = "heat_plot",
           br(),
           fluidRow(
+            column(width = 2,
+              downloadButton("savePlot3",
+                            label = "save plot"
+              ),
+            ),
             column(
               width = 3,
               checkboxInput("doRowcluster",
@@ -706,15 +739,13 @@ ui <- fluidPage(
                 value = F,
                 width = NULL
               )
-            ),
-            downloadButton("savePlot3",
-              label = "save plot"
             )
           ),
           plotOutput("heatPlot") %>% withSpinner()
         ),
         tabPanel(
-          title = "GO_enrichment",
+          title = span("GO_enrichment",
+                       title= "GO term enrichment for loaded gene list"),
           value = "enrichment_plot",
           downloadButton("savePlot2",
             label = "save plot"
@@ -726,7 +757,8 @@ ui <- fluidPage(
           plotlyOutput("richPlot") %>% withSpinner()
         ),
         tabPanel(
-          title = "kmer",
+          title = span("kmer",
+                       title= "kmer enrichment analysis and annotation for loaded gene list"),
           value = "kmer_analysis",
           downloadButton("savePlot4",
             label = "save plot"
@@ -750,6 +782,20 @@ ui <- fluidPage(
           ),
           selectInput("utrlen", NULL, choices = c(200, 500, 1000, "full length"), selected = "full length"),
           plotOutput("kmerPlot") %>% withSpinner()
+        ),
+        tabPanel(
+          span("about", 
+               title = "View version and author info"),
+          value = "about",
+          uiOutput("intro"),
+          uiOutput("track"),
+          uiOutput("rawdata"),
+          uiOutput("GOversion"),
+          uiOutput("version"),
+          uiOutput("GitHub"),
+          uiOutput("contact"),
+          column(width =4, DT::dataTableOutput("explain"))
+          
         )
       )
     )
@@ -1504,7 +1550,8 @@ server <- function(input, output, session) {
     rv$line_refresh
     set.seed(1)
     if (length(historytablist) == 0) {
-      return(ggplotly(ggplot()))
+      # return(ggplotly(ggplot()))
+      return(data.frame())
     }
     genevec <- unique_to_clean(historytablist, namedvec) %>% str_to_upper()
     if (input$utrlen == "full length") {
@@ -1546,6 +1593,9 @@ server <- function(input, output, session) {
   
   kmerPlot1 <- reactive({
     topsk <- kmertemp()
+    if (nrow(topsk) == 0) {
+      return(ggplot())
+    }
     if (input$kmlab == "yes") {
       topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= 2, "sig", "insig"))) %>%
         mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), ""))
@@ -1877,7 +1927,10 @@ server <- function(input, output, session) {
       filter = "top",
       escape = FALSE,
       selection = "single",
-      rownames = FALSE
+      rownames = FALSE,
+      options = list(
+      scrollX = TRUE,
+      autoWidth = TRUE)
     )
   })
 
@@ -1909,8 +1962,69 @@ server <- function(input, output, session) {
     },
     ignoreNULL = T
   )
+  
+  # ABOUT
+  output$intro <- renderUI({
+    url <- str_c("manuscript link here")
+    clean <- a("manuscript",
+               href = url
+    )
+    tagList(tags$h6("RNA sequencing data and analysis for 13-lined ground squirrel brain samples from hibernation cycle. Please see ", clean, "for more details."))
+  })
+  
+  output$track <- renderUI({
+    url <- str_c(
+      "http://genome.ucsc.edu/cgi-bin/hgTracks?db=",
+      track_name,
+      "&hubUrl=",
+      track_url)
+    clean <- a("UCSC browser",
+               href = url
+    )
+    tagList(tags$h6("Newly assembled genome and annotated transcriptome are hosted on ", clean))
+  })
+  
+  output$rawdata <- renderUI({
+    url <- str_c(
+      "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=", geoN)
+    clean <- a(geoN,
+               href = url
+    )
+    tagList(tags$h6("Raw data is deposited on GEO, ", clean))
+  })
+  
+  output$GOversion <- renderUI({
+    url <- "https://www.gsea-msigdb.org/gsea/msigdb/collections.jsp"
+    clean <- a(gmt_file,
+               href = url
+    )
+    
+    tagList(tags$h6("GO database version: ", clean))
+  })
+  
+  output$version <- renderUI({
+    url <- "https://github.com/rnabioco/squirrelbox/"
+    clean <- a(versionN,
+               href = url
+    )
+    tagList(tags$h6("squirrelBox version: ", clean))
+  })
+  
+  output$explain <- DT::renderDataTable({
+    dfreg <- data.frame(region = region_order,
+                     short = region_short,
+                     letter = region_one)
+    DT::datatable(dfreg,
+                  escape = FALSE,
+                  selection = "none",
+                  rownames = FALSE,
+                  options = list(searchable = FALSE, 
+                                 dom = "t", 
+                                 paging = FALSE,
+                                 columnDefs = list(list(className = 'dt-center', targets = 0:2)))
+    )
+  })
 }
-
 
 # Run the application
 shinyApp(ui = ui, server = server, enableBookmarking = "url")
