@@ -26,7 +26,6 @@ options(spinner.type = 6)
 theme_set(theme_cowplot())
 # options(shiny.reactlog = TRUE)
 
-
 ### general data settings
 set_shinytheme <- "paper"
 track_name <- "hub_1519131_KG_HiC"
@@ -505,6 +504,7 @@ $(function() {
 
 # Define UI for application that draws the boxplot
 ui <- fluidPage(
+  title = "squirrelBox",
   theme = shinytheme(set_shinytheme),
   tags$style("
       .checkbox {
@@ -573,7 +573,7 @@ ui <- fluidPage(
       ),
       tabsetPanel(
         tabPanel(
-          "load",
+          span("load", title = "load list of genes for analysis from file or interactive table"),
           fileInput("file", label = NULL),
           actionButton("Prev", "Prev"),
           actionButton("Next", "Next"),
@@ -582,12 +582,12 @@ ui <- fluidPage(
           style = "height:300px; overflow-y: scroll;"
         ),
         tabPanel(
-          "history",
+          span("history", title = "history list of query genes"),
           DT::dataTableOutput("historyl"),
           style = "height:300px; overflow-y: scroll;"
         ),
         tabPanel(
-          "cart",
+          span("cart", title = "cart list of genes to save and export"),
           uiOutput("listn2"),
           actionButton("Add", "Add"),
           actionButton("Load", "Load"),
@@ -606,7 +606,8 @@ ui <- fluidPage(
       tabsetPanel(
         id = "tabMain",
         tabPanel(
-          title = "main",
+          title = span("main", 
+                       title= "Plot expression box plot and other info of query gene"),
           value = "plot",
           uiOutput("boxPlotUI") %>% withSpinner(),
           uiOutput("EigenPlot") %>% withSpinner(),
@@ -632,7 +633,8 @@ ui <- fluidPage(
           )
         ),
         tabPanel(
-          title = "transcript_gene",
+          title = span("transcript_gene", 
+                       title= "Table of expression and other info of all genes/transcripts"),
           value = "table_orf",
           div(
             style = "display: inline-block;width: 160px;",
@@ -650,7 +652,8 @@ ui <- fluidPage(
           DT::dataTableOutput("tbl")
         ),
         tabPanel(
-          title = "majiq_alt",
+          title = span("majiq_alt",
+                       title= "Table of majiq output for alternative splicing events"),
           value = "table_maj",
           downloadButton(
             outputId = "saveFiltered4",
@@ -659,12 +662,14 @@ ui <- fluidPage(
           DT::dataTableOutput("alt")
         ),
         tabPanel(
-          title = "line_plot",
+          title = span("line_plot",
+                       title= "Plot expression of loaded gene list"),
           value = "line_plot",
           plotlyOutput("linePlot") %>% withSpinner()
         ),
         tabPanel(
-          title = "heat_plot",
+          title = span("heat_plot",
+                       title= "Plot Z-Score of loaded gene list as heat map"),
           value = "heat_plot",
           br(),
           fluidRow(
@@ -714,7 +719,8 @@ ui <- fluidPage(
           plotOutput("heatPlot") %>% withSpinner()
         ),
         tabPanel(
-          title = "GO_enrichment",
+          title = span("GO_enrichment",
+                       title= "GO term enrichment for loaded gene list"),
           value = "enrichment_plot",
           downloadButton("savePlot2",
             label = "save plot"
@@ -726,7 +732,8 @@ ui <- fluidPage(
           plotlyOutput("richPlot") %>% withSpinner()
         ),
         tabPanel(
-          title = "kmer",
+          title = span("kmer",
+                       title= "kmer enrichment analysis and annotation for loaded gene list"),
           value = "kmer_analysis",
           downloadButton("savePlot4",
             label = "save plot"
@@ -1910,7 +1917,6 @@ server <- function(input, output, session) {
     ignoreNULL = T
   )
 }
-
 
 # Run the application
 shinyApp(ui = ui, server = server, enableBookmarking = "url")
