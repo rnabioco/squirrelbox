@@ -43,6 +43,32 @@ table_cols <- c(
   "original_gene_name",
   "source"
 )
+columns_tips <- c(
+  "unique to each gene_id, from ensemble/NCBI or newly assigned",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
+  "gene clusters assigned by expression pattern for tissue",
+  "gene clusters assigned by expression pattern for tissue",
+  "gene clusters assigned by expression pattern for tissue",
+  "newly annotated genes start with G",
+  "reference denotes carry-over from ensemble/NCBI",
+  "aa length of longest orf",
+  "number of exons",
+  "length of longest transcript",
+  "newly annotated genes, gene_id start with G",
+  "minimum adjusted pval across tissues",
+  "whether domains were found for orf",
+  "expressed above cutoff in at least one brain tissue",
+  "expressed above cutoff in at least one non-brain tissue",
+  "if collapsed, only longest transcript_id listed",
+  "whether symbol assignment was assisted by majiq splic junctions"
+) %>% str_c(collapse = "\', \'")
+columns_tips <- paste0("\'", columns_tips, "\'")
+
 orf_cols <- c(
   "gene_id",
   "orf_len",
@@ -531,18 +557,21 @@ ui <- fluidPage(
   "),
   useShinyjs(),
   tags$head(tags$script(HTML(jscode))),
+  tags$script(HTML("$('body').addClass('sidebar-mini');")),
   titlePanel(div(
     class = "header", img(src = "logo.png", style = "width : 4%;"),
     "13-lined ground squirrel gene-level RNA-seq expression", style = "font-size:23px"
   )),
   fixedPanel(
     style = "z-index:100;",
-    actionButton("back_to_top", label = "back_to_top"),
+    actionButton("back_to_top", label = "to_top"),
+    bsButton("showpanel", "sidebar", type = "toggle", value = FALSE),
     right = 10,
     bottom = 10
   ),
  sidebarLayout(
     sidebarPanel(
+      id = "SIDE",
       style = "position:fixed;width:23%;margin-top: 60px;z-index:10;",
       width = 3,
       div(
@@ -560,7 +589,7 @@ ui <- fluidPage(
       tabsetPanel(
         id = "side1",
         tabPanel(
-          span("link", title = "save files and external links"),
+          span("links", title = "save files and external links"),
           #tipify(uiOutput("conn"), "cluster assignment via kmeans for 3 brain regions"),
           uiOutput("tab"), 
           uiOutput("blastlink"),
@@ -625,13 +654,14 @@ ui <- fluidPage(
             label = "save"
           ),
           bsTooltip("Add", "add current query gene to cart"),
-          bsTooltip("Load", "sent to loaded list in side panel"),
+          bsTooltip("Load", "send to loaded list in side panel"),
           DT::dataTableOutput("tbllist2"),
           style = "height:300px; overflow-y: scroll;"
         )
       )
     ),
     mainPanel(
+      id = "MAIN",
       width = 9,
       style = "z-index:1;margin-top: 60px;",
       sortableTabsetPanel(
@@ -645,24 +675,32 @@ ui <- fluidPage(
           uiOutput("boxPlotUI") %>% withSpinner(),
           tableOutput("results"),
           bsCollapse(
-            id = "tabs", multiple = TRUE, open = "clusts",
+            id = "tabs", multiple = TRUE, open = "NULL",
             bsCollapsePanel(# tableOutput("conn") %>% withSpinner(),
                             uiOutput("EigenPlot") %>% withSpinner(),
                             title = "cluster_assignments",
                             style = "danger"
-            ),
+            )),
+          bsCollapse(
+            id = "tabs2", multiple = TRUE, open = NULL,
             bsCollapsePanel(tableOutput("orfinfo") %>% withSpinner(),
               title = "called_orfs",
               style = "primary"
-            ),
+            )),
+          bsCollapse(
+            id = "tabs3", multiple = TRUE, open = "NULL",
             bsCollapsePanel(tableOutput("majinfo") %>% withSpinner(),
               title = "majiq_alternative_splicing",
               style = "warning"
-            ),
+            )),
+          bsCollapse(
+            id = "tabs4", multiple = TRUE, open = "NULL",
             bsCollapsePanel(htmlOutput("ucscPlot") %>% withSpinner(),
               title = "UCSC browser plot",
               style = "success"
-            ),
+            )),
+          bsCollapse(
+            id = "tabs5", multiple = TRUE, open = "NULL",
             bsCollapsePanel(tableOutput("gotab") %>% withSpinner(),
               title = "go_terms/domains",
               style = "info"
@@ -688,7 +726,7 @@ ui <- fluidPage(
           #   label = "save filtered data"
           # ),
           actionButton("loadtab", "load"),
-          bsTooltip("loadtab", "sent to loaded list in side panel"),
+          bsTooltip("loadtab", "send to loaded list in side panel"),
           DT::dataTableOutput("tbl")
         ),
         tabPanel(
@@ -1419,7 +1457,7 @@ server <- function(input, output, session) {
     set.seed(1)
     linetemp()
     if (length(historytablist) == 0) {
-      return(ggplotly(ggplot()))
+      return(ggplotly(ggplot() + ggtitle("no genes loaded")))
     }
     
     g <- ggplot(d, aes(state, log2_counts,
@@ -1462,7 +1500,7 @@ server <- function(input, output, session) {
     set.seed(1)
     temp <- linetemp()
     if (length(historytablist) == 0) {
-      return(NA)
+      return(Heatmap(matrix(), column_title = "no genes loaded", show_heatmap_legend = FALSE))
     }
     temp2 <- temp %>%
       select(-log2_counts) %>%
@@ -1546,7 +1584,7 @@ server <- function(input, output, session) {
   richPlot1 <- reactive({
     tops <- richtemp()
     if (nrow(tops) == 0) {
-      return(ggplot())
+      return(ggplot() + ggtitle("no genes loaded"))
     }
     ggplot(tops %>% dplyr::slice(1:15), aes(x = reorder(pathway, minuslog10), y = minuslog10, fill = -minuslog10, text = len)) +
       geom_bar(stat = "identity") +
@@ -1639,7 +1677,7 @@ server <- function(input, output, session) {
   kmerPlot1 <- reactive({
     topsk <- kmertemp()
     if (nrow(topsk) == 0) {
-      return(ggplot())
+      return(ggplot() + ggtitle("no genes loaded"))
     }
     if (input$kmlab == "yes") {
       topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= 2, "sig", "insig"))) %>%
@@ -1943,8 +1981,13 @@ server <- function(input, output, session) {
           list(targets = c(8), visible = TRUE, width = "150px"),
           list(targets = c(9), visible = TRUE, width = "150px")
         ),
-        scrollX = TRUE,
-        autoWidth = TRUE
+        scrollX = FALSE,
+        autoWidth = TRUE),
+        callback = JS(paste0("var tips = [", columns_tips, "],
+                            firstRow = $('#tbl thead tr th');
+                            for (var i = 0; i < tips.length; i++) {
+                              $(firstRow[i]).attr('title', tips[i]);
+                            }")
       )
     ) %>%
       DT::formatRound(columns = c(2, 3, 4, 5, 6, 7), digits = 4)
@@ -1992,7 +2035,7 @@ server <- function(input, output, session) {
       selection = "single",
       rownames = FALSE,
       options = list(
-      scrollX = TRUE,
+      scrollX = FALSE,
       autoWidth = TRUE)
     )
   })
@@ -2154,13 +2197,20 @@ server <- function(input, output, session) {
       }
     })
   
-  # observeEvent(input$Cancel, {
-  #   updateTabsetPanel(session,
-  #                     "tabMain",
-  #                     selected = "plot"
-  #   )
-  #   removeModal()
-  # })
+  observeEvent(input$showpanel, {
+    
+    if(input$showpanel != TRUE) {
+      removeCssClass("MAIN", "col-sm-11")
+      addCssClass("MAIN", "col-sm-9")
+      shinyjs::show(id = "SIDE")
+      shinyjs::enable(id = "SIDE")
+    }
+    else {
+      removeCssClass("MAIN", "col-sm-9")
+      addCssClass("MAIN", "col-sm-11")
+      shinyjs::hide(id = "SIDE")
+    }
+  })
 }
 
 # Run the application
