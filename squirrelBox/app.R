@@ -655,6 +655,7 @@ ui <- fluidPage(
           style = "height:300px; overflow-y: scroll;"
         ),
         tabPanel(
+          value = "cart",
           span("cart", title = "cart list of genes to save and export"),
           uiOutput("listn2"),
           actionButton("Add", "Add"),
@@ -813,13 +814,6 @@ ui <- fluidPage(
           title = span("GO_enrichment",
                        title= "GO term enrichment for loaded gene list (slow)"),
           value = "enrichment_plot",
-          # downloadButton("savePlot2",
-          #   label = "save plot"
-          # ),
-          # downloadButton(
-          #   outputId = "saveEnrich",
-          #   label = "save table"
-          # ),
           plotlyOutput("richPlot") %>% withSpinner()
         ),
         tabPanel(
@@ -848,6 +842,12 @@ ui <- fluidPage(
           ),
           selectInput("utrlen", NULL, choices = c(200, 500, 1000, "full length"), selected = "full length"),
           uiOutput("kmerPlotUI") %>% withSpinner()
+        ),
+        tabPanel(
+          title = span("venn",
+                       title= "visualize gene overlap between regions, and retrieve lists"),
+          value = "venn",
+          plotlyOutput("vennPlot") %>% withSpinner()
         ),
         tabPanel(
           span(icon("question", class = NULL, lib = "font-awesome"),
@@ -890,6 +890,7 @@ server <- function(input, output, session) {
   rv$richsel <- "NA"
   rv$line <- 0
   rv$line_refresh <- 0
+  rv$listn2renew <- 0
   rv$mod_df <- data.frame()
   rv$toolarge <- 0
   rv$go <- 0
@@ -1673,11 +1674,18 @@ server <- function(input, output, session) {
   observeEvent(event_data("plotly_click", source = "richPlot"), {
     tops <- richtemp()
     rv$richsel <- event_data("plotly_click", source = "richPlot")
-    carttablist <<- tops[16 - rv$richsel$y, ] %>%
+    gene_vec <- tops[16 - rv$richsel$y, ] %>%
       pull(hits) %>%
       str_split(",") %>%
       unlist()
+    print(gene_vec)
+    carttablist <<- gene_vec
     rv$listn2 <- length(carttablist)
+    rv$listn2renew <- rv$listn2renew + 1
+    updateTabsetPanel(session,
+                      "side2",
+                      selected = "cart"
+    )
   })
 
   saveEnrich <- downloadHandler("enrich_list.csv", content = function(file) {
@@ -1810,6 +1818,62 @@ server <- function(input, output, session) {
     write_csv(kmertemp(), file)
   })
 
+  # venn plotly
+  
+  venntemp <- reactive({
+    rv$line_refresh
+    list(`Set 1` = c(1, 3, 5, 7, 9),
+         `Set 2` = c(1, 5, 9, 13),
+         `Set 3` = c(1, 2, 8, 9),
+         `Set 4` = c(6, 7, 10, 12))
+  })
+  
+  vennPlot1 <- reactive({
+    a <- venntemp()
+    g <- ggvenn::ggvenn(a, c("Set 1", "Set 2", "Set 3"), show_elements = TRUE)
+    g2 <- ggvenn::ggvenn(a, c("Set 1", "Set 2", "Set 3"), show_percentage = FALSE)
+    g2$layers[[4]]$data$text2 <- g$layers[[4]]$data$text
+    rv$venntext <<- g$layers[[4]]$data$text
+    g2$labels[["text2"]] <- "text2"
+    g2$layers[[4]]$mapping <- aes(x = x, y =y, label = text, hjust = hjust, vjust = vjust, text = text2)
+    g2
+  })
+  
+  output$vennPlot <- renderPlotly({
+     p <- ggplotly(vennPlot1(), source = "vennPlot", tooltip = "text2", height = 600, width = 800) %>%
+      layout(autosize = F, showlegend = FALSE) %>%
+      highlight()
+     #event_register(p, 'plotly_selected')
+     p
+  })
+  
+  savePlot6 <- downloadHandler(
+    filename = "venn.pdf",
+    content = function(file) {
+      ggplot2::ggsave(file, plot = vennPlot1(), device = "pdf", width = 8, height = 6)
+    }
+  )
+
+  observeEvent(event_data("plotly_click", source = "vennPlot"), {
+    aa <- event_data("plotly_click", source = "vennPlot")
+    if (!is.null(aa$pointNumber)) {
+      gene_string <- rv$venntext[aa$pointNumber + 1]
+      gene_vec <- str_split(gene_string, ",")[[1]]
+      print(gene_vec)
+      carttablist <<- gene_vec
+      rv$listn2 <- length(carttablist)
+      updateTabsetPanel(session,
+                        "side2",
+                        selected = "cart"
+      )
+      rv$listn2renew <- rv$listn2renew + 1
+    }
+  })
+
+  
+  
+  
+  
   # list history genes as table
   output$historyl <- DT::renderDataTable({
     inid()
@@ -1911,6 +1975,7 @@ server <- function(input, output, session) {
   # list cart genes as table
   output$tbllist2 <- DT::renderDataTable({
     rv$listn2
+    rv$listn2renew 
     if (length(carttablist) > 0) {
       DT::datatable(data.table::as.data.table(list(carttablist)),
         escape = FALSE,
@@ -2317,6 +2382,51 @@ server <- function(input, output, session) {
     actionButton("bsgo", "Go"),
     actionButton("bscancel", "Cancel")
   )
+  
+  # first time boot up warnings/hints
+  observe({
+    if (input$tabMain == "plot") {
+      enable("savePlot")
+      disable("saveTable")
+      output$savePlot <- savePlot
+    } else if (input$tabMain == "table_data") {
+      disable("savePlot")
+      enable("saveTable")
+      output$saveTable <- saveFiltered
+    } else if (input$tabMain == "table_AS") {
+      disable("savePlot")
+      enable("saveTable")
+      output$saveTable <- saveFilteredAS
+    } else if (input$tabMain == "line_plot") {
+      enable("savePlot")
+      disable("saveTable")
+      output$savePlot <- savePlot5
+    } else if (input$tabMain == "enrichment_plot") {
+      enable("savePlot")
+      enable("saveTable")
+      output$savePlot <- savePlot2
+      output$saveTable <- saveEnrich
+    } else if (input$tabMain == "heat_plot") {
+      enable("savePlot")
+      disable("saveTable")
+      output$savePlot <- savePlot3
+    } else if (input$tabMain == "kmer_analysis") {
+      enable("savePlot")
+      enable("saveTable")
+      output$savePlot <- savePlot4
+      output$saveTable <- saveK
+    } else if (input$tabMain == "venn") {
+      enable("savePlot")
+      disable("saveTable")
+      output$savePlot <- savePlot6
+      showNotification("click on venn numbers to load associated genes into cart")
+    } else if (input$tabMain == "about") {
+      disable("savePlot")
+      disable("saveTable")
+    }
+  })
+  
+  
 }
 
 # Run the application
