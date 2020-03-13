@@ -26,8 +26,11 @@ options(spinner.type = 6)
 theme_set(theme_cowplot())
 # options(shiny.reactlog = TRUE)
 
-### general data settings
+### folders
+datapath <- "data"
+annotpath <- "annot"
 
+### general data settings
 versionN <- 0.97
 geoN <- "G1234"
 pageN <- 10
@@ -38,10 +41,13 @@ track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
 gmt_file <- "c5.bp.v7.0.symbols.gmt"
 gmt_short <- "GO_"
 sig_cut <- 0.001
+ncore <- parallel::detectCores() - 1
+
+### choose and order columns
 table_cols <- c(
   "gene_id", # comment out to remove from table outputs
   "unique_gene_symbol",
-  "gene_symbol",
+  #"gene_symbol",
   "clean_gene_symbol",
   "original_gene_name",
   "source"
@@ -72,7 +78,7 @@ columns_tips <- c(
 ) %>% str_c(collapse = "\', \'")
 columns_tips <- paste0("\'", columns_tips, "\'")
 
-orf_cols <- c(
+orf_cols_join <- c(
   "gene_id",
   "orf_len",
   "exons",
@@ -84,6 +90,14 @@ orf_cols <- c(
   "nonbr_expr",
   "transcript_id",
   "majiq_directed"
+)
+
+orf_cols <- c(
+  "gene_id",
+  "transcript_id",
+  "rna_len",
+  "orf_len",
+  "exons"
 )
 
 ### sample settings, define state colors and order, region order
@@ -143,23 +157,16 @@ region_one <- c(
 )
 
 # read database
-if (file.exists("combined2.feather")) {
-  combined2 <- read_feather("combined2.feather")
-  combined3 <- read_feather("combined3.feather")
-} else if (file.exists("combined2.csv")) {
-  combined2 <- fread("combined2.csv", nThread = nt)
-  combined3 <- fread("combined3.csv")
-  combined <- combined3 %>% inner_join(combined2, by = "gene_id")
-} else if (file.exists("combined.tsv")) {
-  combined <- fread("combined.tsv")
-} else {
-  combined <- read_tsv("combined.tsv.gz",
-    col_types = cols()
-  )
+if (file.exists(paste0(datapath, "/combined2.feather"))) {
+  combined2 <- read_feather(paste0(datapath, "/combined2.feather"))
+  combined3 <- read_feather(paste0(datapath, "/combined3.feather"))
+} else if (file.exists(paste0(datapath, "/combined2.csv"))) {
+  combined2 <- fread(paste0(datapath, "/combined2.csv"), nThread = ncore)
+  combined3 <- fread(paste0(datapath, "/combined3.csv"), nThread = ncore)
 }
 
 # read annotation file to find ucsc track
-bed <- read_tsv("final_tx_annotations_20200201.tsv.gz",
+bed <- suppressWarnings(read_tsv(paste0(annotpath, "/final_tx_annotations_20200201.tsv.gz"),
   col_names = c(
     "chrom",
     "start",
@@ -181,15 +188,15 @@ bed <- read_tsv("final_tx_annotations_20200201.tsv.gz",
     NA,
     "majiq_directed"
   ), skip = 1
-) %>%
+)) %>%
   select(-contains("X")) %>%
   mutate(majiq_directed = factor(ifelse(is.na(majiq_directed), 0, 1)))
 
 # read modules/clusters
-mod <- read_feather("clusters.feather")
+mod <- read_feather(paste0(datapath, "/clusters.feather"))
 mod <- mod[, c("gene", intersect(str_c("cluster_", region_one), colnames(mod)))]
 
-eigen <- read_tsv("cluster_patterns_matrices/reference_patterns.tsv") %>%
+eigen <- read_tsv(paste0(datapath, "/cluster_patterns_matrices/reference_patterns.tsv")) %>%
   rename(state = X1) %>%
   mutate(state = factor(state,
     levels = state_order
@@ -282,21 +289,20 @@ gmt_to_list <- function(path,
   }
 }
 
-gmt <- gmt_to_list(gmt_file, rm = gmt_short)
+gmt <- gmt_to_list(paste0(annotpath, "/", gmt_file), rm = gmt_short)
 
-if (file.exists(paste0(gmt_file, ".rds"))) {
-  gmtlist <- readRDS(paste0(gmt_file, ".rds"))
+if (file.exists(paste0(annotpath, "/", gmt_file, ".rds"))) {
+  gmtlist <- readRDS(paste0(annotpath, "/", gmt_file, ".rds"))
 } else {
-  gmtlist <- gmt_to_list(gmt_file, rm = gmt_short, per = FALSE)
+  gmtlist <- gmt_to_list(paste0(annotpath, "/", gmt_file), rm = gmt_short, per = FALSE)
   gmtlist <- sapply(gmtlist, function(x) {
     intersect(x, str_to_upper(bed$clean_gene_symbol %>% unique()))
   })
   gmtlist <- gmtlist[sapply(gmtlist, length) >= 5]
-  saveRDS(gmtlist, paste0(gmt_file, ".rds"))
+  saveRDS(gmtlist, paste0(annotpath, "/", gmt_file, ".rds"))
 }
 
-
-domains <- read_csv("novel_domains.csv", col_types = "cc")
+domains <- read_csv(paste0(datapath, "/novel_domains.csv"), col_types = "cc")
 
 br_expr <- combined2 %>%
   filter(region %in% region_main) %>%
@@ -309,7 +315,7 @@ nonbr_expr <- combined2 %>%
   unique()
 
 # load orf predictions
-orfs <- read_feather("padj_orf.feather") %>%
+orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
   select(gene_id,
     orf_len = len,
     exons,
@@ -329,7 +335,7 @@ orfs <- read_feather("padj_orf.feather") %>%
 
 fulltbl <- combined3 %>%
   select(-c(gene_symbol, clean_gene_symbol, original_gene_name)) %>%
-  left_join(orfs %>% select(orf_cols, contains("LRT")), by = "gene_id") %>%
+  left_join(orfs %>% select(orf_cols_join, contains("LRT")), by = "gene_id") %>%
   left_join(mod, by = c("unique_gene_symbol" = "gene")) %>%
   mutate(source = factor(source)) %>%
   mutate_at(vars(contains("cluster")), factor) %>%
@@ -450,7 +456,7 @@ fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
     select(pathway, pval, padj, minuslog10, pval, hits, len, go_len)
 }
 
-maj <- read_tsv("MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz") %>%
+maj <- read_tsv(paste0(datapath, "/MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz")) %>%
   mutate(
     region = factor(region),
     comp = factor(comp)
@@ -461,10 +467,11 @@ maj <- read_tsv("MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz") %>%
   distinct()
 
 # seqs for kmer
-seqs <- read_feather("utrs_sq.feather") %>% filter(gene_id %in% combined3$gene_id)
+seqs <- read_feather(paste0(datapath, "/utrs_sq.feather")) %>%
+  filter(gene_id %in% combined3$gene_id)
 
-if (file.exists("seqs_precal.rds")) {
-  seqs_precal <- readRDS("seqs_precal.rds")
+if (file.exists(paste0(datapath, "/seqs_precal.rds"))) {
+  seqs_precal <- readRDS(paste0(datapath, "/seqs_precal.rds"))
 } else {
   seqs_precal <- list()
   seqs_precal[["5mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 50) %>% pull(utr3),
@@ -479,7 +486,7 @@ if (file.exists("seqs_precal.rds")) {
   seqs_precal[["7mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 50) %>% pull(utr5),
     k = 7
   )
-  saveRDS(seqs_precal, "seqs_precal.rds")
+  saveRDS(seqs_precal, paste0(datapath, "/seqs_precal.rds"))
 }
 
 comp_kmer <- function(df = seqs,
@@ -509,8 +516,8 @@ comp_kmer <- function(df = seqs,
   res %>% arrange(adj.p.value)
 }
 
-fivemers <- read_csv("RBP_5mer.csv")
-sevenmers <- read_csv("mir_7mer.csv")
+fivemers <- read_csv(paste0(annotpath, "/RBP_5mer.csv"))
+sevenmers <- read_csv(paste0(annotpath, "/mir_7mer.csv"))
 
 # some other code for webpage functions
 jscode <- '
@@ -560,7 +567,7 @@ ui <- fluidPage(
   "),
   useShinyjs(),
   tags$head(tags$script(HTML(jscode))),
-  tags$script(HTML("$('body').addClass('sidebar-mini');")),
+  # tags$script(HTML("$('body').addClass('sidebar-mini');")),
   titlePanel(div(
     class = "header", img(src = "logo.png", style = "width : 4%;"),
     "13-lined ground squirrel gene-level RNA-seq expression", style = "font-size:23px"
@@ -676,7 +683,7 @@ ui <- fluidPage(
           value = "plot",
           jqui_sortable(div(id = "sorted",
           uiOutput("boxPlotUI") %>% withSpinner(),
-          tableOutput("results"),
+          DT::dataTableOutput("results"),
           bsCollapse(
             id = "tabs", multiple = TRUE, open = "NULL",
             bsCollapsePanel(# tableOutput("conn") %>% withSpinner(),
@@ -686,13 +693,13 @@ ui <- fluidPage(
             )),
           bsCollapse(
             id = "tabs2", multiple = TRUE, open = NULL,
-            bsCollapsePanel(tableOutput("orfinfo") %>% withSpinner(),
+            bsCollapsePanel(DT::dataTableOutput("orfinfo") %>% withSpinner(),
               title = "called_orfs",
               style = "primary"
             )),
           bsCollapse(
             id = "tabs3", multiple = TRUE, open = "NULL",
-            bsCollapsePanel(tableOutput("majinfo") %>% withSpinner(),
+            bsCollapsePanel(DT::dataTableOutput("majinfo") %>% withSpinner(),
               title = "majiq_alternative_splicing",
               style = "warning"
             )),
@@ -704,7 +711,7 @@ ui <- fluidPage(
             )),
           bsCollapse(
             id = "tabs5", multiple = TRUE, open = "NULL",
-            bsCollapsePanel(tableOutput("gotab") %>% withSpinner(),
+            bsCollapsePanel(DT::dataTableOutput("gotab") %>% withSpinner(),
               title = "go_terms/domains",
               style = "info"
             )))
@@ -1208,48 +1215,74 @@ server <- function(input, output, session) {
   })
 
   # display gene info
-  output$results <- renderTable(
-    {
-      outputtab()
-    },
-    digits = 0
+  output$results <- DT::renderDataTable({
+      temp <- outputtab()
+    DT::datatable(temp,
+                  class = 'table-condensed',
+                    escape = FALSE,
+                    selection = "single",
+                    rownames = FALSE,
+                    options = list(searchable = FALSE,
+                                   dom = "t", 
+                                   paging = FALSE,
+                                   columnDefs = list(list(className = 'dt-center', 
+                                                          targets = 0:(ncol(temp)-1)),
+                                                     list(orderable = "false",
+                                                          targets = 0:(ncol(temp)-1))),
+                                   initComplete = JS(
+                                     "function(settings, json) {",
+                                     "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+                                     "}")
+                                   ))
+    }
   )
 
   # orf call table
-  output$orfinfo <- renderTable(
-    {
+  output$orfinfo <- DT::renderDataTable({
       outputtab()
       if (nrow(rv$temp_orfs) == 0) {
-        return(rv$temp_orfs)
+        temp <- data.frame(`no orf found` = "")
+      } else {
+        temp <- rv$temp_orfs %>% select(orf_cols)
       }
-      rv$temp_orfs %>% select(orf_cols)
-    },
-    digits = 0
+      DT::datatable(temp,
+                    escape = FALSE,
+                    selection = "single",
+                    rownames = FALSE,
+                    options = list(searchable = FALSE, dom = "t"))
+    }
   )
 
   # majik report table
-  output$majinfo <- renderTable(
-    {
+  output$majinfo <- DT::renderDataTable({
       temp <- maj %>% filter(unique_gene_symbol == outputtab()$unique_gene_symbol[1])
       if (nrow(temp) == 0) {
         temp <- data.frame(`no alternative splicing` = "")
       }
-      temp
-    },
-    digits = 0
+      DT::datatable(temp,
+                    escape = FALSE,
+                    selection = "single",
+                    rownames = FALSE,
+                    filter = "top",
+                    options = list(searchable = FALSE, dom = "t"))
+    }
   )
 
   # goterm table
-  output$gotab <- renderTable({
+  output$gotab <- DT::renderDataTable({
     if (input$doKegg != T) {
       return()
     }
     outputtab <- outputtab()
-    temp1 <- gmt %>% filter(genes == str_to_upper(outputtab$clean_gene_symbol))
-    if (nrow(temp1) == 0) {
-      temp1 <- domains %>% filter(gene_id %in% outputtab$gene_id)
+    temp <- gmt %>% filter(genes == str_to_upper(outputtab$clean_gene_symbol))
+    if (nrow(temp) == 0) {
+      temp <- domains %>% filter(gene_id %in% outputtab$gene_id)
     }
-    temp1
+    DT::datatable(temp,
+                  escape = FALSE,
+                  selection = "single",
+                  rownames = FALSE,
+                  options = list(dom = "ft", searchHighlight = TRUE))
   })
 
   # download ucscplot
@@ -2007,7 +2040,9 @@ server <- function(input, output, session) {
       escape = FALSE,
       selection = "single",
       rownames = FALSE,
+      extensions = 'ColReorder',
       options = list(
+        searchHighlight = TRUE,
         pageLength = pageN,
         columnDefs = list(
           list(targets = c(7), visible = TRUE, width = "150px"),
@@ -2015,7 +2050,7 @@ server <- function(input, output, session) {
           list(targets = c(9), visible = TRUE, width = "150px")
         ),
         scrollX = FALSE,
-        autoWidth = TRUE),
+        autoWidth = TRUE , colReorder = TRUE),
       callback = JS(paste0("var tips = [", columns_tips, "],
                             firstRow = $('#tbl thead tr th');
                             for (var i = 0; i < tips.length; i++) {
@@ -2067,10 +2102,12 @@ server <- function(input, output, session) {
       escape = FALSE,
       selection = "single",
       rownames = FALSE,
+      extensions = 'ColReorder',
       options = list(
+        searchHighlight = TRUE,
         pageLength = pageN,
         scrollX = FALSE,
-        autoWidth = TRUE)
+        autoWidth = TRUE, colReorder = TRUE)
     )
   })
 
@@ -2273,7 +2310,7 @@ server <- function(input, output, session) {
     icon("exclamation-triangle"),
     p("plotting large number of genes may be\n slow and hard to interpret"),
     br(),
-    footer = NULL,#list(modalButton("Go"), modalButton("Cancel")),
+    footer = NULL,
     size = "s",
     easyClose = FALSE,
     fade = TRUE,
