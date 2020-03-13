@@ -27,8 +27,11 @@ theme_set(theme_cowplot())
 # options(shiny.reactlog = TRUE)
 
 ### general data settings
+
 versionN <- 0.97
 geoN <- "G1234"
+pageN <- 10
+warningN <- 100
 set_shinytheme <- "paper"
 track_name <- "hub_1519131_KG_HiC"
 track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
@@ -797,6 +800,7 @@ ui <- fluidPage(
             )
           ),
           plotOutput("heatPlot") %>% withSpinner()
+          
         ),
         tabPanel(
           title = span("GO_enrichment",
@@ -880,8 +884,11 @@ server <- function(input, output, session) {
   rv$line <- 0
   rv$line_refresh <- 0
   rv$mod_df <- data.frame()
+  rv$toolarge <- 0
+  rv$go <- 0
 
   # hide some checkboxes
+  removeModal()
   hide("doKegg")
   hide("doMod")
   hide("doUcsc")
@@ -1475,15 +1482,22 @@ server <- function(input, output, session) {
   output$linePlot <- renderPlotly({
     g <- linePlot1()
     fac <- input$doTis + input$doBr
-    if (input$doName == T) {
-      # highlight(ggplotly(g, tooltip = "text"),"plotly_hover")
-      ggplotly(g, tooltip = "text", height = 300 * fac, width = 800) %>% layout(
-        autosize = FALSE,
-        showlegend = TRUE
-      )
+    if ((rv$toolarge == 0) | (rv$toolarge == 1 & rv$go == 2)) {
+      if (input$doName == T) {
+        # highlight(ggplotly(g, tooltip = "text"),"plotly_hover")
+        ggplotly(g, tooltip = "text", height = 300 * fac, width = 800) %>% layout(
+          autosize = FALSE,
+          showlegend = TRUE
+        )
+      } else {
+        # highlight(ggplotly(g, tooltip = "text"),"plotly_hover")
+        ggplotly(g, tooltip = "text", height = 300 * fac, width = 800)
+      }
     } else {
-      # highlight(ggplotly(g, tooltip = "text"),"plotly_hover")
-      ggplotly(g, tooltip = "text", height = 300 * fac, width = 800)
+      if (rv$go <= 0) {
+        showModal(modalWarn)
+      }
+      ggplotly(ggplot() + ggtitle("plotting cancelled"))
     }
   })
 
@@ -1552,7 +1566,16 @@ server <- function(input, output, session) {
     }
   })
 
-  output$heatPlot <- renderPlot(heatPlot1())
+  output$heatPlot <- renderPlot({
+    if ((rv$toolarge == 0) | (rv$toolarge == 1 & rv$go == 2)) {
+      heatPlot1()
+    } else {
+      if (rv$go <= 0) {
+        showModal(modalWarn)
+      }
+      Heatmap(matrix(), column_title = "plotting cancelled", show_heatmap_legend = FALSE)
+    }
+  })
 
   savePlot3 <- downloadHandler(
     filename = "heatplot.pdf",
@@ -1924,6 +1947,13 @@ server <- function(input, output, session) {
   output$tbllist <- DT::renderDataTable({
     rv$line_refresh
     if (length(historytablist) > 0) {
+      if (length(historytablist) > warningN) {
+        rv$toolarge <- 1
+        rv$go <- 0
+      } else {
+        rv$toolarge <- 0
+        rv$go <- 0
+      }
       DT::datatable(data.table::as.data.table(list(historytablist)),
         escape = FALSE,
         selection = "single",
@@ -1932,6 +1962,8 @@ server <- function(input, output, session) {
         options = list(searchable = FALSE, dom = "t", paging = FALSE, scrollY = TRUE)
       )
     } else {
+      rv$toolarge <- 0
+      rv$go <- 0
       DT::datatable(data.table::as.data.table(list(c(""))),
         escape = FALSE,
         selection = "single",
@@ -1976,6 +2008,7 @@ server <- function(input, output, session) {
       selection = "single",
       rownames = FALSE,
       options = list(
+        pageLength = pageN,
         columnDefs = list(
           list(targets = c(7), visible = TRUE, width = "150px"),
           list(targets = c(8), visible = TRUE, width = "150px"),
@@ -1983,7 +2016,7 @@ server <- function(input, output, session) {
         ),
         scrollX = FALSE,
         autoWidth = TRUE),
-        callback = JS(paste0("var tips = [", columns_tips, "],
+      callback = JS(paste0("var tips = [", columns_tips, "],
                             firstRow = $('#tbl thead tr th');
                             for (var i = 0; i < tips.length; i++) {
                               $(firstRow[i]).attr('title', tips[i]);
@@ -2035,8 +2068,9 @@ server <- function(input, output, session) {
       selection = "single",
       rownames = FALSE,
       options = list(
-      scrollX = FALSE,
-      autoWidth = TRUE)
+        pageLength = pageN,
+        scrollX = FALSE,
+        autoWidth = TRUE)
     )
   })
 
@@ -2211,6 +2245,41 @@ server <- function(input, output, session) {
       shinyjs::hide(id = "SIDE")
     }
   })
+  
+  onclick("bsgo", {
+    rv$go <- 2
+    removeModal()
+  })
+  
+  onclick("bscancel", {
+    rv$go <- 1
+    removeModal()
+  })
+  
+  observeEvent(input$tabMain == "heat_plot", {
+      if (rv$go < 2) {
+        rv$go <- rv$go -1
+      }
+  })
+  
+  observeEvent(input$tabMain == "line_plot", {
+    if (rv$go < 2) {
+      rv$go <- rv$go -1
+    }
+  })
+  
+  modalWarn <- draggableModalDialog(
+    id = "bsconfirm",
+    icon("exclamation-triangle"),
+    p("plotting large number of genes may be\n slow and hard to interpret"),
+    br(),
+    footer = NULL,#list(modalButton("Go"), modalButton("Cancel")),
+    size = "s",
+    easyClose = FALSE,
+    fade = TRUE,
+    actionButton("bsgo", "Go"),
+    actionButton("bscancel", "Cancel")
+  )
 }
 
 # Run the application
