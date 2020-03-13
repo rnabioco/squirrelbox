@@ -1678,7 +1678,6 @@ server <- function(input, output, session) {
       pull(hits) %>%
       str_split(",") %>%
       unlist()
-    print(gene_vec)
     carttablist <<- gene_vec
     rv$listn2 <- length(carttablist)
     rv$listn2renew <- rv$listn2renew + 1
@@ -1859,7 +1858,6 @@ server <- function(input, output, session) {
     if (!is.null(aa$pointNumber)) {
       gene_string <- rv$venntext[aa$pointNumber + 1]
       gene_vec <- str_split(gene_string, ",")[[1]]
-      print(gene_vec)
       carttablist <<- gene_vec
       rv$listn2 <- length(carttablist)
       updateTabsetPanel(session,
@@ -2298,12 +2296,14 @@ server <- function(input, output, session) {
     )
   })
   
-  # graying out buttons
+  # graying out buttons, warnings/hints
   observe({
       if (input$tabMain == "plot") {
         enable("savePlot")
         disable("saveTable")
         output$savePlot <- savePlot
+        showNotification("tabs, modules, and columns of tables can be dragged and rearranged",
+                         type = "message")
       } else if (input$tabMain == "table_data") {
         disable("savePlot")
         enable("saveTable")
@@ -2330,6 +2330,15 @@ server <- function(input, output, session) {
         enable("saveTable")
         output$savePlot <- savePlot4
         output$saveTable <- saveK
+      } else if (input$tabMain == "venn") {
+        enable("savePlot")
+        disable("saveTable")
+        output$savePlot <- savePlot6
+        showNotification("click on venn numbers to load associated genes into cart",
+                         type = "message")
+      } else if (input$tabMain == "about") {
+        disable("savePlot")
+        disable("saveTable")
       }
     })
   
@@ -2382,51 +2391,6 @@ server <- function(input, output, session) {
     actionButton("bsgo", "Go"),
     actionButton("bscancel", "Cancel")
   )
-  
-  # first time boot up warnings/hints
-  observe({
-    if (input$tabMain == "plot") {
-      enable("savePlot")
-      disable("saveTable")
-      output$savePlot <- savePlot
-    } else if (input$tabMain == "table_data") {
-      disable("savePlot")
-      enable("saveTable")
-      output$saveTable <- saveFiltered
-    } else if (input$tabMain == "table_AS") {
-      disable("savePlot")
-      enable("saveTable")
-      output$saveTable <- saveFilteredAS
-    } else if (input$tabMain == "line_plot") {
-      enable("savePlot")
-      disable("saveTable")
-      output$savePlot <- savePlot5
-    } else if (input$tabMain == "enrichment_plot") {
-      enable("savePlot")
-      enable("saveTable")
-      output$savePlot <- savePlot2
-      output$saveTable <- saveEnrich
-    } else if (input$tabMain == "heat_plot") {
-      enable("savePlot")
-      disable("saveTable")
-      output$savePlot <- savePlot3
-    } else if (input$tabMain == "kmer_analysis") {
-      enable("savePlot")
-      enable("saveTable")
-      output$savePlot <- savePlot4
-      output$saveTable <- saveK
-    } else if (input$tabMain == "venn") {
-      enable("savePlot")
-      disable("saveTable")
-      output$savePlot <- savePlot6
-      showNotification("click on venn numbers to load associated genes into cart")
-    } else if (input$tabMain == "about") {
-      disable("savePlot")
-      disable("saveTable")
-    }
-  })
-  
-  
 }
 
 # Run the application
