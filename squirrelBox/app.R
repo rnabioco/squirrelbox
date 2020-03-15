@@ -29,6 +29,7 @@ theme_set(theme_cowplot())
 ### folders
 datapath <- "data"
 annotpath <- "annot"
+listpath <- "data/lists"
 
 ### general data settings
 versionN <- 0.97
@@ -519,6 +520,13 @@ comp_kmer <- function(df = seqs,
 fivemers <- read_csv(paste0(annotpath, "/RBP_5mer.csv"))
 sevenmers <- read_csv(paste0(annotpath, "/mir_7mer.csv"))
 
+# load curated gene lists
+lists_vec <- list.files(listpath)
+gene_list <- sapply(lists_vec, function(x) {
+  print(x)
+  read_csv(paste0(listpath, "/", x)) %>% pull(1)
+}, simplify = FALSE)
+
 # some other code for webpage functions
 jscode <- '
 $(function() {
@@ -847,6 +855,16 @@ ui <- fluidPage(
           title = span("venn",
                        title= "visualize gene overlap between regions, and retrieve lists"),
           value = "venn",
+          selectizeInput("seta", "setA", 
+                         choices = c("_none", names(gene_list)), 
+                         selected = "fore_sig.csv"),
+          selectizeInput("setb", "setB", 
+                         choices = c("_none", names(gene_list)), 
+                         selected = "hy_sig.csv"),
+          selectizeInput("setc", "setC", 
+                         choices = c("_none", names(gene_list)), 
+                         selected = "med_sig.csv"),
+          
           plotlyOutput("vennPlot") %>% withSpinner()
         ),
         tabPanel(
@@ -1821,21 +1839,38 @@ server <- function(input, output, session) {
   
   venntemp <- reactive({
     rv$line_refresh
-    list(`Set 1` = c(1, 3, 5, 7, 9),
-         `Set 2` = c(1, 5, 9, 13),
-         `Set 3` = c(1, 2, 8, 9),
-         `Set 4` = c(6, 7, 10, 12))
+    list(`Set A` = gene_list[[input$seta]],
+         `Set B` = gene_list[[input$setb]],
+         `Set C` = gene_list[[input$setc]])
   })
   
   vennPlot1 <- reactive({
     a <- venntemp()
-    g <- ggvenn::ggvenn(a, c("Set 1", "Set 2", "Set 3"), show_elements = TRUE)
-    g2 <- ggvenn::ggvenn(a, c("Set 1", "Set 2", "Set 3"), show_percentage = FALSE)
-    g2$layers[[4]]$data$text2 <- g$layers[[4]]$data$text
-    rv$venntext <<- g$layers[[4]]$data$text
-    g2$labels[["text2"]] <- "text2"
-    g2$layers[[4]]$mapping <- aes(x = x, y =y, label = text, hjust = hjust, vjust = vjust, text = text2)
-    g2
+    non_none <- !sapply(a, is.null) & !duplicated(c(input$seta, input$setb, input$setc))
+    if (sum(non_none) > 1) {
+      g <- ggvenn::ggvenn(a, names(a)[non_none], show_elements = TRUE)
+      g2 <- ggvenn::ggvenn(a, names(a)[non_none], show_percentage = FALSE)
+      g2$layers[[3]]$data$text <- c(input$seta, input$setb, input$setc)[non_none]
+      g2$layers[[4]]$data$text2 <- g$layers[[4]]$data$text
+      rv$venntext <<- g$layers[[4]]$data$text
+      g2$labels[["text2"]] <- "text2"
+      g2$layers[[4]]$mapping <- aes(x = x, y = y, label = text, hjust = hjust, vjust = vjust, text = text2)
+      g2
+    } else if (sum(non_none) == 1) {
+      g <- ggvenn::ggvenn(a, c(names(a)[non_none], NA), show_elements = TRUE )
+      g2 <- ggvenn::ggvenn(a, c(names(a)[non_none], NA), show_percentage = FALSE)
+      g2$data <- g$data %>% filter(group == "A")
+      g2$layers[[3]]$data <- g2$layers[[3]]$data[1,]
+      g2$layers[[3]]$data$text <- c(input$seta, input$setb, input$setc)[non_none]
+      g2$layers[[4]]$data <- g2$layers[[4]]$data[1,]
+      g2$layers[[4]]$data$text2 <- g$layers[[4]]$data$text[1]
+      rv$venntext <<- g$layers[[4]]$data$text
+      g2$labels[["text2"]] <- "text2"
+      g2$layers[[4]]$mapping <- aes(x = x, y =y, label = text, hjust = hjust, vjust = vjust, text = text2)
+      g2 
+    } else {
+      ggplot() + ggtitle("no gene lists loaded")
+    }
   })
   
   output$vennPlot <- renderPlotly({
