@@ -29,6 +29,7 @@ theme_set(theme_cowplot())
 ### folders
 datapath <- "data"
 annotpath <- "annot"
+listpath <- "data/lists"
 
 ### general data settings
 versionN <- 0.97
@@ -36,8 +37,8 @@ geoN <- "G1234"
 pageN <- 10
 warningN <- 100
 set_shinytheme <- "paper"
-track_name <- "hub_1519131_KG_HiC"
-track_url <- "http://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
+track_name <- "hub_1512849_KG_HiC"
+track_url <- "https://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
 gmt_file <- "c5.bp.v7.0.symbols.gmt"
 gmt_short <- "GO_"
 sig_cut <- 0.001
@@ -477,17 +478,25 @@ if (file.exists(paste0(datapath, "/seqs_precal.rds"))) {
   seqs_precal[["5mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 50) %>% pull(utr3),
     k = 5
   )
+  seqs_precal[["6mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 50) %>% pull(utr3),
+                                               k = 6
+  )
   seqs_precal[["7mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 50) %>% pull(utr3),
     k = 7
   )
   seqs_precal[["5mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 50) %>% pull(utr5),
     k = 5
   )
+  seqs_precal[["6mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 50) %>% pull(utr5),
+                                               k = 6
+  )
   seqs_precal[["7mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 50) %>% pull(utr5),
     k = 7
   )
   saveRDS(seqs_precal, paste0(datapath, "/seqs_precal.rds"))
 }
+
+motif_precal <- readRDS(paste0(annotpath, "/motif_bg.rds"))
 
 comp_kmer <- function(df = seqs,
                       gene_vec,
@@ -518,6 +527,57 @@ comp_kmer <- function(df = seqs,
 
 fivemers <- read_csv(paste0(annotpath, "/RBP_5mer.csv"))
 sevenmers <- read_csv(paste0(annotpath, "/mir_7mer.csv"))
+sixmers <- read_csv(paste0(annotpath, "/RBP_6mer.csv"))
+
+comp_motif <- function(df = seqs,
+                       gene_vec,
+                       col = "utr3",
+                       bac = motif_precal,
+                       cutoff = 50,
+                       motifsl = NULL,
+                       cachepath = paste0(annotpath, "/motif_bg/"),
+                       maxhits = 5,
+                       thresh_meth = "p.value",
+                       thresh_val = 0.25^6) {
+  time1 <- Sys.time()
+  enq <- df %>%
+    filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>%
+    pull(col)
+  if (length(enq) == 0) {
+    return(NA)
+  }
+  names(enq) <- df %>%
+    filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>%
+    pull(unique_gene_symbol)
+  enq <- enq[str_length(enq) >= cutoff] %>% na.omit()
+  enq <- enq[!str_detect(enq, "N")]
+  
+  enq_res <- scoreTranscripts(enq, motifs = motifsl, max.hits = maxhits,
+                              threshold.method = thresh_meth, 
+                              threshold.value = thresh_val,
+                              n.cores = 1,
+                              cache = cachepath)
+  time2 <- Sys.time()
+  print(time2 - time1)
+  res <- calculateMotifEnrichment(enq_res$df,
+                               bac$df,
+                               bac$total.sites,
+                               bac$absolute.hits,
+                               n.transcripts.foreground = length(enq))
+  time3 <- Sys.time()
+  print(time3 - time2)
+  meta <- motifsMetaInfo() 
+  res <- res %>% select(motif.id, RBP = motif.rbps, enrichment, adj.p.value) %>% 
+    left_join(meta %>% select(motif.id = id, RBP = rbps, kmer = iupac))
+  res %>% arrange(adj.p.value)
+}
+
+# load curated gene lists
+lists_vec <- list.files(listpath)
+gene_list <- sapply(lists_vec, function(x) {
+  print(x)
+  read_csv(paste0(listpath, "/", x)) %>% pull(1)
+}, simplify = FALSE)
 
 # some other code for webpage functions
 jscode <- '
@@ -830,11 +890,11 @@ ui <- fluidPage(
           tags$style(HTML(".radio-inline {margin-left: 5px;margin-right: 25px;}")),
           div(
             style = "display: inline-block;vertical-align:top;",
-            radioButtons("utr", "UTR choice", c("5UTR", "3UTR"), selected = "3UTR", inline = TRUE)
+            radioButtons("utr", "UTR choice", c("5UTR", "3UTR", "RBP"), selected = "3UTR", inline = TRUE)
           ),
           div(
             style = "display: inline-block;vertical-align:top;",
-            radioButtons("km", "kmer length", c("5", "7"), selected = "5", inline = TRUE)
+            radioButtons("km", "kmer length", c("5", "6", "7"), selected = "5", inline = TRUE)
           ),
           div(
             style = "display: inline-block;vertical-align:top;",
@@ -844,9 +904,29 @@ ui <- fluidPage(
           uiOutput("kmerPlotUI") %>% withSpinner()
         ),
         tabPanel(
-          title = span("venn",
+          title = span("gene_sets",
                        title= "visualize gene overlap between regions, and retrieve lists"),
           value = "venn",
+          div(
+            style = "display: inline-block;vertical-align:top; width: 160px;",
+          selectizeInput("seta", "geneset_A", 
+                         choices = c("_none", "_load_list", "_cart_list",
+                                     names(gene_list)), 
+                         selected = "fore_sig.csv")),
+          div(
+            style = "display: inline-block;vertical-align:top; width: 160px;",
+          selectizeInput("setb", "geneset_B", 
+                         choices = c("_none", "_load_list", "_cart_list",
+                                     names(gene_list)), 
+                         selected = "hy_sig.csv")),
+          div(
+            style = "display: inline-block;vertical-align:top; width: 160px;",
+          selectizeInput("setc", "geneset_C", 
+                         choices = c("_none", "_load_list", "_cart_list", 
+                                     names(gene_list)), 
+                         selected = "med_sig.csv")),
+          div(id = "doUpperdiv", checkboxInput("doUpper", "ignore case", value = T, width = NULL)),
+          bsTooltip("doUpperdiv", "coerce all gene symbols to upper case"),
           plotlyOutput("vennPlot") %>% withSpinner()
         ),
         tabPanel(
@@ -1705,35 +1785,45 @@ server <- function(input, output, session) {
     } else {
       lenchoice <- input$utrlen
     }
-    if (input$utr == "3UTR") {
-      utrchoice <- "utr3"
+    if (input$utr == "RBP") {
+      topsk <- comp_motif(gene_vec = genevec)
     } else {
-      utrchoice <- "utr5"
-      lenchoice <- -lenchoice
+      if (input$utr == "3UTR") {
+        utrchoice <- "utr3"
+      } else {
+        utrchoice <- "utr5"
+        lenchoice <- -lenchoice
+      }
+      precal <- paste0(input$km, "mers_", utrchoice)
+      topsk <- comp_kmer(gene_vec = genevec,
+                         bac = seqs_precal[[precal]], 
+                         col = utrchoice, 
+                         k = as.numeric(input$km))
+      if (input$km == "5") {
+        # topsk <- topsk %>%
+        #   dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
+        #   mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
+        #   left_join(fivemers, by = c("kmer" = "fivemer"))
+        topsk <- topsk %>% left_join(fivemers, by = c("kmer" = "fivemer"))
+      } else if (input$km == "6") {
+          # topsk <- topsk %>%
+          #   dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
+          #   mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
+          #   left_join(fivemers, by = c("kmer" = "fivemer"))
+          topsk <- topsk %>% left_join(sixmers, by = c("kmer" = "hexamer"))
+      }else {
+        # topsk <- topsk %>%
+        #   dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
+        #   mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
+        #   left_join(sevenmers, by = c("kmer" = "sevenmer")) %>%
+        #   rename(RBP = "mir")
+        topsk <- topsk %>%
+          left_join(sevenmers, by = c("kmer" = "sevenmer")) %>%
+          rename(RBP = "mir")
+      }
     }
-    precal <- paste0(input$km, "mers_", utrchoice)
-    topsk <- comp_kmer(gene_vec = genevec,
-                       bac = seqs_precal[[precal]], 
-                       col = utrchoice, 
-                       k = as.numeric(input$km))
     topsk <- topsk %>%
       mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment))
-    if (input$km == "5") {
-      # topsk <- topsk %>%
-      #   dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
-      #   mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
-      #   left_join(fivemers, by = c("kmer" = "fivemer"))
-      topsk <- topsk %>% left_join(fivemers, by = c("kmer" = "fivemer"))
-    } else {
-      # topsk <- topsk %>%
-      #   dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
-      #   mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
-      #   left_join(sevenmers, by = c("kmer" = "sevenmer")) %>%
-      #   rename(RBP = "mir")
-      topsk <- topsk %>%
-        left_join(sevenmers, by = c("kmer" = "sevenmer")) %>%
-        rename(RBP = "mir")
-    }
     topsk %>% replace_na(list(RBP = ""))
   })
   
@@ -1821,21 +1911,54 @@ server <- function(input, output, session) {
   
   venntemp <- reactive({
     rv$line_refresh
-    list(`Set 1` = c(1, 3, 5, 7, 9),
-         `Set 2` = c(1, 5, 9, 13),
-         `Set 3` = c(1, 2, 8, 9),
-         `Set 4` = c(6, 7, 10, 12))
+    temp <- list(`Set A` = gene_list[[input$seta]],
+         `Set B` = gene_list[[input$setb]],
+         `Set C` = gene_list[[input$setc]])
+    load_vec <- c(input$seta, input$setb, input$setc) == "_load_list"
+    if (sum(load_vec) > 0) {
+      for (element in names(temp)[load_vec]) {
+        temp[[element]] <- historytablist
+      }
+    }
+    load_vec <- c(input$seta, input$setb, input$setc) == "_cart_list"
+    if (sum(load_vec) > 0) {
+      for (element in names(temp)[load_vec]) {
+        temp[[element]] <- carttablist
+      }
+    }
+    if (input$doUpper) {
+      temp <- sapply(temp, function(x) str_to_upper(x))
+    }
+    temp
   })
   
   vennPlot1 <- reactive({
     a <- venntemp()
-    g <- ggvenn::ggvenn(a, c("Set 1", "Set 2", "Set 3"), show_elements = TRUE)
-    g2 <- ggvenn::ggvenn(a, c("Set 1", "Set 2", "Set 3"), show_percentage = FALSE)
-    g2$layers[[4]]$data$text2 <- g$layers[[4]]$data$text
-    rv$venntext <<- g$layers[[4]]$data$text
-    g2$labels[["text2"]] <- "text2"
-    g2$layers[[4]]$mapping <- aes(x = x, y =y, label = text, hjust = hjust, vjust = vjust, text = text2)
-    g2
+    non_none <- !sapply(a, is.null) & !duplicated(c(input$seta, input$setb, input$setc))
+    if (sum(non_none) > 1) {
+      g <- ggvenn::ggvenn(a, names(a)[non_none], show_elements = TRUE)
+      g2 <- ggvenn::ggvenn(a, names(a)[non_none], show_percentage = FALSE)
+      g2$layers[[3]]$data$text <- c(input$seta, input$setb, input$setc)[non_none]
+      g2$layers[[4]]$data$text2 <- g$layers[[4]]$data$text
+      rv$venntext <<- g$layers[[4]]$data$text
+      g2$labels[["text2"]] <- "text2"
+      g2$layers[[4]]$mapping <- aes(x = x, y = y, label = text, hjust = hjust, vjust = vjust, text = text2)
+      g2
+    } else if (sum(non_none) == 1) {
+      g <- ggvenn::ggvenn(a, c(names(a)[non_none], NA), show_elements = TRUE )
+      g2 <- ggvenn::ggvenn(a, c(names(a)[non_none], NA), show_percentage = FALSE)
+      g2$data <- g$data %>% filter(group == "A")
+      g2$layers[[3]]$data <- g2$layers[[3]]$data[1,]
+      g2$layers[[3]]$data$text <- c(input$seta, input$setb, input$setc)[non_none]
+      g2$layers[[4]]$data <- g2$layers[[4]]$data[1,]
+      g2$layers[[4]]$data$text2 <- g$layers[[4]]$data$text[1]
+      rv$venntext <<- g$layers[[4]]$data$text
+      g2$labels[["text2"]] <- "text2"
+      g2$layers[[4]]$mapping <- aes(x = x, y =y, label = text, hjust = hjust, vjust = vjust, text = text2)
+      g2 
+    } else {
+      ggplot() + ggtitle("no gene lists loaded")
+    }
   })
   
   output$vennPlot <- renderPlotly({
@@ -2105,15 +2228,12 @@ server <- function(input, output, session) {
       rownames = FALSE,
       extensions = 'ColReorder',
       options = list(
-        searchHighlight = TRUE,
+        #searchHighlight = TRUE, # breaks width
         pageLength = pageN,
-        columnDefs = list(
-          list(targets = c(7), visible = TRUE, width = "150px"),
-          list(targets = c(8), visible = TRUE, width = "150px"),
-          list(targets = c(9), visible = TRUE, width = "150px")
-        ),
-        scrollX = FALSE,
-        autoWidth = TRUE , colReorder = TRUE),
+        columnDefs = list(list(width = '175px',visible=TRUE, targets = list(7,8,9), className = 'dt-center')),
+        scrollX = TRUE,
+        autoWidth = TRUE,
+        colReorder = TRUE),
       callback = JS(paste0("var tips = [", columns_tips, "],
                             firstRow = $('#tbl thead tr th');
                             for (var i = 0; i < tips.length; i++) {
