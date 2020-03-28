@@ -538,50 +538,50 @@ fivemers <- read_csv(paste0(annotpath, "/RBP_5mer.csv"))
 sevenmers <- read_csv(paste0(annotpath, "/mir_7mer.csv"))
 sixmers <- read_csv(paste0(annotpath, "/RBP_6mer.csv"))
 
-comp_motif <- function(df = seqs,
-                       gene_vec,
-                       col = "utr3",
-                       bac = motif_precal,
-                       cutoff = 200,
-                       motifsl = NULL,
-                       cachepath = paste0(annotpath, "/motif_bg_rel/"),
-                       maxhits = 10, #5,
-                       thresh_meth = "relative", #p.value",
-                       thresh_val = 0.9) {
-  time1 <- Sys.time()
-  enq <- df %>%
-    filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>%
-    filter(str_length(cds) >= cutoff) %>% 
-    pull(col)
-  if (length(enq) == 0) {
-    return(NA)
-  }
-  names(enq) <- df %>%
-    filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>%
-    filter(str_length(cds) >= cutoff) %>% 
-    pull(unique_gene_symbol)
-  enq <- enq[str_length(enq) >= cutoff] %>% na.omit()
-  enq <- enq[!str_detect(enq, "N")]
-  
-  enq_res <- scoreTranscripts(enq, motifs = motifsl, max.hits = maxhits,
-                              threshold.method = thresh_meth, 
-                              threshold.value = thresh_val,
-                              n.cores = 1,
-                              cache = cachepath)
-  time2 <- Sys.time()
-  print(time2 - time1)
-  res <- calculateMotifEnrichment(enq_res$df,
-                               bac$df,
-                               bac$total.sites,
-                               bac$absolute.hits,
-                               n.transcripts.foreground = length(enq))
-  time3 <- Sys.time()
-  print(time3 - time2)
-  meta <- motifsMetaInfo() 
-  res <- res %>% select(motif.id, RBP = motif.rbps, enrichment, adj.p.value) %>% 
-    left_join(meta %>% select(motif.id = id, RBP = rbps, kmer = iupac))
-  res %>% arrange(adj.p.value)
-}
+# comp_motif <- function(df = seqs,
+#                        gene_vec,
+#                        col = "utr3",
+#                        bac = motif_precal,
+#                        cutoff = 200,
+#                        motifsl = NULL,
+#                        cachepath = paste0(annotpath, "/motif_bg_rel/"),
+#                        maxhits = 10, #5,
+#                        thresh_meth = "relative", #p.value",
+#                        thresh_val = 0.9) {
+#   time1 <- Sys.time()
+#   enq <- df %>%
+#     filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>%
+#     filter(str_length(cds) >= cutoff) %>% 
+#     pull(col)
+#   if (length(enq) == 0) {
+#     return(NA)
+#   }
+#   names(enq) <- df %>%
+#     filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>%
+#     filter(str_length(cds) >= cutoff) %>% 
+#     pull(unique_gene_symbol)
+#   enq <- enq[str_length(enq) >= cutoff] %>% na.omit()
+#   enq <- enq[!str_detect(enq, "N")]
+#   
+#   enq_res <- scoreTranscripts(enq, motifs = motifsl, max.hits = maxhits,
+#                               threshold.method = thresh_meth, 
+#                               threshold.value = thresh_val,
+#                               n.cores = 1,
+#                               cache = cachepath)
+#   time2 <- Sys.time()
+#   print(time2 - time1)
+#   res <- calculateMotifEnrichment(enq_res$df,
+#                                bac$df,
+#                                bac$total.sites,
+#                                bac$absolute.hits,
+#                                n.transcripts.foreground = length(enq))
+#   time3 <- Sys.time()
+#   print(time3 - time2)
+#   meta <- motifsMetaInfo() 
+#   res <- res %>% select(motif.id, RBP = motif.rbps, enrichment, adj.p.value) %>% 
+#     left_join(meta %>% select(motif.id = id, RBP = rbps, kmer = iupac))
+#   res %>% arrange(adj.p.value)
+# }
 
 # load curated gene lists
 lists_vec <- list.files(listpath)
@@ -803,10 +803,6 @@ ui <- fluidPage(
             )
           ),
           bsTooltip("doCollapsediv", "only show longest orf transcript for each gene"),
-          # downloadButton(
-          #   outputId = "saveFiltered",
-          #   label = "save filtered data"
-          # ),
           actionButton("loadtab", "load"),
           bsTooltip("loadtab", "send to loaded list in side panel"),
           DT::dataTableOutput("tbl")
@@ -815,10 +811,6 @@ ui <- fluidPage(
           title = span("majiq_alt",
                        title= "Table of majiq output for alternative splicing events"),
           value = "table_AS",
-          # downloadButton(
-          #   outputId = "saveFilteredAS",
-          #   label = "save filtered data"
-          # ),
           DT::dataTableOutput("alt")
         ),
         tabPanel(
@@ -833,11 +825,6 @@ ui <- fluidPage(
           value = "heat_plot",
           br(),
           fluidRow(
-            # column(width = 2,
-            #   downloadButton("savePlot3",
-            #                 label = "save plot"
-            #   ),
-            # ),
             column(
               width = 3,
               checkboxInput("doRowcluster",
@@ -891,13 +878,6 @@ ui <- fluidPage(
           title = span("kmer",
                        title= "kmer enrichment analysis and annotation for loaded gene list (slow)"),
           value = "kmer_analysis",
-          # downloadButton("savePlot4",
-          #   label = "save plot"
-          # ),
-          # downloadButton(
-          #   outputId = "saveK",
-          #   label = "save table"
-          # ),
           tags$style(HTML(".radio-inline {margin-left: 5px;margin-right: 25px;}")),
           div(
             style = "display: inline-block;vertical-align:top;",
@@ -911,8 +891,14 @@ ui <- fluidPage(
             style = "display: inline-block;vertical-align:top;",
             radioButtons("kmlab", "annotate kmer", c("yes", "no"), selected = "yes", inline = TRUE)
           ),
-          selectInput("utrlen", NULL, choices = c(200, 500, 1000, "full length"), selected = "full length"),
-          textInput("rbpterm", "highlight annotation", value = "MEX3C"),
+          div(
+            style = "display: inline-block;vertical-align:top;",
+            selectInput("utrlen", NULL, choices = c(200, 500, 1000, "full length"), selected = "full length")
+          ),
+          div(
+            style = "display: inline-block;vertical-align:top;",
+            textInput("rbpterm", "highlight annotation", value = "MEX3C")
+          ),
           uiOutput("kmerPlotUI") %>% withSpinner()
         ),
         tabPanel(
@@ -1813,27 +1799,13 @@ server <- function(input, output, session) {
                          col = utrchoice, 
                          k = as.numeric(input$km))
       if (input$km == "5") {
-        # topsk <- topsk %>%
-        #   dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
-        #   mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
-        #   left_join(fivemers, by = c("kmer" = "fivemer"))
         topsk <- topsk %>% left_join(fivemers, by = c("kmer" = "fivemer"))
       } else if (input$km == "6") {
-          # topsk <- topsk %>%
-          #   dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
-          #   mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
-          #   left_join(fivemers, by = c("kmer" = "fivemer"))
           topsk <- topsk %>% left_join(sixmers, by = c("kmer" = "hexamer"))
       }else {
-        # topsk <- topsk %>%
-        #   dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
-        #   mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
-        #   left_join(sevenmers, by = c("kmer" = "sevenmer")) %>%
-        #   rename(RBP = "mir")
         topsk <- topsk %>%
           left_join(sevenmers, by = c("kmer" = "sevenmer")) %>%
           rename(RBP = "mir")
-          #left_join(sevenmers, by = c("kmer" = "heptamer"))
       }
     }
     topsk <- topsk %>%
@@ -1855,28 +1827,6 @@ server <- function(input, output, session) {
         mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), kmer, "")) %>% 
         mutate(text1 = kmer)
     }
-    # ggplot(topsk %>% dplyr::slice(1:15), aes(x = reorder(kmer, minuslog10), y = minuslog10, text = RBP)) +
-    #   geom_bar(stat = "identity", aes(fill = enrichment)) +
-    #   scale_fill_gradient2(
-    #     low = "blue",
-    #     mid = "white",
-    #     high = "red",
-    #     midpoint = 0
-    #   ) +
-    #   coord_flip() +
-    #   xlab("kmer") +
-    #   labs(fill = "log2(enrichment)") +
-    #   cowplot::theme_minimal_vgrid() +
-    #   theme(
-    #     axis.text.y = element_text(size = 6),
-    #     axis.text.x = element_text(size = 10),
-    #     axis.title.y = element_text(size = 10),
-    #     axis.title.x = element_text(size = 10),
-    #     legend.position = "right",
-    #     legend.title = element_text(size = 6),
-    #     legend.text = element_text(size = 6)
-    #   ) +
-    #   scale_y_continuous(expand = c(0, 0))
     ggplot(topsk, aes(x = enrichment,
                       y = minuslog10, 
                       text = text1,
@@ -2005,10 +1955,6 @@ server <- function(input, output, session) {
       rv$listn2renew <- rv$listn2renew + 1
     }
   })
-
-  
-  
-  
   
   # list history genes as table
   output$historyl <- DT::renderDataTable({
