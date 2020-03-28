@@ -496,8 +496,6 @@ if (file.exists(paste0(datapath, "/seqs_precal_noG.rds"))) {
   saveRDS(seqs_precal, paste0(datapath, "/seqs_precal_noG.rds"))
 }
 
-motif_precal <- readRDS(paste0(annotpath, "/motif_bg_rel.rds"))
-
 comp_kmer <- function(df = seqs,
                       gene_vec,
                       col = "utr3",
@@ -671,7 +669,6 @@ ui <- fluidPage(
         id = "side1",
         tabPanel(
           span("links", title = "save files and external links"),
-          #tipify(uiOutput("conn"), "cluster assignment via kmeans for 3 brain regions"),
           uiOutput("tab"), 
           uiOutput("blastlink"),
           uiOutput("tab2"),
@@ -884,22 +881,29 @@ ui <- fluidPage(
             radioButtons("utr", "UTR choice", c("5UTR", "3UTR", "RBP"), selected = "3UTR", inline = TRUE)
           ),
           div(
-            style = "display: inline-block;vertical-align:top;",
+            id = "kmerdiv",
+            style = "display: inline-block;vertical-align:top; width:175px;",
             radioButtons("km", "kmer length", c("5", "6", "7"), selected = "6", inline = TRUE)
           ),
           div(
-            style = "display: inline-block;vertical-align:top;",
-            radioButtons("kmlab", "annotate kmer", c("yes", "no"), selected = "yes", inline = TRUE)
+            id = "kmlabdiv",
+            style = "display: inline-block;vertical-align:top; width:250px;",
+            tags$style(HTML(".radio-inline {margin-right: 10px;}")),
+            radioButtons("kmlab", "annotate kmer", c("RBP/mir", "seq", "none"), selected = "RBP/mir", inline = TRUE)
           ),
           div(
             style = "display: inline-block;vertical-align:top;",
             selectInput("utrlen", NULL, choices = c(200, 500, 1000, "full length"), selected = "full length")
           ),
           div(
+            id = "rbptermdiv",
             style = "display: inline-block;vertical-align:top;",
             textInput("rbpterm", "highlight annotation", value = "MEX3C")
           ),
-          uiOutput("kmerPlotUI") %>% withSpinner()
+          uiOutput("kmerPlotUI") %>% withSpinner(),
+          bsTooltip("kmerdiv", "Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed"),
+          bsTooltip("kmlabdiv", "label points with annotations"),
+          bsTooltip("rbptermdiv", "highlights annotation in black")
         ),
         tabPanel(
           title = span("gene_sets",
@@ -923,8 +927,17 @@ ui <- fluidPage(
                          choices = c("_none", "_load_list", "_cart_list", 
                                      names(gene_list)), 
                          selected = "med_sig.csv")),
-          div(id = "doUpperdiv", checkboxInput("doUpper", "ignore case", value = T, width = NULL)),
+          div(id = "doUpperdiv", 
+              checkboxInput("doUpper", 
+                            "ignore case", 
+                            value = T, 
+                            width = NULL),
+              style = "display: inline-block; width: 100px;"),
+          div(id = "loadalldiv", 
+              actionButton("Cart_all", "Cart_all"),
+              style = "display: inline-block"),
           bsTooltip("doUpperdiv", "coerce all gene symbols to upper case"),
+          bsTooltip("loadalldiv", "add all genes from these sets into `cart` side panel"),
           plotlyOutput("vennPlot") %>% withSpinner()
         ),
         tabPanel(
@@ -972,12 +985,19 @@ server <- function(input, output, session) {
   rv$mod_df <- data.frame()
   rv$toolarge <- 0
   rv$go <- 0
+  rv$tabinit_plot <- 0
+  rv$tabinit_data <- 0
+  rv$tabinit_enrich <- 0
+  rv$tabinit_kmer <- 0
+  rv$tabinit_venn <- 0
 
   # hide some checkboxes
   removeModal()
   hide("doKegg")
   hide("doMod")
   hide("doUcsc")
+  hide("doEigendiv")
+  hide("doTooltips")
   hide("utrlen")
   hide("utr")
   # hide("conn")
@@ -1210,30 +1230,6 @@ server <- function(input, output, session) {
       )
     }
   })
-
-  # finding module/cluster info
-  # output$conn <- renderTable({
-  #   if (input$doMod != T) {
-  #     return()
-  #   }
-  # 
-  #   if (nrow(rv$mod_df) == 0) {
-  #     mod1 <- "low expression everywhere"
-  #   } else {
-  #     mod1 <- rv$mod_df %>%
-  #       t() %>%
-  #       as.data.frame() %>%
-  #       rownames_to_column() %>%
-  #       pull %>% (V1)
-  #       # mutate(text = str_c(rowname, V1, sep = ": ")) %>%
-  #       # pull(text) %>%
-  #       # str_c(collapse = "<br>")
-  #   }
-# 
-#     HTML(str_c(
-#       mod1 # , r
-#     ))
-#   })
 
   # filter data
   outputtab <- reactive({
@@ -1818,7 +1814,7 @@ server <- function(input, output, session) {
     if (nrow(topsk) == 0) {
       return(ggplot() + ggtitle("no genes loaded"))
     }
-    if (input$kmlab == "yes") {
+    if (input$kmlab == "RBP/mir") {
       topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= -log10(0.05), "sig", "insig"))) %>%
         mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), "")) %>% 
         mutate(text1 = str_c(kmer, RBP, sep = "\n"))
@@ -1826,6 +1822,9 @@ server <- function(input, output, session) {
       topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= -log10(0.05), "sig", "insig"))) %>%
         mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), kmer, "")) %>% 
         mutate(text1 = kmer)
+    } 
+    if (input$kmlab == "none") {
+      topsk <- topsk %>% mutate(text2 = "")
     }
     ggplot(topsk, aes(x = enrichment,
                       y = minuslog10, 
@@ -1833,8 +1832,8 @@ server <- function(input, output, session) {
                       text2 = RBP,
                       label = text2)) +
       geom_point(aes(color = sig), size = 0.5) +
-      scale_color_manual(values = c("gray", "red")) +
-      geom_point(data = topsk %>% filter(str_detect(RBP, input$rbpterm)), color = "yellow", size = 0.5) +
+      scale_color_manual(values = c("#B3B3B3", "#FC8D62")) + # RColorBrewer::brewer.pal(8, "Set2")
+      geom_point(data = topsk %>% filter(str_detect(RBP, input$rbpterm)), color = "black", size = 0.5) +
       ggrepel::geom_text_repel(box.padding = 0.05, size = 3, aes(label = text2)) +
       xlab("log2enrichment") +
       labs(color = "")
@@ -1954,6 +1953,17 @@ server <- function(input, output, session) {
       )
       rv$listn2renew <- rv$listn2renew + 1
     }
+  })
+  
+  onclick("Cart_all", {
+    gene_vec <- unlist(venntemp()) %>% unique()
+    carttablist <- gene_vec
+    rv$listn2 <- length(carttablist)
+    updateTabsetPanel(session,
+                      "side2",
+                      selected = "cart"
+    )
+    rv$listn2renew <- rv$listn2renew + 1
   })
   
   # list history genes as table
@@ -2383,12 +2393,20 @@ server <- function(input, output, session) {
         enable("savePlot")
         disable("saveTable")
         output$savePlot <- savePlot
-        showNotification("tabs, modules, and columns of tables can be dragged and rearranged",
-                         type = "message")
+        if (rv$tabinit_plot == 0) {
+          showNotification("tabs, modules, and columns of tables can be dragged and rearranged",
+                           type = "message")
+          rv$tabinit_plot <<- 1
+        }
       } else if (input$tabMain == "table_data") {
         disable("savePlot")
         enable("saveTable")
         output$saveTable <- saveFiltered
+        if (rv$tabinit_data == 0) {
+          showNotification("type `low...high` to input custom range for numeric filtering on column",
+                           type = "message")
+          rv$tabinit_data <<- 1
+        }
       } else if (input$tabMain == "table_AS") {
         disable("savePlot")
         enable("saveTable")
@@ -2402,6 +2420,11 @@ server <- function(input, output, session) {
         enable("saveTable")
         output$savePlot <- savePlot2
         output$saveTable <- saveEnrich
+        if (rv$tabinit_enrich == 0) {
+          showNotification("add corresponding genes to cart by clicking on GO term bar",
+                           type = "message")
+          rv$tabinit_enrich <<- 1
+        }
       } else if (input$tabMain == "heat_plot") {
         enable("savePlot")
         disable("saveTable")
@@ -2411,12 +2434,20 @@ server <- function(input, output, session) {
         enable("saveTable")
         output$savePlot <- savePlot4
         output$saveTable <- saveK
+        if (rv$tabinit_kmer == 0) {
+          showNotification("Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed",
+                           type = "message")
+          rv$tabinit_kmer <<- 1
+        }
       } else if (input$tabMain == "venn") {
         enable("savePlot")
         disable("saveTable")
         output$savePlot <- savePlot6
-        showNotification("click on venn numbers to load associated genes into cart",
-                         type = "message")
+        if (rv$tabinit_venn == 0) {
+          showNotification("click on venn numbers to load associated genes into cart",
+                           type = "message")
+          rv$tabinit_venn <<- 1
+        }
       } else if (input$tabMain == "about") {
         disable("savePlot")
         disable("saveTable")
