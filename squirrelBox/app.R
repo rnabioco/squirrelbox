@@ -471,41 +471,41 @@ maj <- read_tsv(paste0(datapath, "/MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz")) 
 seqs <- read_feather(paste0(datapath, "/utrs_sq.feather")) %>%
   filter(gene_id %in% combined3$gene_id)
 
-if (file.exists(paste0(datapath, "/seqs_precal.rds"))) {
-  seqs_precal <- readRDS(paste0(datapath, "/seqs_precal.rds"))
+if (file.exists(paste0(datapath, "/seqs_precal_noG.rds"))) {
+  seqs_precal <- readRDS(paste0(datapath, "/seqs_precal_noG.rds"))
 } else {
   seqs_precal <- list()
-  seqs_precal[["5mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 50) %>% pull(utr3),
+  seqs_precal[["5mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 200, str_length(cds) >= 200) %>% pull(utr3),
     k = 5
   )
-  seqs_precal[["6mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 50) %>% pull(utr3),
+  seqs_precal[["6mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 200, str_length(cds) >= 200) %>% pull(utr3),
                                                k = 6
   )
-  seqs_precal[["7mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 50) %>% pull(utr3),
+  seqs_precal[["7mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 200, str_length(cds) >= 200) %>% pull(utr3),
     k = 7
   )
-  seqs_precal[["5mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 50) %>% pull(utr5),
+  seqs_precal[["5mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 200, str_length(cds) >= 200) %>% pull(utr5),
     k = 5
   )
-  seqs_precal[["6mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 50) %>% pull(utr5),
+  seqs_precal[["6mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 200, str_length(cds) >= 200) %>% pull(utr5),
                                                k = 6
   )
-  seqs_precal[["7mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 50) %>% pull(utr5),
+  seqs_precal[["7mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 200, str_length(cds) >= 200) %>% pull(utr5),
     k = 7
   )
-  saveRDS(seqs_precal, paste0(datapath, "/seqs_precal.rds"))
+  saveRDS(seqs_precal, paste0(datapath, "/seqs_precal_noG.rds"))
 }
 
-motif_precal <- readRDS(paste0(annotpath, "/motif_bg.rds"))
+motif_precal <- readRDS(paste0(annotpath, "/motif_bg_rel.rds"))
 
 comp_kmer <- function(df = seqs,
                       gene_vec,
                       col = "utr3",
                       bac = seqs_precal[["5mers_utr3"]],
                       k = 5,
-                      cutoff = 50) {
+                      cutoff = 200) {
   enq <- df %>%
-    filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>%
+    filter(str_to_upper(unique_gene_symbol) %in% str_to_upper(gene_vec)) %>%
     pull(col) %>%
     na.omit()
   if (length(enq) == 0) {
@@ -513,15 +513,24 @@ comp_kmer <- function(df = seqs,
   }
   enq <- enq[str_length(enq) >= cutoff]
 
+  print(length(enq))
   enq_res <- generateKmers(enq, k)
 
+  bac <- df %>%
+    filter(!(str_to_upper(unique_gene_symbol) %in% str_to_upper(gene_vec))) %>%
+    pull(col) %>%
+    na.omit()
+  bac <- bac[str_length(bac) >= cutoff]
+  print(length(bac))
+  bac <- generateKmers(bac, k)
+  
   res <- computeKmerEnrichment(enq_res,
     bac,
     permutation = FALSE,
     chisq.p.value.threshold = 0,
-    p.adjust.method = "BH"
+    p.adjust.method = "fdr"
   )
-  res$kmer <- str_replace_all(names(bac), "T", "U")
+  res$kmer <- str_replace_all(names(enq_res), "T", "U")
   res %>% arrange(adj.p.value)
 }
 
@@ -533,21 +542,23 @@ comp_motif <- function(df = seqs,
                        gene_vec,
                        col = "utr3",
                        bac = motif_precal,
-                       cutoff = 50,
+                       cutoff = 200,
                        motifsl = NULL,
-                       cachepath = paste0(annotpath, "/motif_bg/"),
-                       maxhits = 5,
-                       thresh_meth = "p.value",
-                       thresh_val = 0.25^6) {
+                       cachepath = paste0(annotpath, "/motif_bg_rel/"),
+                       maxhits = 10, #5,
+                       thresh_meth = "relative", #p.value",
+                       thresh_val = 0.9) {
   time1 <- Sys.time()
   enq <- df %>%
     filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>%
+    filter(str_length(cds) >= cutoff) %>% 
     pull(col)
   if (length(enq) == 0) {
     return(NA)
   }
   names(enq) <- df %>%
     filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>%
+    filter(str_length(cds) >= cutoff) %>% 
     pull(unique_gene_symbol)
   enq <- enq[str_length(enq) >= cutoff] %>% na.omit()
   enq <- enq[!str_detect(enq, "N")]
@@ -894,13 +905,14 @@ ui <- fluidPage(
           ),
           div(
             style = "display: inline-block;vertical-align:top;",
-            radioButtons("km", "kmer length", c("5", "6", "7"), selected = "5", inline = TRUE)
+            radioButtons("km", "kmer length", c("5", "6", "7"), selected = "6", inline = TRUE)
           ),
           div(
             style = "display: inline-block;vertical-align:top;",
             radioButtons("kmlab", "annotate kmer", c("yes", "no"), selected = "yes", inline = TRUE)
           ),
           selectInput("utrlen", NULL, choices = c(200, 500, 1000, "full length"), selected = "full length"),
+          textInput("rbpterm", "highlight annotation", value = "MEX3C"),
           uiOutput("kmerPlotUI") %>% withSpinner()
         ),
         tabPanel(
@@ -981,6 +993,7 @@ server <- function(input, output, session) {
   hide("doMod")
   hide("doUcsc")
   hide("utrlen")
+  hide("utr")
   # hide("conn")
 
   # empty history list to start
@@ -1820,6 +1833,7 @@ server <- function(input, output, session) {
         topsk <- topsk %>%
           left_join(sevenmers, by = c("kmer" = "sevenmer")) %>%
           rename(RBP = "mir")
+          #left_join(sevenmers, by = c("kmer" = "heptamer"))
       }
     }
     topsk <- topsk %>%
@@ -1833,11 +1847,11 @@ server <- function(input, output, session) {
       return(ggplot() + ggtitle("no genes loaded"))
     }
     if (input$kmlab == "yes") {
-      topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= 2, "sig", "insig"))) %>%
+      topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= -log10(0.05), "sig", "insig"))) %>%
         mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), "")) %>% 
         mutate(text1 = str_c(kmer, RBP, sep = "\n"))
     } else {
-      topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= 2, "sig", "insig"))) %>%
+      topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= -log10(0.05), "sig", "insig"))) %>%
         mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), kmer, "")) %>% 
         mutate(text1 = kmer)
     }
@@ -1868,8 +1882,9 @@ server <- function(input, output, session) {
                       text = text1,
                       text2 = RBP,
                       label = text2)) +
-      geom_point(aes(color = sig)) +
+      geom_point(aes(color = sig), size = 0.5) +
       scale_color_manual(values = c("gray", "red")) +
+      geom_point(data = topsk %>% filter(str_detect(RBP, input$rbpterm)), color = "yellow", size = 0.5) +
       ggrepel::geom_text_repel(box.padding = 0.05, size = 3, aes(label = text2)) +
       xlab("log2enrichment") +
       labs(color = "")
