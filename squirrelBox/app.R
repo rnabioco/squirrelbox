@@ -36,6 +36,8 @@ versionN <- 0.97
 geoN <- "G1234"
 pageN <- 10
 warningN <- 100
+plot_width <- 8
+plot_height <- 6
 set_shinytheme <- "paper"
 track_name <- "hub_1512849_KG_HiC"
 track_url <- "https://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
@@ -48,7 +50,6 @@ ncore <- parallel::detectCores() - 1
 table_cols <- c(
   "gene_id", # comment out to remove from table outputs
   "unique_gene_symbol",
-  #"gene_symbol",
   "clean_gene_symbol",
   "original_gene_name",
   "source"
@@ -199,9 +200,7 @@ mod <- mod[, c("gene", intersect(str_c("cluster_", region_one), colnames(mod)))]
 
 eigen <- read_tsv(paste0(datapath, "/cluster_patterns_matrices/reference_patterns.tsv")) %>%
   rename(state = X1) %>%
-  mutate(state = factor(state,
-    levels = state_order
-  ))
+  mutate(state = factor(state, levels = state_order))
 
 eigen_gg <- list()
 for (clu in colnames(eigen[, -1])) {
@@ -440,7 +439,11 @@ fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
     if (length(stringofhits) == 0) {
       stringofhits <- ""
     }
-    pval <- phyper(hitInSample - 1, hitInPop, failInPop, sampleSize, lower.tail = FALSE)
+    pval <- phyper(hitInSample - 1,
+                   hitInPop, 
+                   failInPop, 
+                   sampleSize, 
+                   lower.tail = FALSE)
     return(c(hits = stringofhits, pval = pval))
   }, simplify = FALSE)
   res <- data.frame(res) %>% data.table::transpose()
@@ -471,41 +474,51 @@ maj <- read_tsv(paste0(datapath, "/MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz")) 
 seqs <- read_feather(paste0(datapath, "/utrs_sq.feather")) %>%
   filter(gene_id %in% combined3$gene_id)
 
-if (file.exists(paste0(datapath, "/seqs_precal.rds"))) {
-  seqs_precal <- readRDS(paste0(datapath, "/seqs_precal.rds"))
+if (file.exists(paste0(datapath, "/seqs_precal_noG.rds"))) {
+  seqs_precal <- readRDS(paste0(datapath, "/seqs_precal_noG.rds"))
 } else {
   seqs_precal <- list()
-  seqs_precal[["5mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 50) %>% pull(utr3),
-    k = 5
+  seqs_precal[["5mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 200, 
+                                                               str_length(cds) >= 200) %>%
+                                                 pull(utr3),
+                                               k = 5
   )
-  seqs_precal[["6mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 50) %>% pull(utr3),
+  seqs_precal[["6mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 200, 
+                                                               str_length(cds) >= 200) %>%
+                                                 pull(utr3),
                                                k = 6
   )
-  seqs_precal[["7mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 50) %>% pull(utr3),
-    k = 7
+  seqs_precal[["7mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 200,
+                                                               str_length(cds) >= 200) %>% 
+                                                 pull(utr3),
+                                               k = 7
   )
-  seqs_precal[["5mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 50) %>% pull(utr5),
-    k = 5
+  seqs_precal[["5mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 200, 
+                                                               str_length(cds) >= 200) %>%
+                                                 pull(utr5),
+                                               k = 5
   )
-  seqs_precal[["6mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 50) %>% pull(utr5),
+  seqs_precal[["6mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 200, 
+                                                               str_length(cds) >= 200) %>% 
+                                                 pull(utr5),
                                                k = 6
   )
-  seqs_precal[["7mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 50) %>% pull(utr5),
-    k = 7
+  seqs_precal[["7mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 200,
+                                                               str_length(cds) >= 200) %>%
+                                                 pull(utr5),
+                                               k = 7
   )
-  saveRDS(seqs_precal, paste0(datapath, "/seqs_precal.rds"))
+  saveRDS(seqs_precal, paste0(datapath, "/seqs_precal_noG.rds"))
 }
-
-motif_precal <- readRDS(paste0(annotpath, "/motif_bg.rds"))
 
 comp_kmer <- function(df = seqs,
                       gene_vec,
                       col = "utr3",
                       bac = seqs_precal[["5mers_utr3"]],
                       k = 5,
-                      cutoff = 50) {
+                      cutoff = 200) {
   enq <- df %>%
-    filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>%
+    filter(str_to_upper(unique_gene_symbol) %in% str_to_upper(gene_vec)) %>%
     pull(col) %>%
     na.omit()
   if (length(enq) == 0) {
@@ -513,64 +526,30 @@ comp_kmer <- function(df = seqs,
   }
   enq <- enq[str_length(enq) >= cutoff]
 
+  print(length(enq))
   enq_res <- generateKmers(enq, k)
 
+  bac <- df %>%
+    filter(!(str_to_upper(unique_gene_symbol) %in% str_to_upper(gene_vec))) %>%
+    pull(col) %>%
+    na.omit()
+  bac <- bac[str_length(bac) >= cutoff]
+  print(length(bac))
+  bac <- generateKmers(bac, k)
+  
   res <- computeKmerEnrichment(enq_res,
     bac,
     permutation = FALSE,
     chisq.p.value.threshold = 0,
-    p.adjust.method = "BH"
+    p.adjust.method = "fdr"
   )
-  res$kmer <- str_replace_all(names(bac), "T", "U")
+  res$kmer <- str_replace_all(names(enq_res), "T", "U")
   res %>% arrange(adj.p.value)
 }
 
 fivemers <- read_csv(paste0(annotpath, "/RBP_5mer.csv"))
 sevenmers <- read_csv(paste0(annotpath, "/mir_7mer.csv"))
 sixmers <- read_csv(paste0(annotpath, "/RBP_6mer.csv"))
-
-comp_motif <- function(df = seqs,
-                       gene_vec,
-                       col = "utr3",
-                       bac = motif_precal,
-                       cutoff = 50,
-                       motifsl = NULL,
-                       cachepath = paste0(annotpath, "/motif_bg/"),
-                       maxhits = 5,
-                       thresh_meth = "p.value",
-                       thresh_val = 0.25^6) {
-  time1 <- Sys.time()
-  enq <- df %>%
-    filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>%
-    pull(col)
-  if (length(enq) == 0) {
-    return(NA)
-  }
-  names(enq) <- df %>%
-    filter(str_to_upper(unique_gene_symbol) %in% gene_vec) %>%
-    pull(unique_gene_symbol)
-  enq <- enq[str_length(enq) >= cutoff] %>% na.omit()
-  enq <- enq[!str_detect(enq, "N")]
-  
-  enq_res <- scoreTranscripts(enq, motifs = motifsl, max.hits = maxhits,
-                              threshold.method = thresh_meth, 
-                              threshold.value = thresh_val,
-                              n.cores = 1,
-                              cache = cachepath)
-  time2 <- Sys.time()
-  print(time2 - time1)
-  res <- calculateMotifEnrichment(enq_res$df,
-                               bac$df,
-                               bac$total.sites,
-                               bac$absolute.hits,
-                               n.transcripts.foreground = length(enq))
-  time3 <- Sys.time()
-  print(time3 - time2)
-  meta <- motifsMetaInfo() 
-  res <- res %>% select(motif.id, RBP = motif.rbps, enrichment, adj.p.value) %>% 
-    left_join(meta %>% select(motif.id = id, RBP = rbps, kmer = iupac))
-  res %>% arrange(adj.p.value)
-}
 
 # load curated gene lists
 lists_vec <- list.files(listpath)
@@ -630,7 +609,8 @@ ui <- fluidPage(
   # tags$script(HTML("$('body').addClass('sidebar-mini');")),
   titlePanel(div(
     class = "header", img(src = "logo.png", style = "width : 4%;"),
-    "13-lined ground squirrel gene-level RNA-seq expression", style = "font-size:23px"
+    "13-lined ground squirrel gene-level RNA-seq expression", 
+    style = "font-size:23px"
   )),
   fixedPanel(
     style = "z-index:100;",
@@ -654,13 +634,14 @@ ui <- fluidPage(
         `data-proxy-click` = "Find"
         )
       ),
-      div(style = "display: inline-block;vertical-align:top; width: 10px;", actionButton("Find", "Find")),
+      div(
+        style = "display: inline-block;vertical-align:top; width: 10px;", 
+        actionButton("Find", "Find")),
       bsTooltip("Find", "gene id/symbols accepted"),
       tabsetPanel(
         id = "side1",
         tabPanel(
           span("links", title = "save files and external links"),
-          #tipify(uiOutput("conn"), "cluster assignment via kmeans for 3 brain regions"),
           uiOutput("tab"), 
           uiOutput("blastlink"),
           uiOutput("tab2"),
@@ -747,7 +728,7 @@ ui <- fluidPage(
           DT::dataTableOutput("results"),
           bsCollapse(
             id = "tabs", multiple = TRUE, open = "NULL",
-            bsCollapsePanel(# tableOutput("conn") %>% withSpinner(),
+            bsCollapsePanel(
                             uiOutput("EigenPlot") %>% withSpinner(),
                             title = "cluster_assignments",
                             style = "danger"
@@ -792,10 +773,6 @@ ui <- fluidPage(
             )
           ),
           bsTooltip("doCollapsediv", "only show longest orf transcript for each gene"),
-          # downloadButton(
-          #   outputId = "saveFiltered",
-          #   label = "save filtered data"
-          # ),
           actionButton("loadtab", "load"),
           bsTooltip("loadtab", "send to loaded list in side panel"),
           DT::dataTableOutput("tbl")
@@ -804,10 +781,6 @@ ui <- fluidPage(
           title = span("majiq_alt",
                        title= "Table of majiq output for alternative splicing events"),
           value = "table_AS",
-          # downloadButton(
-          #   outputId = "saveFilteredAS",
-          #   label = "save filtered data"
-          # ),
           DT::dataTableOutput("alt")
         ),
         tabPanel(
@@ -817,16 +790,11 @@ ui <- fluidPage(
           plotlyOutput("linePlot") %>% withSpinner()
         ),
         tabPanel(
-          title = span("heat_plot",
+          title = span("heatmap",
                        title= "Plot Z-Score of loaded gene list as heat map"),
           value = "heat_plot",
           br(),
           fluidRow(
-            # column(width = 2,
-            #   downloadButton("savePlot3",
-            #                 label = "save plot"
-            #   ),
-            # ),
             column(
               width = 3,
               checkboxInput("doRowcluster",
@@ -880,28 +848,35 @@ ui <- fluidPage(
           title = span("kmer",
                        title= "kmer enrichment analysis and annotation for loaded gene list (slow)"),
           value = "kmer_analysis",
-          # downloadButton("savePlot4",
-          #   label = "save plot"
-          # ),
-          # downloadButton(
-          #   outputId = "saveK",
-          #   label = "save table"
-          # ),
           tags$style(HTML(".radio-inline {margin-left: 5px;margin-right: 25px;}")),
           div(
             style = "display: inline-block;vertical-align:top;",
             radioButtons("utr", "UTR choice", c("5UTR", "3UTR", "RBP"), selected = "3UTR", inline = TRUE)
           ),
           div(
-            style = "display: inline-block;vertical-align:top;",
-            radioButtons("km", "kmer length", c("5", "6", "7"), selected = "5", inline = TRUE)
+            id = "kmerdiv",
+            style = "display: inline-block;vertical-align:top; width:175px;",
+            radioButtons("km", "kmer length", c("5", "6", "7"), selected = "6", inline = TRUE)
+          ),
+          div(
+            id = "kmlabdiv",
+            style = "display: inline-block;vertical-align:top; width:250px;",
+            tags$style(HTML(".radio-inline {margin-right: 10px;}")),
+            radioButtons("kmlab", "annotate kmer", c("RBP/mir", "seq", "none"), selected = "RBP/mir", inline = TRUE)
           ),
           div(
             style = "display: inline-block;vertical-align:top;",
-            radioButtons("kmlab", "annotate kmer", c("yes", "no"), selected = "yes", inline = TRUE)
+            selectInput("utrlen", NULL, choices = c(200, 500, 1000, "full length"), selected = "full length")
           ),
-          selectInput("utrlen", NULL, choices = c(200, 500, 1000, "full length"), selected = "full length"),
-          uiOutput("kmerPlotUI") %>% withSpinner()
+          div(
+            id = "rbptermdiv",
+            style = "display: inline-block;vertical-align:top;",
+            textInput("rbpterm", "highlight annotation", value = "MEX3C")
+          ),
+          uiOutput("kmerPlotUI") %>% withSpinner(),
+          bsTooltip("kmerdiv", "Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed"),
+          bsTooltip("kmlabdiv", "label points with annotations"),
+          bsTooltip("rbptermdiv", "highlights annotation in black")
         ),
         tabPanel(
           title = span("gene_sets",
@@ -925,8 +900,17 @@ ui <- fluidPage(
                          choices = c("_none", "_load_list", "_cart_list", 
                                      names(gene_list)), 
                          selected = "med_sig.csv")),
-          div(id = "doUpperdiv", checkboxInput("doUpper", "ignore case", value = T, width = NULL)),
+          div(id = "doUpperdiv", 
+              checkboxInput("doUpper", 
+                            "ignore case", 
+                            value = T, 
+                            width = NULL),
+              style = "display: inline-block; width: 100px;"),
+          div(id = "loadalldiv", 
+              actionButton("Cart_all", "Cart_all"),
+              style = "display: inline-block"),
           bsTooltip("doUpperdiv", "coerce all gene symbols to upper case"),
+          bsTooltip("loadalldiv", "add all genes from these sets into `cart` side panel"),
           plotlyOutput("vennPlot") %>% withSpinner()
         ),
         tabPanel(
@@ -974,14 +958,21 @@ server <- function(input, output, session) {
   rv$mod_df <- data.frame()
   rv$toolarge <- 0
   rv$go <- 0
+  rv$tabinit_plot <- 0
+  rv$tabinit_data <- 0
+  rv$tabinit_enrich <- 0
+  rv$tabinit_kmer <- 0
+  rv$tabinit_venn <- 0
 
   # hide some checkboxes
   removeModal()
   hide("doKegg")
   hide("doMod")
   hide("doUcsc")
+  hide("doEigendiv")
+  hide("doTooltips")
   hide("utrlen")
-  # hide("conn")
+  hide("utr")
 
   # empty history list to start
   historytab <- c()
@@ -1116,7 +1107,8 @@ server <- function(input, output, session) {
         mutate(call1 = as.numeric(call1)) %>%
         mutate(region = as.character(region))
       temp2$region <- region_order[factor(temp2$region, level = region_short) %>% as.numeric()]
-      temp3 <- groups_to_letters_igraph(temp2) %>% mutate(region = factor(region, level = region_order))
+      temp3 <- groups_to_letters_igraph(temp2) %>% 
+        mutate(region = factor(region, level = region_order))
 
       if (!(is.na(plot_temp$log2_counts) %>% all())) {
         agg <- aggregate(log2_counts ~ state + region, plot_temp, max)
@@ -1153,9 +1145,9 @@ server <- function(input, output, session) {
     g <- boxPlot1()
     output$boxPlot <- renderPlot(g)
     if (input$doTis + input$doBr == 2) {
-      plotOutput("boxPlot", width = 800, height = 600)
+      plotOutput("boxPlot", width = plot_width * 100, height = plot_height * 100)
     } else {
-      plotOutput("boxPlot", width = 800, height = 300)
+      plotOutput("boxPlot", width = plot_width * 100, height = plot_height * 100 / 2)
     }
   })
 
@@ -1165,9 +1157,9 @@ server <- function(input, output, session) {
     output$boxPlot2 <- renderPlotly(ggplotly(g + facet_wrap(~region), tooltip = "text") %>%
       layout(hovermode = "closest"))
     if (input$doTis + input$doBr == 2) {
-      plotlyOutput("boxPlot2", width = 800, height = 600)
+      plotlyOutput("boxPlot2", width = plot_width * 100, height = plot_height * 100)
     } else {
-      plotlyOutput("boxPlot2", width = 800, height = 300)
+      plotlyOutput("boxPlot2", width = plot_width * 100, height = plot_height * 100 / 2)
     }
   })
 
@@ -1185,7 +1177,7 @@ server <- function(input, output, session) {
     if (input$doEigen != T) {
       plotOutput("boxPlot3", height = 1)
     } else {
-      plotOutput("boxPlot3", width = 800, height = 300)
+      plotOutput("boxPlot3", width = plot_width * 100, height = plot_height * 100 / 2)
     }
   })
 
@@ -1211,30 +1203,6 @@ server <- function(input, output, session) {
       )
     }
   })
-
-  # finding module/cluster info
-  # output$conn <- renderTable({
-  #   if (input$doMod != T) {
-  #     return()
-  #   }
-  # 
-  #   if (nrow(rv$mod_df) == 0) {
-  #     mod1 <- "low expression everywhere"
-  #   } else {
-  #     mod1 <- rv$mod_df %>%
-  #       t() %>%
-  #       as.data.frame() %>%
-  #       rownames_to_column() %>%
-  #       pull %>% (V1)
-  #       # mutate(text = str_c(rowname, V1, sep = ": ")) %>%
-  #       # pull(text) %>%
-  #       # str_c(collapse = "<br>")
-  #   }
-# 
-#     HTML(str_c(
-#       mod1 # , r
-#     ))
-#   })
 
   # filter data
   outputtab <- reactive({
@@ -1516,11 +1484,11 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       if (input$doTis + input$doBr == 2) {
-        w <- 8
-        h <- 6
+        w <- plot_width
+        h <- plot_height
       } else {
-        w <- 8
-        h <- 3
+        w <- plot_width
+        h <- plot_height / 2
       }
       ggplot2::ggsave(file, plot = boxPlot1(), device = "pdf", width = w, height = h)
     }
@@ -1598,14 +1566,13 @@ server <- function(input, output, session) {
     fac <- input$doTis + input$doBr
     if ((rv$toolarge == 0) | (rv$toolarge == 1 & rv$go == 2)) {
       if (input$doName == T) {
-        # highlight(ggplotly(g, tooltip = "text"),"plotly_hover")
-        ggplotly(g, tooltip = "text", height = 300 * fac, width = 800) %>% layout(
+        ggplotly(g, tooltip = "text", height = plot_height * 100 * fac / 2, width = plot_width * 100) %>%
+          layout(
           autosize = FALSE,
           showlegend = TRUE
         )
       } else {
-        # highlight(ggplotly(g, tooltip = "text"),"plotly_hover")
-        ggplotly(g, tooltip = "text", height = 300 * fac, width = 800)
+        ggplotly(g, tooltip = "text", height = plot_height * 100 * fac / 2, width = plot_width * 100)
       }
     } else {
       if (rv$go <= 0) {
@@ -1619,7 +1586,7 @@ server <- function(input, output, session) {
     filename = "lineplot.pdf",
     content = function(file) {
       fac <- input$doTis + input$doBr
-      ggplot2::ggsave(file, plot = linePlot1(), device = "pdf", width = 8, height = 3 * fac)
+      ggplot2::ggsave(file, plot = linePlot1(), device = "pdf", width = plot_width, height = plot_height / 2 * fac)
     }
   )
   
@@ -1698,7 +1665,7 @@ server <- function(input, output, session) {
       if (input$doAutoresize) {
         pdf(file, width = (h@matrix %>% dim())[2], height = (h@matrix %>% dim())[1])
       } else {
-        pdf(file, width = 8, height = 8)
+        pdf(file, width = plot_width, height = plot_height)
       }
       print(h)
       dev.off()
@@ -1714,6 +1681,7 @@ server <- function(input, output, session) {
     genevec <- unique_to_clean(historytablist, namedvec) %>% str_to_upper()
     tops <- fisher(genevec, gmtlist, length_detected_genes)
     tops <- tops %>% dplyr::slice(1:max(min(which(tops$padj > 0.01)), 15))
+    tops$pathway <- reorder(tops$pathway, tops$minuslog10)
     tops
    
   })
@@ -1723,7 +1691,8 @@ server <- function(input, output, session) {
     if (nrow(tops) == 0) {
       return(ggplot() + ggtitle("no genes loaded"))
     }
-    ggplot(tops %>% dplyr::slice(1:15), aes(x = reorder(pathway, minuslog10), y = minuslog10, fill = -minuslog10, text = len)) +
+    ggplot(tops %>% dplyr::slice(1:15), 
+           aes(x = pathway, y = minuslog10, fill = -minuslog10, text = len)) +
       geom_bar(stat = "identity") +
       xlab(paste0("enriched : ", str_remove(gmt_short, "_"))) +
       coord_flip() +
@@ -1735,11 +1704,13 @@ server <- function(input, output, session) {
         axis.title.x = element_text(size = 10),
         legend.position = "none"
       ) +
-      scale_y_continuous(expand = c(0, 0))
+      scale_y_continuous(expand = c(0, 0)) +
+      geom_hline(yintercept = -log10(0.05))
   })
 
   output$richPlot <- renderPlotly({
-    ggplotly(richPlot1(), source = "richPlot", tooltip = "text", height = 600, width = 800) %>%
+    ggplotly(richPlot1(), 
+             source = "richPlot", tooltip = "text", height = plot_height * 100, width = plot_width * 100) %>%
       layout(autosize = F) %>%
       highlight()
   })
@@ -1747,7 +1718,7 @@ server <- function(input, output, session) {
   savePlot2 <- downloadHandler(
     filename = "enriched.pdf",
     content = function(file) {
-      ggplot2::ggsave(file, plot = richPlot1(), device = "pdf", width = 8, height = 6)
+      ggplot2::ggsave(file, plot = richPlot1(), device = "pdf", width = plot_width, height = plot_height)
     }
   )
 
@@ -1800,23 +1771,10 @@ server <- function(input, output, session) {
                          col = utrchoice, 
                          k = as.numeric(input$km))
       if (input$km == "5") {
-        # topsk <- topsk %>%
-        #   dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
-        #   mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
-        #   left_join(fivemers, by = c("kmer" = "fivemer"))
         topsk <- topsk %>% left_join(fivemers, by = c("kmer" = "fivemer"))
       } else if (input$km == "6") {
-          # topsk <- topsk %>%
-          #   dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
-          #   mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
-          #   left_join(fivemers, by = c("kmer" = "fivemer"))
           topsk <- topsk %>% left_join(sixmers, by = c("kmer" = "hexamer"))
       }else {
-        # topsk <- topsk %>%
-        #   dplyr::slice(1:max(min(which(topsk$adj.p.value > 0.05)), 15)) %>%
-        #   mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment)) %>%
-        #   left_join(sevenmers, by = c("kmer" = "sevenmer")) %>%
-        #   rename(RBP = "mir")
         topsk <- topsk %>%
           left_join(sevenmers, by = c("kmer" = "sevenmer")) %>%
           rename(RBP = "mir")
@@ -1832,44 +1790,29 @@ server <- function(input, output, session) {
     if (nrow(topsk) == 0) {
       return(ggplot() + ggtitle("no genes loaded"))
     }
-    if (input$kmlab == "yes") {
-      topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= 2, "sig", "insig"))) %>%
+    if (input$kmlab == "RBP/mir") {
+      topsk <- topsk %>%
+        mutate(sig = factor(ifelse(minuslog10 >= -log10(0.05), "sig", "insig"))) %>%
         mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), "")) %>% 
         mutate(text1 = str_c(kmer, RBP, sep = "\n"))
     } else {
-      topsk <- topsk %>% mutate(sig = factor(ifelse(minuslog10 >= 2, "sig", "insig"))) %>%
+      topsk <- topsk %>%
+        mutate(sig = factor(ifelse(minuslog10 >= -log10(0.05), "sig", "insig"))) %>%
         mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), kmer, "")) %>% 
         mutate(text1 = kmer)
+    } 
+    if (input$kmlab == "none") {
+      topsk <- topsk %>% mutate(text2 = "")
     }
-    # ggplot(topsk %>% dplyr::slice(1:15), aes(x = reorder(kmer, minuslog10), y = minuslog10, text = RBP)) +
-    #   geom_bar(stat = "identity", aes(fill = enrichment)) +
-    #   scale_fill_gradient2(
-    #     low = "blue",
-    #     mid = "white",
-    #     high = "red",
-    #     midpoint = 0
-    #   ) +
-    #   coord_flip() +
-    #   xlab("kmer") +
-    #   labs(fill = "log2(enrichment)") +
-    #   cowplot::theme_minimal_vgrid() +
-    #   theme(
-    #     axis.text.y = element_text(size = 6),
-    #     axis.text.x = element_text(size = 10),
-    #     axis.title.y = element_text(size = 10),
-    #     axis.title.x = element_text(size = 10),
-    #     legend.position = "right",
-    #     legend.title = element_text(size = 6),
-    #     legend.text = element_text(size = 6)
-    #   ) +
-    #   scale_y_continuous(expand = c(0, 0))
     ggplot(topsk, aes(x = enrichment,
                       y = minuslog10, 
                       text = text1,
                       text2 = RBP,
                       label = text2)) +
-      geom_point(aes(color = sig)) +
-      scale_color_manual(values = c("gray", "red")) +
+      geom_point(aes(color = sig), size = 0.5) +
+      scale_color_manual(values = c("#B3B3B3", "#FC8D62")) + # RColorBrewer::brewer.pal(8, "Set2")
+      geom_point(data = topsk %>% 
+                   filter(str_detect(RBP, input$rbpterm)), color = "black", size = 0.5) +
       ggrepel::geom_text_repel(box.padding = 0.05, size = 3, aes(label = text2)) +
       xlab("log2enrichment") +
       labs(color = "")
@@ -1877,15 +1820,17 @@ server <- function(input, output, session) {
 
   kmerPlotr <- reactive({
     output$kmerPlot <- renderPlot(kmerPlot1())
-    plotOutput("kmerPlot", width = 800, height = 600)
+    plotOutput("kmerPlot", width = plot_width * 100 , height = plot_height * 100)
   })
   
   kmerPlotlyr <- reactive({
     g <- kmerPlot1()
-    g2 <- ggplotly(g, source = "kmerPlotly", tooltip = "text", height = 600, width = 800) %>%
+    g2 <- ggplotly(g, 
+                   source = "kmerPlotly", 
+                   tooltip = "text", height = plot_height * 100, width = plot_width * 100) %>%
       layout(autosize = F)
     output$kmerPlot2 <- renderPlotly(g2)
-    plotlyOutput("kmerPlot2", width = 800, height = 300)
+    plotlyOutput("kmerPlot2", width = plot_width * 100, height = plot_height * 100)
   })
   
   output$kmerPlotUI <- renderUI({
@@ -1899,7 +1844,7 @@ server <- function(input, output, session) {
   savePlot4 <- downloadHandler(
     filename = "kmers.pdf",
     content = function(file) {
-      ggplot2::ggsave(file, plot = kmerPlot1(), device = "pdf", width = 8, height = 6)
+      ggplot2::ggsave(file, plot = kmerPlot1(), device = "pdf", width = plot_width, height = plot_height)
     }
   )
 
@@ -1942,7 +1887,12 @@ server <- function(input, output, session) {
       g2$layers[[4]]$data$text2 <- g$layers[[4]]$data$text
       rv$venntext <<- g$layers[[4]]$data$text
       g2$labels[["text2"]] <- "text2"
-      g2$layers[[4]]$mapping <- aes(x = x, y = y, label = text, hjust = hjust, vjust = vjust, text = text2)
+      g2$layers[[4]]$mapping <- aes(x = x,
+                                    y = y, 
+                                    label = text,
+                                    hjust = hjust, 
+                                    vjust = vjust, 
+                                    text = text2)
       g2
     } else if (sum(non_none) == 1) {
       g <- ggvenn::ggvenn(a, c(names(a)[non_none], NA), show_elements = TRUE )
@@ -1954,7 +1904,12 @@ server <- function(input, output, session) {
       g2$layers[[4]]$data$text2 <- g$layers[[4]]$data$text[1]
       rv$venntext <<- g$layers[[4]]$data$text
       g2$labels[["text2"]] <- "text2"
-      g2$layers[[4]]$mapping <- aes(x = x, y =y, label = text, hjust = hjust, vjust = vjust, text = text2)
+      g2$layers[[4]]$mapping <- aes(x = x,
+                                    y =y, 
+                                    label = text,
+                                    hjust = hjust, 
+                                    vjust = vjust, 
+                                    text = text2)
       g2 
     } else {
       ggplot() + ggtitle("no gene lists loaded")
@@ -1962,7 +1917,9 @@ server <- function(input, output, session) {
   })
   
   output$vennPlot <- renderPlotly({
-     p <- ggplotly(vennPlot1(), source = "vennPlot", tooltip = "text2", height = 600, width = 800) %>%
+     p <- ggplotly(vennPlot1(), 
+                   source = "vennPlot", 
+                   tooltip = "text2", height = plot_height * 100, width = plot_width * 100) %>%
       layout(autosize = F, showlegend = FALSE) %>%
       highlight()
      #event_register(p, 'plotly_selected')
@@ -1972,7 +1929,7 @@ server <- function(input, output, session) {
   savePlot6 <- downloadHandler(
     filename = "venn.pdf",
     content = function(file) {
-      ggplot2::ggsave(file, plot = vennPlot1(), device = "pdf", width = 8, height = 6)
+      ggplot2::ggsave(file, plot = vennPlot1(), device = "pdf", width = plot_width, height = plot_height)
     }
   )
 
@@ -1990,10 +1947,17 @@ server <- function(input, output, session) {
       rv$listn2renew <- rv$listn2renew + 1
     }
   })
-
   
-  
-  
+  onclick("Cart_all", {
+    gene_vec <- unlist(venntemp()) %>% unique()
+    carttablist <- gene_vec
+    rv$listn2 <- length(carttablist)
+    updateTabsetPanel(session,
+                      "side2",
+                      selected = "cart"
+    )
+    rv$listn2renew <- rv$listn2renew + 1
+  })
   
   # list history genes as table
   output$historyl <- DT::renderDataTable({
@@ -2069,8 +2033,8 @@ server <- function(input, output, session) {
     } else {
       v_genes <- v_genes %>% pull(1)
     }
-    historytablist <<- autocomplete_list[str_to_upper(autocomplete_list) %in% str_to_upper(v_genes %>%
-      unique())]
+    historytablist <<- autocomplete_list[str_to_upper(autocomplete_list) %in%
+                                           str_to_upper(v_genes %>% unique())]
     rv$line_refresh <- rv$line_refresh + 1
   })
 
@@ -2422,12 +2386,20 @@ server <- function(input, output, session) {
         enable("savePlot")
         disable("saveTable")
         output$savePlot <- savePlot
-        showNotification("tabs, modules, and columns of tables can be dragged and rearranged",
-                         type = "message")
+        if (rv$tabinit_plot == 0) {
+          showNotification("tabs, modules, and columns of tables can be dragged and rearranged",
+                           type = "message")
+          rv$tabinit_plot <<- 1
+        }
       } else if (input$tabMain == "table_data") {
         disable("savePlot")
         enable("saveTable")
         output$saveTable <- saveFiltered
+        if (rv$tabinit_data == 0) {
+          showNotification("type `low...high` to input custom range for numeric filtering on column",
+                           type = "message")
+          rv$tabinit_data <<- 1
+        }
       } else if (input$tabMain == "table_AS") {
         disable("savePlot")
         enable("saveTable")
@@ -2441,6 +2413,11 @@ server <- function(input, output, session) {
         enable("saveTable")
         output$savePlot <- savePlot2
         output$saveTable <- saveEnrich
+        if (rv$tabinit_enrich == 0) {
+          showNotification("add corresponding genes to cart by clicking on GO term bar",
+                           type = "message")
+          rv$tabinit_enrich <<- 1
+        }
       } else if (input$tabMain == "heat_plot") {
         enable("savePlot")
         disable("saveTable")
@@ -2450,12 +2427,20 @@ server <- function(input, output, session) {
         enable("saveTable")
         output$savePlot <- savePlot4
         output$saveTable <- saveK
+        if (rv$tabinit_kmer == 0) {
+          showNotification("Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed",
+                           type = "message")
+          rv$tabinit_kmer <<- 1
+        }
       } else if (input$tabMain == "venn") {
         enable("savePlot")
         disable("saveTable")
         output$savePlot <- savePlot6
-        showNotification("click on venn numbers to load associated genes into cart",
-                         type = "message")
+        if (rv$tabinit_venn == 0) {
+          showNotification("click on venn numbers to load associated genes into cart",
+                           type = "message")
+          rv$tabinit_venn <<- 1
+        }
       } else if (input$tabMain == "about") {
         disable("savePlot")
         disable("saveTable")
