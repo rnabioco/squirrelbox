@@ -528,7 +528,8 @@ comp_kmer <- function(df = seqs,
                       col = "utr3",
                       bac = seqs_precal[["5mers_utr3"]],
                       k = 5,
-                      cutoff = 200) {
+                      cutoff = 200,
+                      recal_bac = FALSE) {
   enq <- df %>%
     filter(str_to_upper(unique_gene_symbol) %in% str_to_upper(gene_vec)) %>%
     pull(col) %>%
@@ -539,12 +540,14 @@ comp_kmer <- function(df = seqs,
   enq <- enq[str_length(enq) >= cutoff]
   enq_res <- generateKmers(enq, k)
 
-  bac <- df %>%
-    filter(!(str_to_upper(unique_gene_symbol) %in% str_to_upper(gene_vec))) %>%
-    pull(col) %>%
-    na.omit()
-  bac <- bac[str_length(bac) >= cutoff]
-  bac <- generateKmers(bac, k)
+  if (recal_bac) {
+    bac <- df %>%
+      filter(!(str_to_upper(unique_gene_symbol) %in% str_to_upper(gene_vec))) %>%
+      pull(col) %>%
+      na.omit()
+    bac <- bac[str_length(bac) >= cutoff]
+    bac <- generateKmers(bac, k)
+  }
 
   res <- computeKmerEnrichment(enq_res,
     bac,
@@ -912,15 +915,6 @@ ui <- fluidPage(
             radioButtons("kmlab", "annotate kmer", c("RBP/mir", "seq", "none"), selected = "RBP/mir", inline = TRUE)
           ),
           div(
-            id = "dosamplelowdiv",
-            style = "display: inline-block;vertical-align:top; width:250px;",
-            checkboxInput("doSamplelow",
-                          "limit insig points for speed",
-                          value = T,
-                          width = NULL
-            )
-          ),
-          div(
             style = "display: inline-block;vertical-align:top;",
             selectInput("utrlen", NULL, choices = c(200, 500, 1000, "full length"), selected = "full length")
           ),
@@ -935,8 +929,8 @@ ui <- fluidPage(
           bsTooltip("rbptermdiv", "highlights annotation in black")
         ),
         tabPanel(
-          title = span("gene_sets",
-            title = "visualize gene overlap between regions, and retrieve lists"
+          title = span("genes_venn",
+            title = "visualize gene overlap between regions by venn diagram, and retrieve lists"
           ),
           value = "venn",
           div(
@@ -946,7 +940,7 @@ ui <- fluidPage(
                 "_none", "_load_list", "_cart_list",
                 names(gene_list)
               ),
-              selected = "fore_sig.csv"
+              selected = "fore_sig"
             )
           ),
           div(
@@ -956,7 +950,7 @@ ui <- fluidPage(
                 "_none", "_load_list", "_cart_list",
                 names(gene_list)
               ),
-              selected = "hy_sig.csv"
+              selected = "hy_sig"
             )
           ),
           div(
@@ -966,7 +960,7 @@ ui <- fluidPage(
                 "_none", "_load_list", "_cart_list",
                 names(gene_list)
               ),
-              selected = "med_sig.csv"
+              selected = "med_sig"
             )
           ),
           div(
@@ -1922,15 +1916,8 @@ server <- function(input, output, session) {
     if (input$kmlab == "none") {
       topsk <- topsk %>% mutate(text2 = "")
     }
-    if (input$doSamplelow) {
-      df1 <- topsk %>% filter(sig == "sig")
-      df2 <- topsk %>% filter(sig != "sig", abs(enrichment) < 0.5) %>% sample_frac(0.1)
-      topsk2 <- bind_rows(df1, df2)
-    } else {
-      topsk2 <- topsk
-    }
-    print(nrow(topsk2))
-    ggplot(topsk2, aes(
+
+    ggplot(topsk, aes(
       x = enrichment,
       y = minuslog10,
       text = text1,
@@ -2012,7 +1999,8 @@ server <- function(input, output, session) {
     non_none <- !sapply(a, is.null) & !duplicated(c(input$seta, input$setb, input$setc))
     if (sum(non_none) > 1) {
       g <- ggvenn::ggvenn(a, names(a)[non_none], show_elements = TRUE)
-      g2 <- ggvenn::ggvenn(a, names(a)[non_none], show_percentage = FALSE)
+      g2 <- ggvenn::ggvenn(a, names(a)[non_none], show_percentage = FALSE, 
+                           set_name_size = 4, stroke_size = 0, text_size = 6)
       g2$layers[[3]]$data$text <- c(input$seta, input$setb, input$setc)[non_none]
       g2$layers[[4]]$data$text2 <- g$layers[[4]]$data$text
       rv$venntext <<- g$layers[[4]]$data$text
@@ -2025,10 +2013,22 @@ server <- function(input, output, session) {
         vjust = vjust,
         text = text2
       )
-      g2
+      g2 + theme_cowplot() + theme(axis.line=element_blank(),
+                                   axis.text.x=element_blank(),
+                                   axis.text.y=element_blank(),
+                                   axis.ticks=element_blank(),
+                                   axis.title.x=element_blank(),
+                                   axis.title.y=element_blank(),
+                                   legend.position="none",
+                                   panel.background=element_blank(),
+                                   panel.border=element_blank(),
+                                   panel.grid.major=element_blank(),
+                                   panel.grid.minor=element_blank(),
+                                   plot.background=element_blank())
     } else if (sum(non_none) == 1) {
       g <- ggvenn::ggvenn(a, c(names(a)[non_none], NA), show_elements = TRUE)
-      g2 <- ggvenn::ggvenn(a, c(names(a)[non_none], NA), show_percentage = FALSE)
+      g2 <- ggvenn::ggvenn(a, c(names(a)[non_none], NA), show_percentage = FALSE, 
+                           set_name_size = 4, stroke_size = 0, text_size = 6)
       g2$data <- g$data %>% filter(group == "A")
       g2$layers[[3]]$data <- g2$layers[[3]]$data[1, ]
       g2$layers[[3]]$data$text <- c(input$seta, input$setb, input$setc)[non_none]
@@ -2044,7 +2044,18 @@ server <- function(input, output, session) {
         vjust = vjust,
         text = text2
       )
-      g2
+      g2 + theme_cowplot() + theme(axis.line=element_blank(),
+                                   axis.text.x=element_blank(),
+                                   axis.text.y=element_blank(),
+                                   axis.ticks=element_blank(),
+                                   axis.title.x=element_blank(),
+                                   axis.title.y=element_blank(),
+                                   legend.position="none",
+                                   panel.background=element_blank(),
+                                   panel.border=element_blank(),
+                                   panel.grid.major=element_blank(),
+                                   panel.grid.minor=element_blank(),
+                                   plot.background=element_blank())
     } else {
       ggplot() +
         ggtitle("no gene lists loaded")
