@@ -538,8 +538,6 @@ comp_kmer <- function(df = seqs,
     return(NA)
   }
   enq <- enq[str_length(enq) >= cutoff]
-
-  # print(length(enq))
   enq_res <- generateKmers(enq, k)
 
   bac <- df %>%
@@ -547,7 +545,6 @@ comp_kmer <- function(df = seqs,
     pull(col) %>%
     na.omit()
   bac <- bac[str_length(bac) >= cutoff]
-  # print(length(bac))
   bac <- generateKmers(bac, k)
 
   res <- computeKmerEnrichment(enq_res,
@@ -570,6 +567,7 @@ gene_list <- sapply(lists_vec, function(x) {
   print(x)
   read_csv(paste0(listpath, "/", x)) %>% pull(1)
 }, simplify = FALSE)
+names(gene_list) <- names(gene_list) %>% str_remove("\\..+")
 
 # some other code for webpage functions
 jscode <- '
@@ -619,6 +617,10 @@ ui <- fluidPage(
   "),
   useShinyjs(),
   tags$head(tags$script(HTML(jscode))),
+  tags$head(tags$style(
+    type="text/css",
+    "#ucscPlot img {max-width: 100%; width: 100%; height: auto}"
+  )),
   # tags$script(HTML("$('body').addClass('sidebar-mini');")),
   titlePanel(div(
     class = "header", img(src = "logo.png", style = "width : 4%;"),
@@ -1217,7 +1219,12 @@ server <- function(input, output, session) {
   # boxplot size
   boxPlotr <- reactive({
     g <- boxPlot1()
-    output$boxPlot <- renderPlot(g)
+    output$boxPlot <- renderPlot(g #, 
+                                       # cacheKeyExpr = {list(boxPlot1(), input$doTis, input$doBr)},
+                                       # sizePolicy = sizeGrowthRatio(width = plot_width * 100, 
+                                       #                              height = plot_height * 100 / 2 * (input$doTis + input$doBr), 
+                                       #                              growthRate = 1.2)
+                                       )
     if (input$doTis + input$doBr == 2) {
       plotOutput("boxPlot", width = plot_width * 100, height = plot_height * 100)
     } else {
@@ -1256,7 +1263,7 @@ server <- function(input, output, session) {
   })
 
   # boxplot - models
-  output$boxPlot3 <- renderPlot({
+  output$boxPlot3 <- renderCachedPlot({
     if (input$doEigen != T) {
       g <- ""
       g
@@ -1276,7 +1283,8 @@ server <- function(input, output, session) {
         ncol = 3
       )
     }
-  })
+  }, cacheKeyExpr = {rv$mod_df},
+  sizePolicy = sizeGrowthRatio(width = plot_width * 100, height = plot_height * 100 / 2, growthRate = 1.2))
 
   # filter data
   outputtab <- reactive({
@@ -1831,7 +1839,6 @@ server <- function(input, output, session) {
   })
 
   # kmer analysis
-
   kmertemp <- reactive({
     rv$line_refresh
     set.seed(1)
@@ -1947,7 +1954,6 @@ server <- function(input, output, session) {
   })
 
   # venn plotly
-
   venntemp <- reactive({
     rv$line_refresh
     temp <- list(
