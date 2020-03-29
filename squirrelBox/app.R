@@ -56,15 +56,15 @@ table_cols <- c(
 )
 columns_tips <- c(
   "unique to each gene_id, from ensemble/NCBI or newly assigned",
-  "adjusted pval for tissue, type 0...0.001 to filter for sig",
-  "adjusted pval for tissue, type 0...0.001 to filter for sig",
-  "adjusted pval for tissue, type 0...0.001 to filter for sig",
-  "adjusted pval for tissue, type 0...0.001 to filter for sig",
-  "adjusted pval for tissue, type 0...0.001 to filter for sig",
-  "adjusted pval for tissue, type 0...0.001 to filter for sig",
   "gene clusters assigned by expression pattern for tissue",
   "gene clusters assigned by expression pattern for tissue",
   "gene clusters assigned by expression pattern for tissue",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
   "newly annotated genes start with G",
   "reference denotes carry-over from ensemble/NCBI",
   "aa length of longest orf",
@@ -467,8 +467,8 @@ maj <- read_tsv(paste0(datapath, "/MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz")) 
     comp = factor(comp)
   ) %>%
   rename(comp_pair = "comp") %>%
-  left_join(orfs %>% select(gene_id, contains("LRT")), by = "gene_id") %>%
-  select(-gene_id) %>%
+  # left_join(orfs %>% select(gene_id, contains("LRT")), by = "gene_id") %>%
+  # select(-gene_id) %>%
   distinct()
 
 # seqs for kmer
@@ -539,7 +539,7 @@ comp_kmer <- function(df = seqs,
   }
   enq <- enq[str_length(enq) >= cutoff]
 
-  print(length(enq))
+  # print(length(enq))
   enq_res <- generateKmers(enq, k)
 
   bac <- df %>%
@@ -547,7 +547,7 @@ comp_kmer <- function(df = seqs,
     pull(col) %>%
     na.omit()
   bac <- bac[str_length(bac) >= cutoff]
-  print(length(bac))
+  # print(length(bac))
   bac <- generateKmers(bac, k)
 
   res <- computeKmerEnrichment(enq_res,
@@ -652,6 +652,7 @@ ui <- fluidPage(
         actionButton("Find", "Find")
       ),
       bsTooltip("Find", "gene id/symbols accepted"),
+      div(id = "sidediv",
       tabsetPanel(
         id = "side1",
         tabPanel(
@@ -680,11 +681,13 @@ ui <- fluidPage(
           checkboxInput("doKegg", "GO terms", value = T, width = NULL),
           div(id = "doNormdiv", checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL)),
           checkboxInput("doTooltips", "show hover tips", value = T, width = NULL),
+          div(id = "doLockdiv", checkboxInput("doLock", "lock main panel order", value = F, width = NULL)),
           bsTooltip("doPlotlydiv", "toggles main and kmer plot"),
-          bsTooltip("doPadjdiv", str_c("p<=", sig_cut)),
+          bsTooltip("doPadjdiv", str_c("label groups by p <= ", sig_cut)),
           bsTooltip("doNamediv", "samples in main, gene in line plot"),
           bsTooltip("doEigendiv", "assigned per region"),
-          bsTooltip("doNormdiv", "otherwise centered by mean")
+          bsTooltip("doNormdiv", "otherwise centered by mean"),
+          bsTooltip("doLockdiv", "by default panels can be dragged and rearranged")
         ),
         tabPanel(
           span("hide", title = "hide this tab bar")
@@ -705,11 +708,6 @@ ui <- fluidPage(
           style = "height:300px; overflow-y: scroll;"
         ),
         tabPanel(
-          span("history", title = "history list of query genes"),
-          DT::dataTableOutput("historyl"),
-          style = "height:300px; overflow-y: scroll;"
-        ),
-        tabPanel(
           value = "cart",
           span("cart", title = "cart list of genes to save and export"),
           uiOutput("listn2"),
@@ -723,8 +721,13 @@ ui <- fluidPage(
           bsTooltip("Load", "send to loaded list in side panel"),
           DT::dataTableOutput("tbllist2"),
           style = "height:300px; overflow-y: scroll;"
+        ),
+        tabPanel(
+          span("history", title = "history list of query genes"),
+          DT::dataTableOutput("historyl"),
+          style = "height:300px; overflow-y: scroll;"
         )
-      )
+      ))
     ),
     mainPanel(
       id = "MAIN",
@@ -738,12 +741,12 @@ ui <- fluidPage(
             title = "Plot expression box plot and other info of query gene"
           ),
           value = "plot",
-          jqui_sortable(div(
+          div(
             id = "sorted",
-            uiOutput("boxPlotUI") %>% withSpinner(),
             DT::dataTableOutput("results"),
+            uiOutput("boxPlotUI") %>% withSpinner(),
             bsCollapse(
-              id = "tabs", multiple = TRUE, open = "NULL",
+              id = "tabs", multiple = TRUE, open = NULL,
               bsCollapsePanel(
                 uiOutput("EigenPlot") %>% withSpinner(),
                 title = "cluster_assignments",
@@ -778,7 +781,7 @@ ui <- fluidPage(
                 style = "info"
               )
             )
-          ))
+          )
         ),
         tabPanel(
           title = span(icon("table", class = NULL, lib = "font-awesome"),
@@ -805,6 +808,18 @@ ui <- fluidPage(
             title = "Table of majiq output for alternative splicing events"
           ),
           value = "table_AS",
+          div(
+            id = "doJoindiv",
+            style = "display: inline-block;width: 160px;",
+            checkboxInput("doJoin",
+                          "gene info",
+                          value = FALSE,
+                          width = NULL
+            )
+          ),
+          bsTooltip("doJoindiv", "bring in gene info as last columns"),
+          actionButton("loadtab2", "load"),
+          bsTooltip("loadtab2", "send to loaded list in side panel"),
           DT::dataTableOutput("alt")
         ),
         tabPanel(
@@ -1046,6 +1061,20 @@ server <- function(input, output, session) {
     }
   })
 
+  # sortable or not
+  jqui_sortable(ui = "#sorted" , operation = "enable")
+  jqui_sortable(ui = "#sidediv" , operation = "enable")
+  
+  observe({
+    if (input$doLock == TRUE) {
+      jqui_sortable(ui = "#sorted", operation = "destroy")
+      jqui_sortable(ui = "#sidediv" , operation = "destroy")
+    } else if (input$doLock != TRUE) {
+      jqui_sortable(ui = "#sorted")
+      jqui_sortable(ui = "#sidediv")
+    }
+  })
+  
   # jump to plot
   observeEvent(input$Find, {
     if ((input$geneID != "") & (input$geneID != rv$old)) {
@@ -1314,7 +1343,7 @@ server <- function(input, output, session) {
     DT::datatable(temp,
       class = "table-condensed",
       escape = FALSE,
-      selection = "single",
+      selection = "none",
       rownames = FALSE,
       options = list(
         searchable = FALSE,
@@ -1349,7 +1378,7 @@ server <- function(input, output, session) {
     }
     DT::datatable(temp,
       escape = FALSE,
-      selection = "single",
+      selection = "none",
       rownames = FALSE,
       options = list(searchable = FALSE, dom = "t")
     )
@@ -1363,7 +1392,7 @@ server <- function(input, output, session) {
     }
     DT::datatable(temp,
       escape = FALSE,
-      selection = "single",
+      selection = "none",
       rownames = FALSE,
       filter = "top",
       options = list(searchable = FALSE, dom = "t")
@@ -1382,7 +1411,7 @@ server <- function(input, output, session) {
     }
     DT::datatable(temp,
       escape = FALSE,
-      selection = "single",
+      selection = "multiple",
       rownames = FALSE,
       options = list(dom = "ft", searchHighlight = TRUE)
     )
@@ -2255,8 +2284,8 @@ server <- function(input, output, session) {
       orftbl() %>%
         select(
           unique_gene_symbol,
-          contains("LRT"),
           contains("cluster"),
+          contains("LRT"),
           everything()
         ),
       filter = "top",
@@ -2278,7 +2307,7 @@ server <- function(input, output, session) {
                               $(firstRow[i]).attr('title', tips[i]);
                             }"))
     ) %>%
-      DT::formatRound(columns = c(2, 3, 4, 5, 6, 7), digits = 4)
+      DT::formatRound(columns = c(5, 6, 7), digits = 4)
   })
 
   saveFiltered <- downloadHandler("filtré.csv", content = function(file) {
@@ -2286,8 +2315,8 @@ server <- function(input, output, session) {
     write_csv((orftbl() %>%
       select(
         unique_gene_symbol,
-        contains("LRT"),
         contains("cluster"),
+        contains("LRT"),
         everything()
       ) %>% select(unique_gene_symbol, everything()))[s, ], file)
   })
@@ -2309,9 +2338,17 @@ server <- function(input, output, session) {
   })
 
   # explore majiq table
+  majtbl <- reactive({
+    if (input$doJoin) {
+      maj %>% left_join(fulltbl_collapse)
+    } else {
+      maj
+    }
+  })
+  
   output$alt <- DT::renderDataTable({
     DT::datatable(
-      maj %>%
+      majtbl() %>%
         select(
           unique_gene_symbol,
           contains("significant"),
@@ -2326,7 +2363,7 @@ server <- function(input, output, session) {
       options = list(
         searchHighlight = TRUE,
         pageLength = pageN,
-        scrollX = FALSE,
+        scrollX = TRUE,
         autoWidth = TRUE, colReorder = TRUE
       )
     )
@@ -2334,7 +2371,7 @@ server <- function(input, output, session) {
 
   saveFilteredAS <- downloadHandler("filtré.csv", content = function(file) {
     s <- input$alt_rows_all
-    write_csv((maj %>%
+    write_csv((majtbl() %>%
       select(
         unique_gene_symbol,
         contains("significant"),
@@ -2343,11 +2380,17 @@ server <- function(input, output, session) {
       ))[s, ], file)
   })
 
+  onclick("loadtab2", {
+    s <- input$alt_rows_all
+    historytablist <- majtbl()[s, ] %>% pull(unique_gene_symbol) %>% unique()
+    rv$line_refresh <- rv$line_refresh + 1
+  })
+  
   observeEvent(input$alt_rows_selected, {
     rv$run2 <- 1
     updateSelectizeInput(session,
       inputId = "geneID",
-      selected = maj[input$alt_rows_selected, "unique_gene_symbol"],
+      selected = majtbl()[input$alt_rows_selected, "unique_gene_symbol"],
       choices = autocomplete_list,
       server = T
     )
