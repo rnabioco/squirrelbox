@@ -18,8 +18,9 @@ library(shiny)
 library(shinyjs)
 library(shinyBS)
 library(shinythemes)
-library(shinycssloaders)
+library(shinycustomloader)
 library(shinyjqui)
+# shinyWidgets::dropdownButton
 
 shinyOptions(cache = diskCache("./app-cache",  max_size = 100 * 1024^2))
 options(readr.num_columns = 0)
@@ -752,39 +753,39 @@ ui <- fluidPage(
           div(
             id = "sorted",
             DT::dataTableOutput("results"),
-            uiOutput("boxPlotUI") %>% withSpinner(),
+            uiOutput("boxPlotUI") %>% withLoader(),
             bsCollapse(
               id = "tabs", multiple = TRUE, open = NULL,
               bsCollapsePanel(
-                uiOutput("EigenPlot") %>% withSpinner(),
+                uiOutput("EigenPlot") %>% withLoader(),
                 title = "cluster_assignments",
                 style = "danger"
               )
             ),
             bsCollapse(
               id = "tabs2", multiple = TRUE, open = NULL,
-              bsCollapsePanel(DT::dataTableOutput("orfinfo") %>% withSpinner(),
+              bsCollapsePanel(DT::dataTableOutput("orfinfo") %>% withLoader(),
                 title = "called_orfs",
                 style = "primary"
               )
             ),
             bsCollapse(
               id = "tabs3", multiple = TRUE, open = "NULL",
-              bsCollapsePanel(DT::dataTableOutput("majinfo") %>% withSpinner(),
+              bsCollapsePanel(DT::dataTableOutput("majinfo") %>% withLoader(),
                 title = "majiq_alternative_splicing",
                 style = "warning"
               )
             ),
             bsCollapse(
               id = "tabs4", multiple = TRUE, open = "NULL",
-              bsCollapsePanel(htmlOutput("ucscPlot") %>% withSpinner(),
+              bsCollapsePanel(htmlOutput("ucscPlot") %>% withLoader(),
                 title = "UCSC browser plot",
                 style = "success"
               )
             ),
             bsCollapse(
               id = "tabs5", multiple = TRUE, open = "NULL",
-              bsCollapsePanel(DT::dataTableOutput("gotab") %>% withSpinner(),
+              bsCollapsePanel(DT::dataTableOutput("gotab") %>% withLoader(),
                 title = "go_terms/domains",
                 style = "info"
               )
@@ -835,7 +836,7 @@ ui <- fluidPage(
             title = "Plot expression of loaded gene list"
           ),
           value = "line_plot",
-          plotlyOutput("linePlot") %>% withSpinner()
+          plotlyOutput("linePlot") %>% withLoader()
         ),
         tabPanel(
           title = span("heatmap",
@@ -884,14 +885,14 @@ ui <- fluidPage(
               )
             )
           ),
-          plotOutput("heatPlot") %>% withSpinner()
+          plotOutput("heatPlot") %>% withLoader()
         ),
         tabPanel(
           title = span("GO_enrichment",
             title = "GO term enrichment for loaded gene list (slow)"
           ),
           value = "enrichment_plot",
-          plotlyOutput("richPlot") %>% withSpinner()
+          plotlyOutput("richPlot") %>% withLoader()
         ),
         tabPanel(
           title = span("kmer",
@@ -923,7 +924,7 @@ ui <- fluidPage(
             style = "display: inline-block;vertical-align:top;",
             textInput("rbpterm", "highlight annotation", value = "MEX3C")
           ),
-          uiOutput("kmerPlotUI") %>% withSpinner(),
+          uiOutput("kmerPlotUI") %>% withLoader(loader = "pacman"),
           bsTooltip("kmerdiv", "Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed"),
           bsTooltip("kmlabdiv", "label points with annotations"),
           bsTooltip("rbptermdiv", "highlights annotation in black")
@@ -979,7 +980,7 @@ ui <- fluidPage(
           ),
           bsTooltip("doUpperdiv", "coerce all gene symbols to upper case"),
           bsTooltip("loadalldiv", "add all genes from these sets into `cart` side panel"),
-          plotlyOutput("vennPlot") %>% withSpinner()
+          plotlyOutput("vennPlot") %>% withLoader()
         ),
         tabPanel(
           span(icon("question", class = NULL, lib = "font-awesome"),
