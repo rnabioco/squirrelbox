@@ -21,6 +21,8 @@ library(shinythemes)
 library(shinycssloaders)
 library(shinyjqui)
 
+shinyOptions(cache = diskCache("./app-cache",  max_size = 100 * 1024^2))
+options(readr.num_columns = 0)
 options(stringsAsFactors = FALSE)
 options(spinner.type = 6)
 theme_set(theme_cowplot())
@@ -56,15 +58,15 @@ table_cols <- c(
 )
 columns_tips <- c(
   "unique to each gene_id, from ensemble/NCBI or newly assigned",
-  "adjusted pval for tissue, type 0...0.001 to filter for sig",
-  "adjusted pval for tissue, type 0...0.001 to filter for sig",
-  "adjusted pval for tissue, type 0...0.001 to filter for sig",
-  "adjusted pval for tissue, type 0...0.001 to filter for sig",
-  "adjusted pval for tissue, type 0...0.001 to filter for sig",
-  "adjusted pval for tissue, type 0...0.001 to filter for sig",
   "gene clusters assigned by expression pattern for tissue",
   "gene clusters assigned by expression pattern for tissue",
   "gene clusters assigned by expression pattern for tissue",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
+  "adjusted pval for tissue, type 0...0.001 to filter for sig",
   "newly annotated genes start with G",
   "reference denotes carry-over from ensemble/NCBI",
   "aa length of longest orf",
@@ -221,7 +223,7 @@ comb_fil_factor <- function(combined2, combined3, inid) {
   combined3 <- combined3 %>%
     filter(gene_id %in% inid | unique_gene_symbol %in% inid)
   combined2 <- combined2 %>%
-    filter(gene_id %in% inid | gene_id %in% (combined3$gene_id %>%
+    filter(gene_id %in% c(inid, combined3$gene_id %>%
       unique())) %>%
     mutate(sample = (str_remove(sample, "[A-Z]+")))
   combined <- combined3 %>% inner_join(combined2, by = "gene_id")
@@ -344,7 +346,7 @@ fulltbl <- combined3 %>%
 fulltbl_collapse <- fulltbl %>%
   group_by(gene_id) %>%
   arrange(desc(orf_len), .by_group = TRUE) %>%
-  dplyr::slice(1)
+  dplyr::slice(1) %>% ungroup()
 
 length_detected_genes <- orfs %>%
   filter(br_expr == 1) %>%
@@ -399,15 +401,14 @@ sort_groups <- function(groups, states, state_order) {
     as.data.frame()
   colnames(full2) <- str_c("V", 1:ncol(full2))
   full2 <- full2 %>%
-    mutate_all(factor, levels = state_order) %>%
+    mutate_all(factor, levels = state_order) %>% 
     arrange(V1)
   full3 <- full2 %>%
     mutate(letter = letters[1:n()]) %>%
     pivot_longer(-letter, names_to = "NA", values_to = "state") %>%
     filter(!(is.na(state))) %>%
-    arrange(state) %>%
     group_by(state) %>%
-    summarize(letter = str_c(letter, collapse = ""))
+    summarize(letter = str_c(letter, collapse = "")) %>% ungroup()
   full3
 }
 
@@ -440,10 +441,11 @@ fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
       stringofhits <- ""
     }
     pval <- phyper(hitInSample - 1,
-                   hitInPop, 
-                   failInPop, 
-                   sampleSize, 
-                   lower.tail = FALSE)
+      hitInPop,
+      failInPop,
+      sampleSize,
+      lower.tail = FALSE
+    )
     return(c(hits = stringofhits, pval = pval))
   }, simplify = FALSE)
   res <- data.frame(res) %>% data.table::transpose()
@@ -466,8 +468,6 @@ maj <- read_tsv(paste0(datapath, "/MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz")) 
     comp = factor(comp)
   ) %>%
   rename(comp_pair = "comp") %>%
-  left_join(orfs %>% select(gene_id, contains("LRT")), by = "gene_id") %>%
-  select(-gene_id) %>%
   distinct()
 
 # seqs for kmer
@@ -478,35 +478,47 @@ if (file.exists(paste0(datapath, "/seqs_precal_noG.rds"))) {
   seqs_precal <- readRDS(paste0(datapath, "/seqs_precal_noG.rds"))
 } else {
   seqs_precal <- list()
-  seqs_precal[["5mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 200, 
-                                                               str_length(cds) >= 200) %>%
-                                                 pull(utr3),
-                                               k = 5
+  seqs_precal[["5mers_utr3"]] <- generateKmers(seqs %>% filter(
+    str_length(utr3) >= 200,
+    str_length(cds) >= 200
+  ) %>%
+    pull(utr3),
+  k = 5
   )
-  seqs_precal[["6mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 200, 
-                                                               str_length(cds) >= 200) %>%
-                                                 pull(utr3),
-                                               k = 6
+  seqs_precal[["6mers_utr3"]] <- generateKmers(seqs %>% filter(
+    str_length(utr3) >= 200,
+    str_length(cds) >= 200
+  ) %>%
+    pull(utr3),
+  k = 6
   )
-  seqs_precal[["7mers_utr3"]] <- generateKmers(seqs %>% filter(str_length(utr3) >= 200,
-                                                               str_length(cds) >= 200) %>% 
-                                                 pull(utr3),
-                                               k = 7
+  seqs_precal[["7mers_utr3"]] <- generateKmers(seqs %>% filter(
+    str_length(utr3) >= 200,
+    str_length(cds) >= 200
+  ) %>%
+    pull(utr3),
+  k = 7
   )
-  seqs_precal[["5mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 200, 
-                                                               str_length(cds) >= 200) %>%
-                                                 pull(utr5),
-                                               k = 5
+  seqs_precal[["5mers_utr5"]] <- generateKmers(seqs %>% filter(
+    str_length(utr5) >= 200,
+    str_length(cds) >= 200
+  ) %>%
+    pull(utr5),
+  k = 5
   )
-  seqs_precal[["6mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 200, 
-                                                               str_length(cds) >= 200) %>% 
-                                                 pull(utr5),
-                                               k = 6
+  seqs_precal[["6mers_utr5"]] <- generateKmers(seqs %>% filter(
+    str_length(utr5) >= 200,
+    str_length(cds) >= 200
+  ) %>%
+    pull(utr5),
+  k = 6
   )
-  seqs_precal[["7mers_utr5"]] <- generateKmers(seqs %>% filter(str_length(utr5) >= 200,
-                                                               str_length(cds) >= 200) %>%
-                                                 pull(utr5),
-                                               k = 7
+  seqs_precal[["7mers_utr5"]] <- generateKmers(seqs %>% filter(
+    str_length(utr5) >= 200,
+    str_length(cds) >= 200
+  ) %>%
+    pull(utr5),
+  k = 7
   )
   saveRDS(seqs_precal, paste0(datapath, "/seqs_precal_noG.rds"))
 }
@@ -516,7 +528,8 @@ comp_kmer <- function(df = seqs,
                       col = "utr3",
                       bac = seqs_precal[["5mers_utr3"]],
                       k = 5,
-                      cutoff = 200) {
+                      cutoff = 200,
+                      recal_bac = FALSE) {
   enq <- df %>%
     filter(str_to_upper(unique_gene_symbol) %in% str_to_upper(gene_vec)) %>%
     pull(col) %>%
@@ -525,18 +538,17 @@ comp_kmer <- function(df = seqs,
     return(NA)
   }
   enq <- enq[str_length(enq) >= cutoff]
-
-  print(length(enq))
   enq_res <- generateKmers(enq, k)
 
-  bac <- df %>%
-    filter(!(str_to_upper(unique_gene_symbol) %in% str_to_upper(gene_vec))) %>%
-    pull(col) %>%
-    na.omit()
-  bac <- bac[str_length(bac) >= cutoff]
-  print(length(bac))
-  bac <- generateKmers(bac, k)
-  
+  if (recal_bac) {
+    bac <- df %>%
+      filter(!(str_to_upper(unique_gene_symbol) %in% str_to_upper(gene_vec))) %>%
+      pull(col) %>%
+      na.omit()
+    bac <- bac[str_length(bac) >= cutoff]
+    bac <- generateKmers(bac, k)
+  }
+
   res <- computeKmerEnrichment(enq_res,
     bac,
     permutation = FALSE,
@@ -554,9 +566,9 @@ sixmers <- read_csv(paste0(annotpath, "/RBP_6mer.csv"))
 # load curated gene lists
 lists_vec <- list.files(listpath)
 gene_list <- sapply(lists_vec, function(x) {
-  print(x)
   read_csv(paste0(listpath, "/", x)) %>% pull(1)
 }, simplify = FALSE)
+names(gene_list) <- names(gene_list) %>% str_remove("\\..+")
 
 # some other code for webpage functions
 jscode <- '
@@ -606,10 +618,19 @@ ui <- fluidPage(
   "),
   useShinyjs(),
   tags$head(tags$script(HTML(jscode))),
-  # tags$script(HTML("$('body').addClass('sidebar-mini');")),
+  tags$head(tags$style(type="text/css",
+             ".shiny-output-error { visibility: hidden; }",
+             ".shiny-output-error:before { visibility: hidden; }",
+             ".shiny-output-warning { visibility: hidden; }",
+             ".shiny-output-warning:before { visibility: hidden; }"
+  )),
+  tags$head(tags$style(
+    type="text/css",
+    "#ucscPlot img {max-width: 100%; width: 100%; height: auto}"
+  )),
   titlePanel(div(
     class = "header", img(src = "logo.png", style = "width : 4%;"),
-    "13-lined ground squirrel gene-level RNA-seq expression", 
+    "13-lined ground squirrel gene-level RNA-seq expression",
     style = "font-size:23px"
   )),
   fixedPanel(
@@ -619,7 +640,7 @@ ui <- fluidPage(
     right = 10,
     bottom = 10
   ),
- sidebarLayout(
+  sidebarLayout(
     sidebarPanel(
       id = "SIDE",
       style = "position:fixed;width:23%;margin-top: 60px;z-index:10;",
@@ -635,20 +656,22 @@ ui <- fluidPage(
         )
       ),
       div(
-        style = "display: inline-block;vertical-align:top; width: 10px;", 
-        actionButton("Find", "Find")),
+        style = "display: inline-block;vertical-align:top; width: 10px;",
+        actionButton("Find", "Find")
+      ),
       bsTooltip("Find", "gene id/symbols accepted"),
+      div(id = "sidediv",
       tabsetPanel(
         id = "side1",
         tabPanel(
           span("links", title = "save files and external links"),
-          uiOutput("tab"), 
+          uiOutput("tab"),
           uiOutput("blastlink"),
           uiOutput("tab2"),
-          uiOutput("tab3"), 
+          uiOutput("tab3"),
           uiOutput("tab4"),
           downloadButton("savePlot", label = "plot"),
-          downloadButton(outputId = "saveTable",label = "table"),
+          downloadButton(outputId = "saveTable", label = "table"),
           bsTooltip("savePlot", "save plot as pdf"),
           bsTooltip("saveTable", "save filtered/result table as csv"),
         ),
@@ -666,11 +689,13 @@ ui <- fluidPage(
           checkboxInput("doKegg", "GO terms", value = T, width = NULL),
           div(id = "doNormdiv", checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL)),
           checkboxInput("doTooltips", "show hover tips", value = T, width = NULL),
+          div(id = "doLockdiv", checkboxInput("doLock", "lock main panel order", value = F, width = NULL)),
           bsTooltip("doPlotlydiv", "toggles main and kmer plot"),
-          bsTooltip("doPadjdiv", str_c("p<=", sig_cut)),
+          bsTooltip("doPadjdiv", str_c("label groups by p <= ", sig_cut)),
           bsTooltip("doNamediv", "samples in main, gene in line plot"),
           bsTooltip("doEigendiv", "assigned per region"),
-          bsTooltip("doNormdiv", "otherwise centered by mean")
+          bsTooltip("doNormdiv", "otherwise centered by mean"),
+          bsTooltip("doLockdiv", "by default panels can be dragged and rearranged")
         ),
         tabPanel(
           span("hide", title = "hide this tab bar")
@@ -691,11 +716,6 @@ ui <- fluidPage(
           style = "height:300px; overflow-y: scroll;"
         ),
         tabPanel(
-          span("history", title = "history list of query genes"),
-          DT::dataTableOutput("historyl"),
-          style = "height:300px; overflow-y: scroll;"
-        ),
-        tabPanel(
           value = "cart",
           span("cart", title = "cart list of genes to save and export"),
           uiOutput("listn2"),
@@ -709,8 +729,13 @@ ui <- fluidPage(
           bsTooltip("Load", "send to loaded list in side panel"),
           DT::dataTableOutput("tbllist2"),
           style = "height:300px; overflow-y: scroll;"
+        ),
+        tabPanel(
+          span("history", title = "history list of query genes"),
+          DT::dataTableOutput("historyl"),
+          style = "height:300px; overflow-y: scroll;"
         )
-      )
+      ))
     ),
     mainPanel(
       id = "MAIN",
@@ -720,51 +745,60 @@ ui <- fluidPage(
         id = "tabMain",
         tabPanel(
           title = span(icon("pencil-ruler", class = NULL, lib = "font-awesome"),
-                       "main", 
-                       title= "Plot expression box plot and other info of query gene"),
+            "main",
+            title = "Plot expression box plot and other info of query gene"
+          ),
           value = "plot",
-          jqui_sortable(div(id = "sorted",
-          uiOutput("boxPlotUI") %>% withSpinner(),
-          DT::dataTableOutput("results"),
-          bsCollapse(
-            id = "tabs", multiple = TRUE, open = "NULL",
-            bsCollapsePanel(
-                            uiOutput("EigenPlot") %>% withSpinner(),
-                            title = "cluster_assignments",
-                            style = "danger"
-            )),
-          bsCollapse(
-            id = "tabs2", multiple = TRUE, open = NULL,
-            bsCollapsePanel(DT::dataTableOutput("orfinfo") %>% withSpinner(),
-              title = "called_orfs",
-              style = "primary"
-            )),
-          bsCollapse(
-            id = "tabs3", multiple = TRUE, open = "NULL",
-            bsCollapsePanel(DT::dataTableOutput("majinfo") %>% withSpinner(),
-              title = "majiq_alternative_splicing",
-              style = "warning"
-            )),
-          bsCollapse(
-            id = "tabs4", multiple = TRUE, open = "NULL",
-            bsCollapsePanel(htmlOutput("ucscPlot") %>% withSpinner(),
-              title = "UCSC browser plot",
-              style = "success"
-            )),
-          bsCollapse(
-            id = "tabs5", multiple = TRUE, open = "NULL",
-            bsCollapsePanel(DT::dataTableOutput("gotab") %>% withSpinner(),
-              title = "go_terms/domains",
-              style = "info"
-            )))
+          div(
+            id = "sorted",
+            DT::dataTableOutput("results"),
+            uiOutput("boxPlotUI") %>% withSpinner(),
+            bsCollapse(
+              id = "tabs", multiple = TRUE, open = NULL,
+              bsCollapsePanel(
+                uiOutput("EigenPlot") %>% withSpinner(),
+                title = "cluster_assignments",
+                style = "danger"
+              )
+            ),
+            bsCollapse(
+              id = "tabs2", multiple = TRUE, open = NULL,
+              bsCollapsePanel(DT::dataTableOutput("orfinfo") %>% withSpinner(),
+                title = "called_orfs",
+                style = "primary"
+              )
+            ),
+            bsCollapse(
+              id = "tabs3", multiple = TRUE, open = "NULL",
+              bsCollapsePanel(DT::dataTableOutput("majinfo") %>% withSpinner(),
+                title = "majiq_alternative_splicing",
+                style = "warning"
+              )
+            ),
+            bsCollapse(
+              id = "tabs4", multiple = TRUE, open = "NULL",
+              bsCollapsePanel(htmlOutput("ucscPlot") %>% withSpinner(),
+                title = "UCSC browser plot",
+                style = "success"
+              )
+            ),
+            bsCollapse(
+              id = "tabs5", multiple = TRUE, open = "NULL",
+              bsCollapsePanel(DT::dataTableOutput("gotab") %>% withSpinner(),
+                title = "go_terms/domains",
+                style = "info"
+              )
+            )
           )
         ),
         tabPanel(
           title = span(icon("table", class = NULL, lib = "font-awesome"),
-                       "transcript_gene", 
-                       title= "Table of expression and other info of all genes/transcripts"),
+            "transcript_gene",
+            title = "Table of expression and other info of all genes/transcripts"
+          ),
           value = "table_data",
-          div(id = "doCollapsediv",
+          div(
+            id = "doCollapsediv",
             style = "display: inline-block;width: 160px;",
             checkboxInput("doCollapse",
               "longest transcript",
@@ -779,19 +813,34 @@ ui <- fluidPage(
         ),
         tabPanel(
           title = span("majiq_alt",
-                       title= "Table of majiq output for alternative splicing events"),
+            title = "Table of majiq output for alternative splicing events"
+          ),
           value = "table_AS",
+          div(
+            id = "doJoindiv",
+            style = "display: inline-block;width: 160px;",
+            checkboxInput("doJoin",
+                          "gene info",
+                          value = FALSE,
+                          width = NULL
+            )
+          ),
+          bsTooltip("doJoindiv", "bring in gene info as last columns"),
+          actionButton("loadtab2", "load"),
+          bsTooltip("loadtab2", "send to loaded list in side panel"),
           DT::dataTableOutput("alt")
         ),
         tabPanel(
           title = span("line_plot",
-                       title= "Plot expression of loaded gene list"),
+            title = "Plot expression of loaded gene list"
+          ),
           value = "line_plot",
           plotlyOutput("linePlot") %>% withSpinner()
         ),
         tabPanel(
           title = span("heatmap",
-                       title= "Plot Z-Score of loaded gene list as heat map"),
+            title = "Plot Z-Score of loaded gene list as heat map"
+          ),
           value = "heat_plot",
           br(),
           fluidRow(
@@ -816,9 +865,9 @@ ui <- fluidPage(
                 width = NULL
               ),
               checkboxInput("doPivot",
-                            "pivot plot",
-                            value = F,
-                            width = NULL
+                "pivot plot",
+                value = F,
+                width = NULL
               )
             ),
             column(
@@ -836,17 +885,18 @@ ui <- fluidPage(
             )
           ),
           plotOutput("heatPlot") %>% withSpinner()
-          
         ),
         tabPanel(
           title = span("GO_enrichment",
-                       title= "GO term enrichment for loaded gene list (slow)"),
+            title = "GO term enrichment for loaded gene list (slow)"
+          ),
           value = "enrichment_plot",
           plotlyOutput("richPlot") %>% withSpinner()
         ),
         tabPanel(
           title = span("kmer",
-                       title= "kmer enrichment analysis and annotation for loaded gene list (slow)"),
+            title = "kmer enrichment analysis and annotation for loaded gene list (slow)"
+          ),
           value = "kmer_analysis",
           tags$style(HTML(".radio-inline {margin-left: 5px;margin-right: 25px;}")),
           div(
@@ -879,45 +929,63 @@ ui <- fluidPage(
           bsTooltip("rbptermdiv", "highlights annotation in black")
         ),
         tabPanel(
-          title = span("gene_sets",
-                       title= "visualize gene overlap between regions, and retrieve lists"),
+          title = span("genes_venn",
+            title = "visualize gene overlap between regions by venn diagram, and retrieve lists"
+          ),
           value = "venn",
           div(
             style = "display: inline-block;vertical-align:top; width: 160px;",
-          selectizeInput("seta", "geneset_A", 
-                         choices = c("_none", "_load_list", "_cart_list",
-                                     names(gene_list)), 
-                         selected = "fore_sig.csv")),
+            selectizeInput("seta", "geneset_A",
+              choices = c(
+                "_none", "_load_list", "_cart_list",
+                names(gene_list)
+              ),
+              selected = "fore_sig"
+            )
+          ),
           div(
             style = "display: inline-block;vertical-align:top; width: 160px;",
-          selectizeInput("setb", "geneset_B", 
-                         choices = c("_none", "_load_list", "_cart_list",
-                                     names(gene_list)), 
-                         selected = "hy_sig.csv")),
+            selectizeInput("setb", "geneset_B",
+              choices = c(
+                "_none", "_load_list", "_cart_list",
+                names(gene_list)
+              ),
+              selected = "hy_sig"
+            )
+          ),
           div(
             style = "display: inline-block;vertical-align:top; width: 160px;",
-          selectizeInput("setc", "geneset_C", 
-                         choices = c("_none", "_load_list", "_cart_list", 
-                                     names(gene_list)), 
-                         selected = "med_sig.csv")),
-          div(id = "doUpperdiv", 
-              checkboxInput("doUpper", 
-                            "ignore case", 
-                            value = T, 
-                            width = NULL),
-              style = "display: inline-block; width: 100px;"),
-          div(id = "loadalldiv", 
-              actionButton("Cart_all", "Cart_all"),
-              style = "display: inline-block"),
+            selectizeInput("setc", "geneset_C",
+              choices = c(
+                "_none", "_load_list", "_cart_list",
+                names(gene_list)
+              ),
+              selected = "med_sig"
+            )
+          ),
+          div(
+            id = "doUpperdiv",
+            checkboxInput("doUpper",
+              "ignore case",
+              value = T,
+              width = NULL
+            ),
+            style = "display: inline-block; width: 100px;"
+          ),
+          div(
+            id = "loadalldiv",
+            actionButton("Cart_all", "Cart_all"),
+            style = "display: inline-block"
+          ),
           bsTooltip("doUpperdiv", "coerce all gene symbols to upper case"),
           bsTooltip("loadalldiv", "add all genes from these sets into `cart` side panel"),
           plotlyOutput("vennPlot") %>% withSpinner()
         ),
         tabPanel(
           span(icon("question", class = NULL, lib = "font-awesome"),
-               "about", 
-               title = "View version and author info",
-               ),
+            "about",
+            title = "View version and author info",
+          ),
           value = "about",
           uiOutput("intro"),
           uiOutput("track"),
@@ -955,6 +1023,7 @@ server <- function(input, output, session) {
   rv$line <- 0
   rv$line_refresh <- 0
   rv$listn2renew <- 0
+  rv$plot_temp <- data.frame()
   rv$mod_df <- data.frame()
   rv$toolarge <- 0
   rv$go <- 0
@@ -1001,6 +1070,20 @@ server <- function(input, output, session) {
     }
   })
 
+  # sortable or not
+  jqui_sortable(ui = "#sorted" , operation = "enable")
+  jqui_sortable(ui = "#sidediv" , operation = "enable")
+  
+  observe({
+    if (input$doLock == TRUE) {
+      jqui_sortable(ui = "#sorted", operation = "destroy")
+      jqui_sortable(ui = "#sidediv" , operation = "destroy")
+    } else if (input$doLock != TRUE) {
+      jqui_sortable(ui = "#sorted")
+      jqui_sortable(ui = "#sidediv")
+    }
+  })
+  
   # jump to plot
   observeEvent(input$Find, {
     if ((input$geneID != "") & (input$geneID != rv$old)) {
@@ -1034,9 +1117,10 @@ server <- function(input, output, session) {
 
   # boxplot1
   boxPlot1 <- reactive({
-    outputtab <- outputtab()
-    inid <- outputtab$unique_gene_symbol
-    plot_temp <- comb_fil_factor(combined2, combined3, inid)
+    plot_temp <- rv$plot_temp
+    if (nrow(plot_temp) == 0) {
+      return(ggplot())
+    }
 
     if (input$doTis & input$doBr) {
       mis <- setdiff(region_order, plot_temp$region %>% unique() %>% as.character())
@@ -1045,7 +1129,7 @@ server <- function(input, output, session) {
     } else {
       mis <- setdiff(region_main2, plot_temp$region %>% unique() %>% as.character())
     }
-
+    
     if (length(mis) > 0) {
       for (element in mis) {
         l <- as.list(plot_temp[1, ])
@@ -1079,7 +1163,7 @@ server <- function(input, output, session) {
     } else {
       plot_temp <- plot_temp %>% mutate(text = "NA")
     }
-
+    
     set.seed(1)
     g <- ggplot(plot_temp, aes(state, log2_counts, text = text)) +
       ylab("rlog(counts)") +
@@ -1102,12 +1186,12 @@ server <- function(input, output, session) {
       temp2 <- calls_sig(padj, sig_sym)
       temp2 <- temp2 %>%
         replace_na(list(call1 = list(0))) %>%
-        separate(comp, into = c("region", "state1", NA, "state2")) %>%
+        separate(comp, into = c("region", "state1", NA, "state2"), extra = "drop") %>%
         select(-padj, -call) %>%
         mutate(call1 = as.numeric(call1)) %>%
         mutate(region = as.character(region))
       temp2$region <- region_order[factor(temp2$region, level = region_short) %>% as.numeric()]
-      temp3 <- groups_to_letters_igraph(temp2) %>% 
+      temp3 <- groups_to_letters_igraph(temp2) %>%
         mutate(region = factor(region, level = region_order))
 
       if (!(is.na(plot_temp$log2_counts) %>% all())) {
@@ -1121,7 +1205,7 @@ server <- function(input, output, session) {
             maxy = max(log2_counts),
             miny = min(min),
             nudgey = (maxy - miny) * 0.1
-          )
+          ) %>% ungroup()
         agg3 <- agg2 %>%
           left_join(temp3 %>% select(region, state, letter)) %>%
           replace_na(list(letter = list("")))
@@ -1136,14 +1220,19 @@ server <- function(input, output, session) {
           ))
       }
     }
-
+  
     g
   })
 
   # boxplot size
   boxPlotr <- reactive({
     g <- boxPlot1()
-    output$boxPlot <- renderPlot(g)
+    output$boxPlot <- renderPlot(g #, 
+                                       # cacheKeyExpr = {list(boxPlot1(), input$doTis, input$doBr)},
+                                       # sizePolicy = sizeGrowthRatio(width = plot_width * 100, 
+                                       #                              height = plot_height * 100 / 2 * (input$doTis + input$doBr), 
+                                       #                              growthRate = 1.2)
+                                       )
     if (input$doTis + input$doBr == 2) {
       plotOutput("boxPlot", width = plot_width * 100, height = plot_height * 100)
     } else {
@@ -1182,13 +1271,11 @@ server <- function(input, output, session) {
   })
 
   # boxplot - models
-  output$boxPlot3 <- renderPlot({
+  output$boxPlot3 <- renderCachedPlot({
     if (input$doEigen != T) {
       g <- ""
       g
     } else {
-      outputtab <- outputtab()
-      inid <- outputtab$unique_gene_symbol
       if (nrow(rv$mod_df) == 0) {
         mods <- c("filtered", "filtered", "filtered")
         reg <- colnames(mod)[-1]
@@ -1202,13 +1289,14 @@ server <- function(input, output, session) {
         ncol = 3
       )
     }
-  })
+  }, cacheKeyExpr = {rv$mod_df %>% select(-1)},
+  sizePolicy = sizeGrowthRatio(width = plot_width * 100, height = plot_height * 100 / 2, growthRate = 1.2))
 
   # filter data
   outputtab <- reactive({
     inid <- inid()
-    if ((inid %in% orfs$gene_id) | (inid %in% orfs$unique_gene_symbol)) {
-      temp_orfs <- orfs %>% filter((gene_id == inid) | (unique_gene_symbol == inid))
+    temp_orfs <- orfs %>% filter((gene_id == inid) | (unique_gene_symbol == inid))
+    if (nrow(temp_orfs) > 0) {
       if (nrow(temp_orfs) == 0) {
         rv$blast <<- ""
         rv$pval <<- data.frame()
@@ -1223,8 +1311,10 @@ server <- function(input, output, session) {
       rv$pval <<- data.frame()
       rv$temp_orfs <<- data.frame()
     }
+    
+    rv$plot_temp <<- comb_fil_factor(combined2, combined3, inid) 
 
-    filtered <- comb_fil_factor(combined2, combined3, inid) %>%
+    filtered <- rv$plot_temp %>%
       select(table_cols) %>%
       unique()
 
@@ -1260,62 +1350,71 @@ server <- function(input, output, session) {
     } else {
       rv$mod_df <<- mod1
     }
+
     out
   })
 
   # display gene info
   output$results <- DT::renderDataTable({
-      temp <- outputtab()
+    temp <- outputtab()
     DT::datatable(temp,
-                  class = 'table-condensed',
-                    escape = FALSE,
-                    selection = "single",
-                    rownames = FALSE,
-                    options = list(searchable = FALSE,
-                                   dom = "t", 
-                                   paging = FALSE,
-                                   columnDefs = list(list(className = 'dt-center', 
-                                                          targets = 0:(ncol(temp)-1)),
-                                                     list(orderable = "false",
-                                                          targets = 0:(ncol(temp)-1))),
-                                   initComplete = JS(
-                                     "function(settings, json) {",
-                                     "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
-                                     "}")
-                                   ))
-    }
-  )
+      class = "table-condensed",
+      escape = FALSE,
+      selection = "none",
+      rownames = FALSE,
+      options = list(
+        searchable = FALSE,
+        dom = "t",
+        paging = FALSE,
+        columnDefs = list(
+          list(
+            className = "dt-center",
+            targets = 0:(ncol(temp) - 1)
+          ),
+          list(
+            orderable = "false",
+            targets = 0:(ncol(temp) - 1)
+          )
+        ),
+        initComplete = JS(
+          "function(settings, json) {",
+          "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+          "}"
+        )
+      )
+    )
+  })
 
   # orf call table
   output$orfinfo <- DT::renderDataTable({
-      outputtab()
-      if (nrow(rv$temp_orfs) == 0) {
-        temp <- data.frame(`no orf found` = "")
-      } else {
-        temp <- rv$temp_orfs %>% select(orf_cols)
-      }
-      DT::datatable(temp,
-                    escape = FALSE,
-                    selection = "single",
-                    rownames = FALSE,
-                    options = list(searchable = FALSE, dom = "t"))
+    outputtab()
+    if (nrow(rv$temp_orfs) == 0) {
+      temp <- data.frame(`no orf found` = "")
+    } else {
+      temp <- rv$temp_orfs %>% select(orf_cols)
     }
-  )
+    DT::datatable(temp,
+      escape = FALSE,
+      selection = "none",
+      rownames = FALSE,
+      options = list(searchable = FALSE, dom = "t")
+    )
+  })
 
   # majik report table
   output$majinfo <- DT::renderDataTable({
-      temp <- maj %>% filter(unique_gene_symbol == outputtab()$unique_gene_symbol[1])
-      if (nrow(temp) == 0) {
-        temp <- data.frame(`no alternative splicing` = "")
-      }
-      DT::datatable(temp,
-                    escape = FALSE,
-                    selection = "single",
-                    rownames = FALSE,
-                    filter = "top",
-                    options = list(searchable = FALSE, dom = "t"))
+    temp <- maj %>% filter(unique_gene_symbol == outputtab()$unique_gene_symbol[1])
+    if (nrow(temp) == 0) {
+      temp <- data.frame(`no alternative splicing` = "")
     }
-  )
+    DT::datatable(temp,
+      escape = FALSE,
+      selection = "none",
+      rownames = FALSE,
+      filter = "top",
+      options = list(searchable = FALSE, dom = "t")
+    )
+  })
 
   # goterm table
   output$gotab <- DT::renderDataTable({
@@ -1328,10 +1427,11 @@ server <- function(input, output, session) {
       temp <- domains %>% filter(gene_id %in% outputtab$gene_id)
     }
     DT::datatable(temp,
-                  escape = FALSE,
-                  selection = "single",
-                  rownames = FALSE,
-                  options = list(dom = "ft", searchHighlight = TRUE))
+      escape = FALSE,
+      selection = "multiple",
+      rownames = FALSE,
+      options = list(dom = "ft", searchHighlight = TRUE)
+    )
   })
 
   # download ucscplot
@@ -1503,7 +1603,7 @@ server <- function(input, output, session) {
     }
     plot_temp <- comb_fil_factor(combined2, combined3, historytablist) %>%
       group_by(region, state, unique_gene_symbol) %>%
-      summarize(counts = mean(2^log2_counts))
+      summarize(counts = mean(2^log2_counts)) %>% ungroup()
     if (input$doNorm == TRUE) {
       plot_temp <- plot_temp %>%
         group_by(unique_gene_symbol, region) %>%
@@ -1546,9 +1646,10 @@ server <- function(input, output, session) {
     set.seed(1)
     linetemp()
     if (length(historytablist) == 0) {
-      return(ggplotly(ggplot() + ggtitle("no genes loaded")))
+      return(ggplotly(ggplot() +
+        ggtitle("no genes loaded")))
     }
-    
+
     g <- ggplot(d, aes(state, log2_counts,
       group = unique_gene_symbol,
       text = unique_gene_symbol
@@ -1568,9 +1669,9 @@ server <- function(input, output, session) {
       if (input$doName == T) {
         ggplotly(g, tooltip = "text", height = plot_height * 100 * fac / 2, width = plot_width * 100) %>%
           layout(
-          autosize = FALSE,
-          showlegend = TRUE
-        )
+            autosize = FALSE,
+            showlegend = TRUE
+          )
       } else {
         ggplotly(g, tooltip = "text", height = plot_height * 100 * fac / 2, width = plot_width * 100)
       }
@@ -1578,7 +1679,8 @@ server <- function(input, output, session) {
       if (rv$go <= 0) {
         showModal(modalWarn)
       }
-      ggplotly(ggplot() + ggtitle("plotting cancelled"))
+      ggplotly(ggplot() +
+        ggtitle("plotting cancelled"))
     }
   })
 
@@ -1589,7 +1691,7 @@ server <- function(input, output, session) {
       ggplot2::ggsave(file, plot = linePlot1(), device = "pdf", width = plot_width, height = plot_height / 2 * fac)
     }
   )
-  
+
   # heatmap
   heatPlot1 <- reactive({
     set.seed(1)
@@ -1671,7 +1773,7 @@ server <- function(input, output, session) {
       dev.off()
     }
   )
-  
+
   richtemp <- reactive({
     rv$line_refresh
     set.seed(1)
@@ -1683,16 +1785,18 @@ server <- function(input, output, session) {
     tops <- tops %>% dplyr::slice(1:max(min(which(tops$padj > 0.01)), 15))
     tops$pathway <- reorder(tops$pathway, tops$minuslog10)
     tops
-   
   })
-  
+
   richPlot1 <- reactive({
     tops <- richtemp()
     if (nrow(tops) == 0) {
-      return(ggplot() + ggtitle("no genes loaded"))
+      return(ggplot() +
+        ggtitle("no genes loaded"))
     }
-    ggplot(tops %>% dplyr::slice(1:15), 
-           aes(x = pathway, y = minuslog10, fill = -minuslog10, text = len)) +
+    ggplot(
+      tops %>% dplyr::slice(1:15),
+      aes(x = pathway, y = minuslog10, fill = -minuslog10, text = len)
+    ) +
       geom_bar(stat = "identity") +
       xlab(paste0("enriched : ", str_remove(gmt_short, "_"))) +
       coord_flip() +
@@ -1709,10 +1813,13 @@ server <- function(input, output, session) {
   })
 
   output$richPlot <- renderPlotly({
-    ggplotly(richPlot1(), 
-             source = "richPlot", tooltip = "text", height = plot_height * 100, width = plot_width * 100) %>%
+    p <- ggplotly(richPlot1(),
+      source = "richPlot", tooltip = "text", height = plot_height * 100, width = plot_width * 100
+    ) %>%
       layout(autosize = F) %>%
       highlight()
+    event_register(p, 'plotly_click')
+    p
   })
 
   savePlot2 <- downloadHandler(
@@ -1733,8 +1840,8 @@ server <- function(input, output, session) {
     rv$listn2 <- length(carttablist)
     rv$listn2renew <- rv$listn2renew + 1
     updateTabsetPanel(session,
-                      "side2",
-                      selected = "cart"
+      "side2",
+      selected = "cart"
     )
   })
 
@@ -1743,7 +1850,6 @@ server <- function(input, output, session) {
   })
 
   # kmer analysis
-
   kmertemp <- reactive({
     rv$line_refresh
     set.seed(1)
@@ -1766,15 +1872,20 @@ server <- function(input, output, session) {
         lenchoice <- -lenchoice
       }
       precal <- paste0(input$km, "mers_", utrchoice)
-      topsk <- comp_kmer(gene_vec = genevec,
-                         bac = seqs_precal[[precal]], 
-                         col = utrchoice, 
-                         k = as.numeric(input$km))
+      topsk <- comp_kmer(
+        gene_vec = genevec,
+        bac = seqs_precal[[precal]],
+        col = utrchoice,
+        k = as.numeric(input$km)
+      )
+      if (nrow(topsk) == 0 | is.null(topsk)) {
+        return(data.frame())
+      }
       if (input$km == "5") {
         topsk <- topsk %>% left_join(fivemers, by = c("kmer" = "fivemer"))
       } else if (input$km == "6") {
-          topsk <- topsk %>% left_join(sixmers, by = c("kmer" = "hexamer"))
-      }else {
+        topsk <- topsk %>% left_join(sixmers, by = c("kmer" = "hexamer"))
+      } else {
         topsk <- topsk %>%
           left_join(sevenmers, by = c("kmer" = "sevenmer")) %>%
           rename(RBP = "mir")
@@ -1784,35 +1895,39 @@ server <- function(input, output, session) {
       mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment))
     topsk %>% replace_na(list(RBP = ""))
   })
-  
+
   kmerPlot1 <- reactive({
     topsk <- kmertemp()
     if (nrow(topsk) == 0) {
-      return(ggplot() + ggtitle("no genes loaded"))
+      return(ggplot() +
+        ggtitle("no genes loaded"))
     }
     if (input$kmlab == "RBP/mir") {
       topsk <- topsk %>%
         mutate(sig = factor(ifelse(minuslog10 >= -log10(0.05), "sig", "insig"))) %>%
-        mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), "")) %>% 
+        mutate(text2 = ifelse((sig == "sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), "")) %>%
         mutate(text1 = str_c(kmer, RBP, sep = "\n"))
     } else {
       topsk <- topsk %>%
         mutate(sig = factor(ifelse(minuslog10 >= -log10(0.05), "sig", "insig"))) %>%
-        mutate(text2 = ifelse((sig =="sig" & row_number() <= 15), kmer, "")) %>% 
+        mutate(text2 = ifelse((sig == "sig" & row_number() <= 15), kmer, "")) %>%
         mutate(text1 = kmer)
-    } 
+    }
     if (input$kmlab == "none") {
       topsk <- topsk %>% mutate(text2 = "")
     }
-    ggplot(topsk, aes(x = enrichment,
-                      y = minuslog10, 
-                      text = text1,
-                      text2 = RBP,
-                      label = text2)) +
+
+    ggplot(topsk, aes(
+      x = enrichment,
+      y = minuslog10,
+      text = text1,
+      text2 = RBP,
+      label = text2
+    )) +
       geom_point(aes(color = sig), size = 0.5) +
       scale_color_manual(values = c("#B3B3B3", "#FC8D62")) + # RColorBrewer::brewer.pal(8, "Set2")
-      geom_point(data = topsk %>% 
-                   filter(str_detect(RBP, input$rbpterm)), color = "black", size = 0.5) +
+      geom_point(data = topsk %>%
+        filter(str_detect(RBP, input$rbpterm)), color = "black", size = 0.5) +
       ggrepel::geom_text_repel(box.padding = 0.05, size = 3, aes(label = text2)) +
       xlab("log2enrichment") +
       labs(color = "")
@@ -1820,19 +1935,20 @@ server <- function(input, output, session) {
 
   kmerPlotr <- reactive({
     output$kmerPlot <- renderPlot(kmerPlot1())
-    plotOutput("kmerPlot", width = plot_width * 100 , height = plot_height * 100)
+    plotOutput("kmerPlot", width = plot_width * 100, height = plot_height * 100)
   })
-  
+
   kmerPlotlyr <- reactive({
     g <- kmerPlot1()
-    g2 <- ggplotly(g, 
-                   source = "kmerPlotly", 
-                   tooltip = "text", height = plot_height * 100, width = plot_width * 100) %>%
+    g2 <- ggplotly(g,
+      source = "kmerPlotly",
+      tooltip = "text", height = plot_height * 100, width = plot_width * 100
+    ) %>%
       layout(autosize = F)
     output$kmerPlot2 <- renderPlotly(g2)
     plotlyOutput("kmerPlot2", width = plot_width * 100, height = plot_height * 100)
   })
-  
+
   output$kmerPlotUI <- renderUI({
     if (input$doPlotly == FALSE) {
       kmerPlotr()
@@ -1840,7 +1956,7 @@ server <- function(input, output, session) {
       kmerPlotlyr()
     }
   })
-  
+
   savePlot4 <- downloadHandler(
     filename = "kmers.pdf",
     content = function(file) {
@@ -1853,12 +1969,13 @@ server <- function(input, output, session) {
   })
 
   # venn plotly
-  
   venntemp <- reactive({
     rv$line_refresh
-    temp <- list(`Set A` = gene_list[[input$seta]],
-         `Set B` = gene_list[[input$setb]],
-         `Set C` = gene_list[[input$setc]])
+    temp <- list(
+      `Set A` = gene_list[[input$seta]],
+      `Set B` = gene_list[[input$setb]],
+      `Set C` = gene_list[[input$setc]]
+    )
     load_vec <- c(input$seta, input$setb, input$setc) == "_load_list"
     if (sum(load_vec) > 0) {
       for (element in names(temp)[load_vec]) {
@@ -1874,58 +1991,93 @@ server <- function(input, output, session) {
     if (input$doUpper) {
       temp <- sapply(temp, function(x) str_to_upper(x))
     }
+    
+    if (!is.list(temp)) {
+      temp <- list(temp)
+      names(temp) <- "Set A"
+    }
     temp
   })
-  
+
   vennPlot1 <- reactive({
     a <- venntemp()
     non_none <- !sapply(a, is.null) & !duplicated(c(input$seta, input$setb, input$setc))
     if (sum(non_none) > 1) {
       g <- ggvenn::ggvenn(a, names(a)[non_none], show_elements = TRUE)
-      g2 <- ggvenn::ggvenn(a, names(a)[non_none], show_percentage = FALSE)
+      g2 <- ggvenn::ggvenn(a, names(a)[non_none], show_percentage = FALSE, 
+                           set_name_size = 4, stroke_size = 0, text_size = 6)
       g2$layers[[3]]$data$text <- c(input$seta, input$setb, input$setc)[non_none]
       g2$layers[[4]]$data$text2 <- g$layers[[4]]$data$text
       rv$venntext <<- g$layers[[4]]$data$text
       g2$labels[["text2"]] <- "text2"
-      g2$layers[[4]]$mapping <- aes(x = x,
-                                    y = y, 
-                                    label = text,
-                                    hjust = hjust, 
-                                    vjust = vjust, 
-                                    text = text2)
-      g2
+      g2$layers[[4]]$mapping <- aes(
+        x = x,
+        y = y,
+        label = text,
+        hjust = hjust,
+        vjust = vjust,
+        text = text2
+      )
+      g2 + theme_cowplot() + theme(axis.line=element_blank(),
+                                   axis.text.x=element_blank(),
+                                   axis.text.y=element_blank(),
+                                   axis.ticks=element_blank(),
+                                   axis.title.x=element_blank(),
+                                   axis.title.y=element_blank(),
+                                   legend.position="none",
+                                   panel.background=element_blank(),
+                                   panel.border=element_blank(),
+                                   panel.grid.major=element_blank(),
+                                   panel.grid.minor=element_blank(),
+                                   plot.background=element_blank())
     } else if (sum(non_none) == 1) {
-      g <- ggvenn::ggvenn(a, c(names(a)[non_none], NA), show_elements = TRUE )
-      g2 <- ggvenn::ggvenn(a, c(names(a)[non_none], NA), show_percentage = FALSE)
+      g <- ggvenn::ggvenn(a, c(names(a)[non_none], NA), show_elements = TRUE)
+      g2 <- ggvenn::ggvenn(a, c(names(a)[non_none], NA), show_percentage = FALSE, 
+                           set_name_size = 4, stroke_size = 0, text_size = 6)
       g2$data <- g$data %>% filter(group == "A")
-      g2$layers[[3]]$data <- g2$layers[[3]]$data[1,]
+      g2$layers[[3]]$data <- g2$layers[[3]]$data[1, ]
       g2$layers[[3]]$data$text <- c(input$seta, input$setb, input$setc)[non_none]
-      g2$layers[[4]]$data <- g2$layers[[4]]$data[1,]
+      g2$layers[[4]]$data <- g2$layers[[4]]$data[1, ]
       g2$layers[[4]]$data$text2 <- g$layers[[4]]$data$text[1]
       rv$venntext <<- g$layers[[4]]$data$text
       g2$labels[["text2"]] <- "text2"
-      g2$layers[[4]]$mapping <- aes(x = x,
-                                    y =y, 
-                                    label = text,
-                                    hjust = hjust, 
-                                    vjust = vjust, 
-                                    text = text2)
-      g2 
+      g2$layers[[4]]$mapping <- aes(
+        x = x,
+        y = y,
+        label = text,
+        hjust = hjust,
+        vjust = vjust,
+        text = text2
+      )
+      g2 + theme_cowplot() + theme(axis.line=element_blank(),
+                                   axis.text.x=element_blank(),
+                                   axis.text.y=element_blank(),
+                                   axis.ticks=element_blank(),
+                                   axis.title.x=element_blank(),
+                                   axis.title.y=element_blank(),
+                                   legend.position="none",
+                                   panel.background=element_blank(),
+                                   panel.border=element_blank(),
+                                   panel.grid.major=element_blank(),
+                                   panel.grid.minor=element_blank(),
+                                   plot.background=element_blank())
     } else {
-      ggplot() + ggtitle("no gene lists loaded")
+      ggplot() +
+        ggtitle("no gene lists loaded")
     }
   })
-  
+
   output$vennPlot <- renderPlotly({
-     p <- ggplotly(vennPlot1(), 
-                   source = "vennPlot", 
-                   tooltip = "text2", height = plot_height * 100, width = plot_width * 100) %>%
+    p <- ggplotly(vennPlot1(),
+      source = "vennPlot",
+      tooltip = "text2", height = plot_height * 100, width = plot_width * 100
+    ) %>%
       layout(autosize = F, showlegend = FALSE) %>%
       highlight()
-     #event_register(p, 'plotly_selected')
-     p
+    event_register(p, 'plotly_click')
+    p
   })
-  
+
   savePlot6 <- downloadHandler(
     filename = "venn.pdf",
     content = function(file) {
@@ -1941,24 +2093,24 @@ server <- function(input, output, session) {
       carttablist <<- gene_vec
       rv$listn2 <- length(carttablist)
       updateTabsetPanel(session,
-                        "side2",
-                        selected = "cart"
+        "side2",
+        selected = "cart"
       )
       rv$listn2renew <- rv$listn2renew + 1
     }
   })
-  
+
   onclick("Cart_all", {
     gene_vec <- unlist(venntemp()) %>% unique()
     carttablist <- gene_vec
     rv$listn2 <- length(carttablist)
     updateTabsetPanel(session,
-                      "side2",
-                      selected = "cart"
+      "side2",
+      selected = "cart"
     )
     rv$listn2renew <- rv$listn2renew + 1
   })
-  
+
   # list history genes as table
   output$historyl <- DT::renderDataTable({
     inid()
@@ -2034,7 +2186,7 @@ server <- function(input, output, session) {
       v_genes <- v_genes %>% pull(1)
     }
     historytablist <<- autocomplete_list[str_to_upper(autocomplete_list) %in%
-                                           str_to_upper(v_genes %>% unique())]
+      str_to_upper(v_genes %>% unique())]
     rv$line_refresh <- rv$line_refresh + 1
   })
 
@@ -2045,7 +2197,7 @@ server <- function(input, output, session) {
   })
 
   output$listn2 <- renderUI({
-    HTML(str_c("# in cart:", rv$listn2))
+    HTML(str_c("<strong> # in cart:", rv$listn2, "</strong>"))
   })
 
   output$saveList <- downloadHandler("cart.txt", content = function(file) {
@@ -2060,7 +2212,7 @@ server <- function(input, output, session) {
   # list cart genes as table
   output$tbllist2 <- DT::renderDataTable({
     rv$listn2
-    rv$listn2renew 
+    rv$listn2renew
     if (length(carttablist) > 0) {
       DT::datatable(data.table::as.data.table(list(carttablist)),
         escape = FALSE,
@@ -2123,7 +2275,7 @@ server <- function(input, output, session) {
 
   output$listn <- renderUI({
     rv$line_refresh
-    HTML(paste0(rv$listn, " of ", length(historytablist)))
+    HTML(paste0("<strong>", rv$listn, " of ", length(historytablist), "</strong>"))
   })
 
   # list loaded genes as table
@@ -2182,30 +2334,30 @@ server <- function(input, output, session) {
       orftbl() %>%
         select(
           unique_gene_symbol,
-          contains("LRT"),
           contains("cluster"),
+          contains("LRT"),
           everything()
         ),
       filter = "top",
       escape = FALSE,
       selection = "single",
       rownames = FALSE,
-      extensions = 'ColReorder',
+      extensions = "ColReorder",
       options = list(
-        #searchHighlight = TRUE, # breaks width
+        # searchHighlight = TRUE, # breaks width
         pageLength = pageN,
-        columnDefs = list(list(width = '175px',visible=TRUE, targets = list(7,8,9), className = 'dt-center')),
+        columnDefs = list(list(width = "175px", visible = TRUE, targets = list(7, 8, 9), className = "dt-center")),
         scrollX = TRUE,
         autoWidth = TRUE,
-        colReorder = TRUE),
+        colReorder = TRUE
+      ),
       callback = JS(paste0("var tips = [", columns_tips, "],
                             firstRow = $('#tbl thead tr th');
                             for (var i = 0; i < tips.length; i++) {
                               $(firstRow[i]).attr('title', tips[i]);
-                            }")
-      )
+                            }"))
     ) %>%
-      DT::formatRound(columns = c(2, 3, 4, 5, 6, 7), digits = 4)
+      DT::formatRound(columns = c(5, 6, 7), digits = 4)
   })
 
   saveFiltered <- downloadHandler("filtré.csv", content = function(file) {
@@ -2213,8 +2365,8 @@ server <- function(input, output, session) {
     write_csv((orftbl() %>%
       select(
         unique_gene_symbol,
-        contains("LRT"),
         contains("cluster"),
+        contains("LRT"),
         everything()
       ) %>% select(unique_gene_symbol, everything()))[s, ], file)
   })
@@ -2236,9 +2388,17 @@ server <- function(input, output, session) {
   })
 
   # explore majiq table
+  majtbl <- reactive({
+    if (input$doJoin) {
+      maj %>% left_join(fulltbl_collapse)
+    } else {
+      maj
+    }
+  })
+  
   output$alt <- DT::renderDataTable({
     DT::datatable(
-      maj %>%
+      majtbl() %>%
         select(
           unique_gene_symbol,
           contains("significant"),
@@ -2249,18 +2409,19 @@ server <- function(input, output, session) {
       escape = FALSE,
       selection = "single",
       rownames = FALSE,
-      extensions = 'ColReorder',
+      extensions = "ColReorder",
       options = list(
         searchHighlight = TRUE,
         pageLength = pageN,
-        scrollX = FALSE,
-        autoWidth = TRUE, colReorder = TRUE)
+        scrollX = TRUE,
+        autoWidth = TRUE, colReorder = TRUE
+      )
     )
   })
 
   saveFilteredAS <- downloadHandler("filtré.csv", content = function(file) {
     s <- input$alt_rows_all
-    write_csv((maj %>%
+    write_csv((majtbl() %>%
       select(
         unique_gene_symbol,
         contains("significant"),
@@ -2269,11 +2430,17 @@ server <- function(input, output, session) {
       ))[s, ], file)
   })
 
+  onclick("loadtab2", {
+    s <- input$alt_rows_all
+    historytablist <- majtbl()[s, ] %>% pull(unique_gene_symbol) %>% unique()
+    rv$line_refresh <- rv$line_refresh + 1
+  })
+  
   observeEvent(input$alt_rows_selected, {
     rv$run2 <- 1
     updateSelectizeInput(session,
       inputId = "geneID",
-      selected = maj[input$alt_rows_selected, "unique_gene_symbol"],
+      selected = majtbl()[input$alt_rows_selected, "unique_gene_symbol"],
       choices = autocomplete_list,
       server = T
     )
@@ -2286,170 +2453,189 @@ server <- function(input, output, session) {
     },
     ignoreNULL = T
   )
-  
+
   # ABOUT
   output$intro <- renderUI({
     url <- str_c("manuscript link here")
     clean <- a("manuscript",
-               href = url
+      href = url
     )
     tagList(tags$h6("RNA sequencing data and analysis for 13-lined ground squirrel brain samples from hibernation cycle. Please see ", clean, "for more details."))
   })
-  
+
   output$track <- renderUI({
     url <- str_c(
       "http://genome.ucsc.edu/cgi-bin/hgTracks?db=",
       track_name,
       "&hubUrl=",
-      track_url)
+      track_url
+    )
     clean <- a("UCSC browser",
-               href = url
+      href = url
     )
     tagList(tags$h6("Newly assembled genome and annotated transcriptome are hosted on ", clean))
   })
-  
+
   output$rawdata <- renderUI({
     url <- str_c(
-      "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=", geoN)
+      "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=", geoN
+    )
     clean <- a(geoN,
-               href = url
+      href = url
     )
     tagList(tags$h6("Raw data is deposited on GEO, ", clean))
   })
-  
+
   output$GOversion <- renderUI({
     url <- "https://www.gsea-msigdb.org/gsea/msigdb/collections.jsp"
     clean <- a(gmt_file,
-               href = url
+      href = url
     )
-    
+
     tagList(tags$h6("GO database version: ", clean))
   })
-  
+
   output$version <- renderUI({
     url <- "https://github.com/rnabioco/squirrelbox/"
     clean <- a(versionN,
-               href = url
+      href = url
     )
     tagList(tags$h6("squirrelBox version: ", clean))
   })
-  
+
   output$explain <- DT::renderDataTable({
-    dfreg <- data.frame(region = region_order,
-                     short = region_short,
-                     letter = region_one)
+    dfreg <- data.frame(
+      region = region_order,
+      short = region_short,
+      letter = region_one
+    )
     DT::datatable(dfreg,
-                  escape = FALSE,
-                  selection = "none",
-                  rownames = FALSE,
-                  options = list(searchable = FALSE, 
-                                 dom = "t", 
-                                 paging = FALSE,
-                                 columnDefs = list(list(className = 'dt-center', targets = 0:2)))
+      escape = FALSE,
+      selection = "none",
+      rownames = FALSE,
+      options = list(
+        searchable = FALSE,
+        dom = "t",
+        paging = FALSE,
+        columnDefs = list(list(className = "dt-center", targets = 0:2))
+      )
     )
   })
-  
+
   output$explain2 <- DT::renderDataTable({
-    dfreg2 <- data.frame(state = c("SA",
-                                   "IBA",
-                                   "Ent",
-                                   "LT",
-                                   "Ar",
-                                   "SpD"),
-                         full_name = c("Summer Active",
-                                       "InterBout Arousal",
-                                       "Entrance",
-                                       "Late Torpor ",
-                                       "Arousing",
-                                       "Spring Dark"),
-                         body_temp = c("37°C",
-                                       "34.1 ± 2.9°C",
-                                       "25.4 ± 1.8°C",
-                                       "&nbsp;5.9 ± 0.5°C",
-                                       "&nbsp;8.7 ± 2.1°C",
-                                       "37°C")
+    dfreg2 <- data.frame(
+      state = c(
+        "SA",
+        "IBA",
+        "Ent",
+        "LT",
+        "Ar",
+        "SpD"
+      ),
+      full_name = c(
+        "Summer Active",
+        "InterBout Arousal",
+        "Entrance",
+        "Late Torpor ",
+        "Arousing",
+        "Spring Dark"
+      ),
+      body_temp = c(
+        "37°C",
+        "34.1 ± 2.9°C",
+        "25.4 ± 1.8°C",
+        "&nbsp;5.9 ± 0.5°C",
+        "&nbsp;8.7 ± 2.1°C",
+        "37°C"
+      )
     )
     DT::datatable(dfreg2,
-                  escape = FALSE,
-                  selection = "none",
-                  rownames = FALSE,
-                  options = list(searchable = FALSE, 
-                                 dom = "t", 
-                                 paging = FALSE,
-                                 columnDefs = list(list(className = 'dt-center', targets = 0:1)))
+      escape = FALSE,
+      selection = "none",
+      rownames = FALSE,
+      options = list(
+        searchable = FALSE,
+        dom = "t",
+        paging = FALSE,
+        columnDefs = list(list(className = "dt-center", targets = 0:1))
+      )
     )
   })
-  
+
   # graying out buttons, warnings/hints
   observe({
-      if (input$tabMain == "plot") {
-        enable("savePlot")
-        disable("saveTable")
-        output$savePlot <- savePlot
-        if (rv$tabinit_plot == 0) {
-          showNotification("tabs, modules, and columns of tables can be dragged and rearranged",
-                           type = "message")
-          rv$tabinit_plot <<- 1
-        }
-      } else if (input$tabMain == "table_data") {
-        disable("savePlot")
-        enable("saveTable")
-        output$saveTable <- saveFiltered
-        if (rv$tabinit_data == 0) {
-          showNotification("type `low...high` to input custom range for numeric filtering on column",
-                           type = "message")
-          rv$tabinit_data <<- 1
-        }
-      } else if (input$tabMain == "table_AS") {
-        disable("savePlot")
-        enable("saveTable")
-        output$saveTable <- saveFilteredAS
-      } else if (input$tabMain == "line_plot") {
-        enable("savePlot")
-        disable("saveTable")
-        output$savePlot <- savePlot5
-      } else if (input$tabMain == "enrichment_plot") {
-        enable("savePlot")
-        enable("saveTable")
-        output$savePlot <- savePlot2
-        output$saveTable <- saveEnrich
-        if (rv$tabinit_enrich == 0) {
-          showNotification("add corresponding genes to cart by clicking on GO term bar",
-                           type = "message")
-          rv$tabinit_enrich <<- 1
-        }
-      } else if (input$tabMain == "heat_plot") {
-        enable("savePlot")
-        disable("saveTable")
-        output$savePlot <- savePlot3
-      } else if (input$tabMain == "kmer_analysis") {
-        enable("savePlot")
-        enable("saveTable")
-        output$savePlot <- savePlot4
-        output$saveTable <- saveK
-        if (rv$tabinit_kmer == 0) {
-          showNotification("Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed",
-                           type = "message")
-          rv$tabinit_kmer <<- 1
-        }
-      } else if (input$tabMain == "venn") {
-        enable("savePlot")
-        disable("saveTable")
-        output$savePlot <- savePlot6
-        if (rv$tabinit_venn == 0) {
-          showNotification("click on venn numbers to load associated genes into cart",
-                           type = "message")
-          rv$tabinit_venn <<- 1
-        }
-      } else if (input$tabMain == "about") {
-        disable("savePlot")
-        disable("saveTable")
+    if (input$tabMain == "plot") {
+      enable("savePlot")
+      disable("saveTable")
+      output$savePlot <- savePlot
+      if (rv$tabinit_plot == 0) {
+        showNotification("tabs, modules, and columns of tables can be dragged and rearranged",
+          type = "message"
+        )
+        rv$tabinit_plot <<- 1
       }
-    })
-  
+    } else if (input$tabMain == "table_data") {
+      disable("savePlot")
+      enable("saveTable")
+      output$saveTable <- saveFiltered
+      if (rv$tabinit_data == 0) {
+        showNotification("type `low...high` to input custom range for numeric filtering on column",
+          type = "message"
+        )
+        rv$tabinit_data <<- 1
+      }
+    } else if (input$tabMain == "table_AS") {
+      disable("savePlot")
+      enable("saveTable")
+      output$saveTable <- saveFilteredAS
+    } else if (input$tabMain == "line_plot") {
+      enable("savePlot")
+      disable("saveTable")
+      output$savePlot <- savePlot5
+    } else if (input$tabMain == "enrichment_plot") {
+      enable("savePlot")
+      enable("saveTable")
+      output$savePlot <- savePlot2
+      output$saveTable <- saveEnrich
+      if (rv$tabinit_enrich == 0) {
+        showNotification("add corresponding genes to cart by clicking on GO term bar",
+          type = "message"
+        )
+        rv$tabinit_enrich <<- 1
+      }
+    } else if (input$tabMain == "heat_plot") {
+      enable("savePlot")
+      disable("saveTable")
+      output$savePlot <- savePlot3
+    } else if (input$tabMain == "kmer_analysis") {
+      enable("savePlot")
+      enable("saveTable")
+      output$savePlot <- savePlot4
+      output$saveTable <- saveK
+      if (rv$tabinit_kmer == 0) {
+        showNotification("Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed",
+          type = "message"
+        )
+        rv$tabinit_kmer <<- 1
+      }
+    } else if (input$tabMain == "venn") {
+      enable("savePlot")
+      disable("saveTable")
+      output$savePlot <- savePlot6
+      if (rv$tabinit_venn == 0) {
+        showNotification("click on venn numbers to load associated genes into cart",
+          type = "message"
+        )
+        rv$tabinit_venn <<- 1
+      }
+    } else if (input$tabMain == "about") {
+      disable("savePlot")
+      disable("saveTable")
+    }
+  })
+
   observeEvent(input$showpanel, {
-    
-    if(input$showpanel != TRUE) {
+    if (input$showpanel != TRUE) {
       removeCssClass("MAIN", "col-sm-11")
       addCssClass("MAIN", "col-sm-9")
       shinyjs::show(id = "SIDE")
@@ -2461,29 +2647,29 @@ server <- function(input, output, session) {
       shinyjs::hide(id = "SIDE")
     }
   })
-  
+
   onclick("bsgo", {
     rv$go <- 2
     removeModal()
   })
-  
+
   onclick("bscancel", {
     rv$go <- 1
     removeModal()
   })
-  
+
   observeEvent(input$tabMain == "heat_plot", {
-      if (rv$go < 2) {
-        rv$go <- rv$go -1
-      }
-  })
-  
-  observeEvent(input$tabMain == "line_plot", {
     if (rv$go < 2) {
-      rv$go <- rv$go -1
+      rv$go <- rv$go - 1
     }
   })
-  
+
+  observeEvent(input$tabMain == "line_plot", {
+    if (rv$go < 2) {
+      rv$go <- rv$go - 1
+    }
+  })
+
   modalWarn <- draggableModalDialog(
     id = "bsconfirm",
     icon("exclamation-triangle"),
