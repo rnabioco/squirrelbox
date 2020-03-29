@@ -21,6 +21,8 @@ library(shinythemes)
 library(shinycssloaders)
 library(shinyjqui)
 
+shinyOptions(cache = diskCache("./app-cache",  max_size = 100 * 1024^2))
+options(readr.num_columns = 0)
 options(stringsAsFactors = FALSE)
 options(spinner.type = 6)
 theme_set(theme_cowplot())
@@ -221,7 +223,7 @@ comb_fil_factor <- function(combined2, combined3, inid) {
   combined3 <- combined3 %>%
     filter(gene_id %in% inid | unique_gene_symbol %in% inid)
   combined2 <- combined2 %>%
-    filter(gene_id %in% inid | gene_id %in% (combined3$gene_id %>%
+    filter(gene_id %in% c(inid, combined3$gene_id %>%
       unique())) %>%
     mutate(sample = (str_remove(sample, "[A-Z]+")))
   combined <- combined3 %>% inner_join(combined2, by = "gene_id")
@@ -344,7 +346,7 @@ fulltbl <- combined3 %>%
 fulltbl_collapse <- fulltbl %>%
   group_by(gene_id) %>%
   arrange(desc(orf_len), .by_group = TRUE) %>%
-  dplyr::slice(1)
+  dplyr::slice(1) %>% ungroup()
 
 length_detected_genes <- orfs %>%
   filter(br_expr == 1) %>%
@@ -399,15 +401,14 @@ sort_groups <- function(groups, states, state_order) {
     as.data.frame()
   colnames(full2) <- str_c("V", 1:ncol(full2))
   full2 <- full2 %>%
-    mutate_all(factor, levels = state_order) %>%
+    mutate_all(factor, levels = state_order) %>% 
     arrange(V1)
   full3 <- full2 %>%
     mutate(letter = letters[1:n()]) %>%
     pivot_longer(-letter, names_to = "NA", values_to = "state") %>%
     filter(!(is.na(state))) %>%
-    arrange(state) %>%
     group_by(state) %>%
-    summarize(letter = str_c(letter, collapse = ""))
+    summarize(letter = str_c(letter, collapse = "")) %>% ungroup()
   full3
 }
 
@@ -467,8 +468,6 @@ maj <- read_tsv(paste0(datapath, "/MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz")) 
     comp = factor(comp)
   ) %>%
   rename(comp_pair = "comp") %>%
-  # left_join(orfs %>% select(gene_id, contains("LRT")), by = "gene_id") %>%
-  # select(-gene_id) %>%
   distinct()
 
 # seqs for kmer
@@ -564,7 +563,6 @@ sixmers <- read_csv(paste0(annotpath, "/RBP_6mer.csv"))
 # load curated gene lists
 lists_vec <- list.files(listpath)
 gene_list <- sapply(lists_vec, function(x) {
-  print(x)
   read_csv(paste0(listpath, "/", x)) %>% pull(1)
 }, simplify = FALSE)
 names(gene_list) <- names(gene_list) %>% str_remove("\\..+")
@@ -617,11 +615,16 @@ ui <- fluidPage(
   "),
   useShinyjs(),
   tags$head(tags$script(HTML(jscode))),
+  tags$head(tags$style(type="text/css",
+             ".shiny-output-error { visibility: hidden; }",
+             ".shiny-output-error:before { visibility: hidden; }",
+             ".shiny-output-warning { visibility: hidden; }",
+             ".shiny-output-warning:before { visibility: hidden; }"
+  )),
   tags$head(tags$style(
     type="text/css",
     "#ucscPlot img {max-width: 100%; width: 100%; height: auto}"
   )),
-  # tags$script(HTML("$('body').addClass('sidebar-mini');")),
   titlePanel(div(
     class = "header", img(src = "logo.png", style = "width : 4%;"),
     "13-lined ground squirrel gene-level RNA-seq expression",
@@ -909,6 +912,15 @@ ui <- fluidPage(
             radioButtons("kmlab", "annotate kmer", c("RBP/mir", "seq", "none"), selected = "RBP/mir", inline = TRUE)
           ),
           div(
+            id = "dosamplelowdiv",
+            style = "display: inline-block;vertical-align:top; width:250px;",
+            checkboxInput("doSamplelow",
+                          "limit insig points for speed",
+                          value = T,
+                          width = NULL
+            )
+          ),
+          div(
             style = "display: inline-block;vertical-align:top;",
             selectInput("utrlen", NULL, choices = c(200, 500, 1000, "full length"), selected = "full length")
           ),
@@ -1017,6 +1029,7 @@ server <- function(input, output, session) {
   rv$line <- 0
   rv$line_refresh <- 0
   rv$listn2renew <- 0
+  rv$plot_temp <- data.frame()
   rv$mod_df <- data.frame()
   rv$toolarge <- 0
   rv$go <- 0
@@ -1110,9 +1123,10 @@ server <- function(input, output, session) {
 
   # boxplot1
   boxPlot1 <- reactive({
-    outputtab <- outputtab()
-    inid <- outputtab$unique_gene_symbol
-    plot_temp <- comb_fil_factor(combined2, combined3, inid)
+    plot_temp <- rv$plot_temp
+    if (nrow(plot_temp) == 0) {
+      return(ggplot())
+    }
 
     if (input$doTis & input$doBr) {
       mis <- setdiff(region_order, plot_temp$region %>% unique() %>% as.character())
@@ -1121,7 +1135,7 @@ server <- function(input, output, session) {
     } else {
       mis <- setdiff(region_main2, plot_temp$region %>% unique() %>% as.character())
     }
-
+    
     if (length(mis) > 0) {
       for (element in mis) {
         l <- as.list(plot_temp[1, ])
@@ -1155,7 +1169,7 @@ server <- function(input, output, session) {
     } else {
       plot_temp <- plot_temp %>% mutate(text = "NA")
     }
-
+    
     set.seed(1)
     g <- ggplot(plot_temp, aes(state, log2_counts, text = text)) +
       ylab("rlog(counts)") +
@@ -1178,7 +1192,7 @@ server <- function(input, output, session) {
       temp2 <- calls_sig(padj, sig_sym)
       temp2 <- temp2 %>%
         replace_na(list(call1 = list(0))) %>%
-        separate(comp, into = c("region", "state1", NA, "state2")) %>%
+        separate(comp, into = c("region", "state1", NA, "state2"), extra = "drop") %>%
         select(-padj, -call) %>%
         mutate(call1 = as.numeric(call1)) %>%
         mutate(region = as.character(region))
@@ -1197,7 +1211,7 @@ server <- function(input, output, session) {
             maxy = max(log2_counts),
             miny = min(min),
             nudgey = (maxy - miny) * 0.1
-          )
+          ) %>% ungroup()
         agg3 <- agg2 %>%
           left_join(temp3 %>% select(region, state, letter)) %>%
           replace_na(list(letter = list("")))
@@ -1212,7 +1226,7 @@ server <- function(input, output, session) {
           ))
       }
     }
-
+  
     g
   })
 
@@ -1268,8 +1282,6 @@ server <- function(input, output, session) {
       g <- ""
       g
     } else {
-      outputtab <- outputtab()
-      inid <- outputtab$unique_gene_symbol
       if (nrow(rv$mod_df) == 0) {
         mods <- c("filtered", "filtered", "filtered")
         reg <- colnames(mod)[-1]
@@ -1283,14 +1295,14 @@ server <- function(input, output, session) {
         ncol = 3
       )
     }
-  }, cacheKeyExpr = {rv$mod_df},
+  }, cacheKeyExpr = {rv$mod_df %>% select(-1)},
   sizePolicy = sizeGrowthRatio(width = plot_width * 100, height = plot_height * 100 / 2, growthRate = 1.2))
 
   # filter data
   outputtab <- reactive({
     inid <- inid()
-    if ((inid %in% orfs$gene_id) | (inid %in% orfs$unique_gene_symbol)) {
-      temp_orfs <- orfs %>% filter((gene_id == inid) | (unique_gene_symbol == inid))
+    temp_orfs <- orfs %>% filter((gene_id == inid) | (unique_gene_symbol == inid))
+    if (nrow(temp_orfs) > 0) {
       if (nrow(temp_orfs) == 0) {
         rv$blast <<- ""
         rv$pval <<- data.frame()
@@ -1305,8 +1317,10 @@ server <- function(input, output, session) {
       rv$pval <<- data.frame()
       rv$temp_orfs <<- data.frame()
     }
+    
+    rv$plot_temp <<- comb_fil_factor(combined2, combined3, inid) 
 
-    filtered <- comb_fil_factor(combined2, combined3, inid) %>%
+    filtered <- rv$plot_temp %>%
       select(table_cols) %>%
       unique()
 
@@ -1342,6 +1356,7 @@ server <- function(input, output, session) {
     } else {
       rv$mod_df <<- mod1
     }
+
     out
   })
 
@@ -1594,7 +1609,7 @@ server <- function(input, output, session) {
     }
     plot_temp <- comb_fil_factor(combined2, combined3, historytablist) %>%
       group_by(region, state, unique_gene_symbol) %>%
-      summarize(counts = mean(2^log2_counts))
+      summarize(counts = mean(2^log2_counts)) %>% ungroup()
     if (input$doNorm == TRUE) {
       plot_temp <- plot_temp %>%
         group_by(unique_gene_symbol, region) %>%
@@ -1804,11 +1819,13 @@ server <- function(input, output, session) {
   })
 
   output$richPlot <- renderPlotly({
-    ggplotly(richPlot1(),
+    p <- ggplotly(richPlot1(),
       source = "richPlot", tooltip = "text", height = plot_height * 100, width = plot_width * 100
     ) %>%
       layout(autosize = F) %>%
       highlight()
+    event_register(p, 'plotly_click')
+    p
   })
 
   savePlot2 <- downloadHandler(
@@ -1867,6 +1884,9 @@ server <- function(input, output, session) {
         col = utrchoice,
         k = as.numeric(input$km)
       )
+      if (nrow(topsk) == 0 | is.null(topsk)) {
+        return(data.frame())
+      }
       if (input$km == "5") {
         topsk <- topsk %>% left_join(fivemers, by = c("kmer" = "fivemer"))
       } else if (input$km == "6") {
@@ -1902,7 +1922,15 @@ server <- function(input, output, session) {
     if (input$kmlab == "none") {
       topsk <- topsk %>% mutate(text2 = "")
     }
-    ggplot(topsk, aes(
+    if (input$doSamplelow) {
+      df1 <- topsk %>% filter(sig == "sig")
+      df2 <- topsk %>% filter(sig != "sig", abs(enrichment) < 0.5) %>% sample_frac(0.1)
+      topsk2 <- bind_rows(df1, df2)
+    } else {
+      topsk2 <- topsk
+    }
+    print(nrow(topsk2))
+    ggplot(topsk2, aes(
       x = enrichment,
       y = minuslog10,
       text = text1,
@@ -2030,7 +2058,7 @@ server <- function(input, output, session) {
     ) %>%
       layout(autosize = F, showlegend = FALSE) %>%
       highlight()
-    # event_register(p, 'plotly_selected')
+    event_register(p, 'plotly_click')
     p
   })
 

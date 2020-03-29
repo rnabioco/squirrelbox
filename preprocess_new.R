@@ -260,3 +260,89 @@ plot(vd2, labels = list(cex = .5), quantities = list(cex = .5), adjust_labels = 
 pdf(file = "./sig3DEbrainvd_small.pdf", width = 3, height = 3)
 plot(vd2, labels = list(cex = .5), quantities = list(cex = .5), adjust_labels = FALSE)
 dev.off()
+
+# magik
+mag <- read_tsv('/Users/rf/Downloads/clustered_retained_inton_lsvs/MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz')
+
+#
+a <-dataref %>% filter(IBA_vs_LT_wald_padj <= 0.001, IBA_vs_LT_log2FC_ashr > 0)
+b <-dataref %>% filter(IBA_vs_LT_wald_padj <= 0.001, IBA_vs_LT_log2FC_ashr < 0)
+write_csv(a %>% select(unique_gene_symbol), "med_IBAoverLT.csv")
+write_csv(b %>% select(unique_gene_symbol), "med_IBAunderLT.csv")
+
+intersect(read_csv("med_IBAoverLT.csv") %>% pull(1), 
+  read_csv("hy_IBAoverLT.csv") %>% pull(1)) %>% intersect(read_csv("fore_IBAoverLT.csv") %>% pull(1)) -> IBAup
+
+intersect(read_csv("med_IBAunderLT.csv") %>% pull(1), 
+          read_csv("hy_IBAunderLT.csv") %>% pull(1)) %>% intersect(read_csv("fore_IBAunderLT.csv") %>% pull(1)) -> IBAdown
+
+c(read_csv("med_IBAoverLT.csv") %>% pull(1), 
+  read_csv("hy_IBAoverLT.csv") %>% pull(1),
+  read_csv("fore_IBAoverLT.csv") %>% pull(1)) %>% unique() -> IBAup
+c(read_csv("med_IBAunderLT.csv") %>% pull(1), 
+  read_csv("hy_IBAunderLT.csv") %>% pull(1),
+  read_csv("fore_IBAunderLT.csv") %>% pull(1)) %>% unique() -> IBAdown
+write_lines(IBAdown, "IBAdown.txt")
+write_lines(IBAup, "IBAup.txt")
+
+# finding transition pairs
+state_order <- c(
+  "SA",
+  "IBA",
+  "Ent",
+  "LT",
+  "Ar",
+  "SpD"
+)
+h <- read_tsv(paste0(loc, "/Hypothalamus.tsv.gz")) %>% 
+  select(unique_gene_symbol, contains("ashr"), contains("wald_padj")) 
+h2 <- h %>% 
+  pivot_longer(-unique_gene_symbol,
+               names_to = c("state", "type"), 
+               names_pattern = "([a-zA-Z]+_vs_[a-zA-Z]+)_(.*)",
+               values_to = "val") %>% 
+  pivot_wider(names_from = "type", values_from = "val") %>% 
+  rename(gene = "unique_gene_symbol") %>% 
+  mutate_at(vars(contains("_")), as.numeric)
+h3 <- split(h2, h2$state)
+
+f <- read_tsv(paste0(loc, "/Forebrain.tsv.gz")) %>% 
+  select(unique_gene_symbol, contains("ashr"), contains("wald_padj")) 
+f2 <- f %>% 
+  pivot_longer(-unique_gene_symbol,
+               names_to = c("state", "type"), 
+               names_pattern = "([a-zA-Z]+_vs_[a-zA-Z]+)_(.*)",
+               values_to = "val") %>% 
+  pivot_wider(names_from = "type", values_from = "val") %>% 
+  rename(gene = "unique_gene_symbol") %>% 
+  mutate_at(vars(contains("_")), as.numeric)
+f3 <- split(f2, f2$state)
+
+m <- read_tsv(paste0(loc, "/Medulla.tsv.gz")) %>% 
+  select(unique_gene_symbol, contains("ashr"), contains("wald_padj")) 
+m2 <- m %>% 
+  pivot_longer(-unique_gene_symbol,
+               names_to = c("state", "type"), 
+               names_pattern = "([a-zA-Z]+_vs_[a-zA-Z]+)_(.*)",
+               values_to = "val") %>% 
+  pivot_wider(names_from = "type", values_from = "val") %>% 
+  rename(gene = "unique_gene_symbol") %>% 
+  mutate_at(vars(contains("_")), as.numeric)
+m3 <- split(m2, m2$state)
+
+write_sig <- function(df, p = 0.001, region) {
+  state <- df$state[1]
+  up <- df %>% filter(wald_padj <= p) %>% 
+    filter(log2FC_ashr > 0)
+  down <- df %>% filter(wald_padj <= p) %>% 
+    filter(log2FC_ashr < 0)
+  write_csv(up, 
+            paste0(region, "_", state, "_up.csv"))
+  write_csv(down, 
+            paste0(region, "_", state, "_down.csv"))
+}
+
+sapply(h3, function(x) write_sig(x, region = "hy"))
+sapply(f3, function(x) write_sig(x, region = "fore"))
+sapply(m3, function(x) write_sig(x, region = "med"))
+
