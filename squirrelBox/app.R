@@ -1991,6 +1991,11 @@ server <- function(input, output, session) {
     if (input$doUpper) {
       temp <- sapply(temp, function(x) str_to_upper(x))
     }
+    
+    if (!is.list(temp)) {
+      temp <- list(temp)
+      names(temp) <- "Set A"
+    }
     temp
   })
 
@@ -2192,7 +2197,7 @@ server <- function(input, output, session) {
   })
 
   output$listn2 <- renderUI({
-    HTML(str_c("# in cart:", rv$listn2))
+    HTML(str_c("<strong> # in cart:", rv$listn2, "</strong>"))
   })
 
   output$saveList <- downloadHandler("cart.txt", content = function(file) {
@@ -2270,7 +2275,7 @@ server <- function(input, output, session) {
 
   output$listn <- renderUI({
     rv$line_refresh
-    HTML(paste0(rv$listn, " of ", length(historytablist)))
+    HTML(paste0("<strong>", rv$listn, " of ", length(historytablist), "</strong>"))
   })
 
   # list loaded genes as table
