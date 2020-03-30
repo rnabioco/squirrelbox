@@ -20,7 +20,8 @@ library(shinyBS)
 library(shinythemes)
 library(shinycustomloader)
 library(shinyjqui)
-# shinyWidgets::dropdownButton
+library(shinyWidgets)
+
 
 shinyOptions(cache = diskCache("./app-cache",  max_size = 100 * 1024^2))
 options(readr.num_columns = 0)
@@ -617,6 +618,15 @@ ui <- fluidPage(
         z-index:100;
       }
   "),
+  tags$head(tags$style(
+    HTML('
+         #SIDE {
+            background-color: #F8F8F8;
+        }',
+         '.btn-options {
+         background-color: #F8F8F8;
+        }')
+  )),
   useShinyjs(),
   tags$head(tags$script(HTML(jscode))),
   tags$head(tags$style(type="text/css",
@@ -679,9 +689,9 @@ ui <- fluidPage(
         tabPanel(
           span("options", title = "options specific to each main tab"),
           br(.noWS = "outside"),
-          div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL)),
-          div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL)),
-          div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL)),
+          # div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL)),
+          # div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL)),
+          # div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL)),
           checkboxInput("doBr", "plot brain data", value = T, width = NULL),
           checkboxInput("doTis", "plot non-brain data", value = F, width = NULL),
           div(id = "doEigendiv", checkboxInput("doEigen", "plot model clusters", value = T, width = NULL)),
@@ -753,7 +763,17 @@ ui <- fluidPage(
           div(
             id = "sorted",
             DT::dataTableOutput("results"),
-            uiOutput("boxPlotUI") %>% withLoader(),
+            div(
+              div(style="display: inline-block;vertical-align:top;",
+                  dropdownButton(circle = FALSE, status = "options", icon = icon("gear"), width = "200px", size = "sm",
+                             tooltip = tooltipOptions(title = "plotting options"), margin = "20px",
+                             br(),
+                             div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL)),
+                             div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL)),
+                             div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL)))),
+              div(style="display: inline-block;vertical-align:top;",
+                 uiOutput("boxPlotUI") %>% withLoader(proxy.height = paste0(plot_height * 100 /2, "px")))
+            ),
             bsCollapse(
               id = "tabs", multiple = TRUE, open = NULL,
               bsCollapsePanel(
