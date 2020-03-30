@@ -45,7 +45,7 @@ plot_height <- 6
 set_shinytheme <- "paper"
 track_name <- "hub_1512849_KG_HiC"
 track_url <- "https://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
-gmt_file <- "c5.bp.v7.0.symbols.gmt"
+gmt_file <- "c5.bp.v7.0.symbols.gmt" # add MF back in
 gmt_short <- "GO_"
 sig_cut <- 0.001
 ncore <- parallel::detectCores() - 1
@@ -104,6 +104,17 @@ orf_cols <- c(
   "rna_len",
   "orf_len",
   "exons"
+)
+
+maj_cols <- c(
+  "region", 
+  "comp_pair", 
+  "significant_90", 
+  "significant_99", 
+  "LSV_ID", 
+  "A5SS",
+  "A3SS", 
+  "ES"
 )
 
 ### sample settings, define state colors and order, region order
@@ -628,6 +639,7 @@ ui <- fluidPage(
         }')
   )),
   useShinyjs(),
+  tags$style(".mock {position:fixed;width:7%;margin-top: 60px;z-index:10;}"),
   tags$head(tags$script(HTML(jscode))),
   tags$head(tags$style(type="text/css",
              ".shiny-output-error { visibility: hidden; }",
@@ -656,6 +668,9 @@ ui <- fluidPage(
       id = "SIDE",
       style = "position:fixed;width:23%;margin-top: 60px;z-index:10;",
       width = 3,
+#       HTML('<div class="well" id="SIDE2" style="position:fixed;width:8%;margin-top: 60px;z-index:10;">
+# <button id="showpanel" type="button" class="btn btn-default sbs-toggle-button">sidebar</button></div>'),
+      div(id = "sideall",
       div(
         style = "display: inline-block;vertical-align:top; width: 160px;",
         tagAppendAttributes(selectizeInput("geneID",
@@ -698,14 +713,17 @@ ui <- fluidPage(
           checkboxInput("doUcsc", "pull track", value = T, width = NULL),
           checkboxInput("doMod", "find module", value = T, width = NULL),
           checkboxInput("doKegg", "GO terms", value = T, width = NULL),
-          div(id = "doNormdiv", checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL)),
+          # div(id = "doNormdiv", checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL)),
           checkboxInput("doTooltips", "show hover tips", value = T, width = NULL),
           div(id = "doLockdiv", checkboxInput("doLock", "lock main panel order", value = F, width = NULL)),
-          bsTooltip("doPlotlydiv", "toggles main and kmer plot"),
-          bsTooltip("doPadjdiv", str_c("label groups by p <= ", sig_cut)),
-          bsTooltip("doNamediv", "samples in main, gene in line plot"),
+          bsTooltip("doPlotlydiv", "toggles main and kmer plot",
+                    options=list(container="body"), placement = "right"),
+          bsTooltip("doPadjdiv", str_c("label groups by p <= ", sig_cut), 
+                    options=list(container="body"), placement = "right"),
+          bsTooltip("doNamediv", "label points by sample", options=list(container="body"), placement = "right"),
+          bsTooltip("doName2div", "show toggleable legend", options=list(container="body"), placement = "right"),
           bsTooltip("doEigendiv", "assigned per region"),
-          bsTooltip("doNormdiv", "otherwise centered by mean"),
+          bsTooltip("doNormdiv", "otherwise centered by mean", options=list(container="body"), placement = "right"),
           bsTooltip("doLockdiv", "by default panels can be dragged and rearranged")
         ),
         tabPanel(
@@ -717,12 +735,18 @@ ui <- fluidPage(
         tabPanel(
           span("load", title = "load list of genes for analysis from file or interactive table"),
           div(id = "filediv", fileInput("file", label = NULL)),
-          actionButton("Prev", "Prev"),
-          actionButton("Next", "Next"),
+          div(
+            uiOutput("listn"),
+            style = "display: inline-block;vertical-align:middle;"
+          ),
+          div(
+            style = "display: inline-block;float:right;vertical-align:middle;",
+            disabled(actionButton("Prev1", "Prev", icon = icon("angle-up"))),
+            disabled(actionButton("Next1", "Next", icon = icon("angle-down")))
+          ),
           bsTooltip("filediv", "expects gene symbols as first column, or comma separated"),
-          bsTooltip("Prev", "query previous gene on loaded list"),
-          bsTooltip("Next", "query next gene on loaded list"),
-          uiOutput("listn"),
+          bsTooltip("Prev1", "query previous gene on loaded list"),
+          bsTooltip("Next1", "query next gene on loaded list"),
           DT::dataTableOutput("tbllist"),
           style = "height:300px; overflow-y: scroll;"
         ),
@@ -747,7 +771,7 @@ ui <- fluidPage(
           style = "height:300px; overflow-y: scroll;"
         )
       ))
-    ),
+    )),
     mainPanel(
       id = "MAIN",
       width = 9,
@@ -791,7 +815,10 @@ ui <- fluidPage(
             ),
             bsCollapse(
               id = "tabs3", multiple = TRUE, open = "NULL",
-              bsCollapsePanel(DT::dataTableOutput("majinfo") %>% withLoader(),
+              bsCollapsePanel(
+                # div(
+                  DT::dataTableOutput("majinfo") %>% withLoader(), 
+                  #style = "font-size: 75%; width: 75%"),
                 title = "majiq_alternative_splicing",
                 style = "warning"
               )
@@ -856,7 +883,14 @@ ui <- fluidPage(
             title = "Plot expression of loaded gene list"
           ),
           value = "line_plot",
-          plotlyOutput("linePlot") %>% withLoader()
+          div(style="display: inline-block;vertical-align:top;",
+              dropdownButton(circle = FALSE, status = "options", icon = icon("gear"), width = "200px", size = "sm",
+                             tooltip = tooltipOptions(title = "plotting options"), margin = "20px",
+                             br(),
+                             div(id = "doName2div", checkboxInput("doName2", "additional labels", value = F, width = NULL)),
+                             div(id = "doNormdiv", checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL)))),
+          div(style="display: inline-block;vertical-align:top;",
+              plotlyOutput("linePlot") %>% withLoader())
         ),
         tabPanel(
           title = span("heatmap",
@@ -941,13 +975,21 @@ ui <- fluidPage(
           ),
           div(
             id = "rbptermdiv",
-            style = "display: inline-block;vertical-align:top;",
+            style = "display: inline-block;vertical-align:top;width:250px",
             textInput("rbpterm", "highlight annotation", value = "MEX3C")
           ),
+          div(id = "doPlotly2div", 
+              checkboxInput("doPlotly2", "interactive plot", value = F, width = NULL),
+              style = "width:200px",),
           uiOutput("kmerPlotUI") %>% withLoader(loader = "pacman"),
-          bsTooltip("kmerdiv", "Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed"),
-          bsTooltip("kmlabdiv", "label points with annotations"),
-          bsTooltip("rbptermdiv", "highlights annotation in black")
+          bsTooltip("kmerdiv", 
+            "Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed"),
+          bsTooltip("kmlabdiv", 
+                    "label points with annotations"),
+          bsTooltip("rbptermdiv", 
+                    "highlights annotation in black"),
+          bsTooltip("doPlotly2div", "toggles main and kmer plot",
+                    options=list(container="body")),
         ),
         tabPanel(
           title = span("genes_venn",
@@ -1377,7 +1419,7 @@ server <- function(input, output, session) {
 
   # display gene info
   output$results <- DT::renderDataTable({
-    temp <- outputtab()
+    temp <- outputtab() %>% select(-clean_gene_symbol)
     DT::datatable(temp,
       class = "table-condensed",
       escape = FALSE,
@@ -1427,13 +1469,16 @@ server <- function(input, output, session) {
     temp <- maj %>% filter(unique_gene_symbol == outputtab()$unique_gene_symbol[1])
     if (nrow(temp) == 0) {
       temp <- data.frame(`no alternative splicing` = "")
+    } else {
+      temp <- temp %>% select(maj_cols)
     }
     DT::datatable(temp,
       escape = FALSE,
       selection = "none",
       rownames = FALSE,
       filter = "top",
-      options = list(searchable = FALSE, dom = "t")
+      options = list(searchable = FALSE, dom = "t", 
+                     autoWidth = FALSE)
     )
   })
 
@@ -1451,7 +1496,8 @@ server <- function(input, output, session) {
       escape = FALSE,
       selection = "multiple",
       rownames = FALSE,
-      options = list(dom = "ft", searchHighlight = TRUE)
+      options = list(dom = "ft", searchHighlight = TRUE, 
+                     autoWidth = F)
     )
   })
 
@@ -1687,7 +1733,7 @@ server <- function(input, output, session) {
     g <- linePlot1()
     fac <- input$doTis + input$doBr
     if ((rv$toolarge == 0) | (rv$toolarge == 1 & rv$go == 2)) {
-      if (input$doName == T) {
+      if (input$doName2 == T) {
         ggplotly(g, tooltip = "text", height = plot_height * 100 * fac / 2, width = plot_width * 100) %>%
           layout(
             autosize = FALSE,
@@ -1971,7 +2017,7 @@ server <- function(input, output, session) {
   })
 
   output$kmerPlotUI <- renderUI({
-    if (input$doPlotly == FALSE) {
+    if (input$doPlotly2 == FALSE) {
       kmerPlotr()
     } else {
       kmerPlotlyr()
@@ -2264,10 +2310,17 @@ server <- function(input, output, session) {
     )
   })
 
-  onclick("Prev", {
+  onclick("Prev1", {
     rv$listn <- rv$listn - 1
-    if (rv$listn < 1) {
+    if (rv$listn <= 1) {
       rv$listn <- 1
+      disable("Prev1")
+      if (rv$listn < length(historytablist)) {
+        enable("Next1")
+      }
+    } else {
+      enable("Prev1")
+      enable("Next1")
     }
     rv$run2 <- 1
     sel <- find_spelling(historytablist[rv$listn], autocomplete_list)
@@ -2279,10 +2332,17 @@ server <- function(input, output, session) {
     )
   })
 
-  onclick("Next", {
+  onclick("Next1", {
     rv$listn <- rv$listn + 1
-    if (rv$listn > length(historytablist)) {
+    if (rv$listn >= length(historytablist)) {
       rv$listn <- length(historytablist)
+      disable("Next1")
+      if (rv$listn > 1) {
+        enable("Prev1")
+      }
+    } else {
+      enable("Next1")
+      enable("Prev1")
     }
     rv$run2 <- 1
     sel <- find_spelling(historytablist[rv$listn], autocomplete_list)
@@ -2303,6 +2363,7 @@ server <- function(input, output, session) {
   output$tbllist <- DT::renderDataTable({
     rv$line_refresh
     if (length(historytablist) > 0) {
+      enable("Next1")
       if (length(historytablist) > warningN) {
         rv$toolarge <- 1
         rv$go <- 0
@@ -2318,6 +2379,8 @@ server <- function(input, output, session) {
         options = list(searchable = FALSE, dom = "t", paging = FALSE, scrollY = TRUE)
       )
     } else {
+      disable("Prev1")
+      disable("Next1")
       rv$toolarge <- 0
       rv$go <- 0
       DT::datatable(data.table::as.data.table(list(c(""))),
@@ -2657,15 +2720,22 @@ server <- function(input, output, session) {
 
   observeEvent(input$showpanel, {
     if (input$showpanel != TRUE) {
-      removeCssClass("MAIN", "col-sm-11")
+      removeCssClass("MAIN", "col-sm-12")
       addCssClass("MAIN", "col-sm-9")
+      removeCssClass("SIDE", "col-sm-6")
+      addCssClass("SIDE", "col-sm-3")
       shinyjs::show(id = "SIDE")
-      shinyjs::enable(id = "SIDE")
+      # shinyjs::hide(id = "SIDE2")
+      # shinyjs::show(id = "SIDE")
+      # shinyjs::enable(id = "SIDE")
     }
     else {
       removeCssClass("MAIN", "col-sm-9")
-      addCssClass("MAIN", "col-sm-11")
+      addCssClass("MAIN", "col-sm-12")
+      removeCssClass("SIDE", "col-sm-3")
+      addCssClass("SIDE", "col-sm-6")
       shinyjs::hide(id = "SIDE")
+      #shinyjs::show(id = "SIDE2")
     }
   })
 
