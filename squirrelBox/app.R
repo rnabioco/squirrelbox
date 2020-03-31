@@ -7,6 +7,7 @@ library(tidyr)
 library(feather)
 library(ggplot2)
 library(ggrepel)
+library(ggvenn)
 library(cowplot)
 library(ComplexHeatmap)
 library(igraph)
@@ -658,18 +659,23 @@ ui <- fluidPage(
   )),
   fixedPanel(
     style = "z-index:100;",
+    dropdownButton(circle = TRUE, icon = icon("gear"), status = "options", 
+                   size = "sm", up = TRUE, left = TRUE, inline = TRUE,
+                   tooltip = tooltipOptions(title = "interface options and tips",
+                                            placement = "top"), margin = "20px",
+                   br()),
     actionButton("back_to_top", label = "to_top"),
     bsButton("showpanel", "sidebar", type = "toggle", value = FALSE),
     right = 10,
-    bottom = 10
+    bottom = 10,
+    bsTooltip("back_to_top", "reset to top of page", placement = "top"),
+    bsTooltip("showpanel", "toggle sidebar display", placement = "top")
   ),
   sidebarLayout(
     sidebarPanel(
       id = "SIDE",
       style = "position:fixed;width:23%;margin-top: 60px;z-index:10;",
       width = 3,
-#       HTML('<div class="well" id="SIDE2" style="position:fixed;width:8%;margin-top: 60px;z-index:10;">
-# <button id="showpanel" type="button" class="btn btn-default sbs-toggle-button">sidebar</button></div>'),
       div(id = "sideall",
       div(
         style = "display: inline-block;vertical-align:top; width: 160px;",
@@ -690,7 +696,7 @@ ui <- fluidPage(
       tabsetPanel(
         id = "side1",
         tabPanel(
-          span("links", title = "save files and external links"),
+          span(icon("link", class = NULL, lib = "font-awesome"), "links",title = "save files and external links"),
           uiOutput("tab"),
           uiOutput("blastlink"),
           uiOutput("tab2"),
@@ -733,7 +739,7 @@ ui <- fluidPage(
       tabsetPanel(
         id = "side2",
         tabPanel(
-          span("load", title = "load list of genes for analysis from file or interactive table"),
+          span(icon("file-alt", class = NULL, lib = "font-awesome"), "load", title = "load list of genes for analysis from file or interactive table"),
           div(id = "filediv", fileInput("file", label = NULL)),
           div(
             uiOutput("listn"),
@@ -752,7 +758,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           value = "cart",
-          span("cart", title = "cart list of genes to save and export"),
+          span(icon("shopping-cart", class = NULL, lib = "font-awesome"), "cart", title = "cart list of genes to save and export"),
           uiOutput("listn2"),
           actionButton("Add", "Add"),
           actionButton("Load", "Load"),
@@ -766,7 +772,7 @@ ui <- fluidPage(
           style = "height:300px; overflow-y: scroll;"
         ),
         tabPanel(
-          span("history", title = "history list of query genes"),
+          span(icon("history", class = NULL, lib = "font-awesome"), "history", title = "history list of query genes"),
           DT::dataTableOutput("historyl"),
           style = "height:300px; overflow-y: scroll;"
         )
@@ -816,9 +822,7 @@ ui <- fluidPage(
             bsCollapse(
               id = "tabs3", multiple = TRUE, open = "NULL",
               bsCollapsePanel(
-                # div(
-                  DT::dataTableOutput("majinfo") %>% withLoader(), 
-                  #style = "font-size: 75%; width: 75%"),
+                DT::dataTableOutput("majinfo") %>% withLoader(), 
                 title = "majiq_alternative_splicing",
                 style = "warning"
               )
@@ -1554,7 +1558,7 @@ server <- function(input, output, session) {
     if (nrow(outputtab) > 1) {
       outputtab <- outputtab[1, ]
     }
-    url <- a(outputtab$unique_gene_symbol,
+    url <- a("trackhub",
       href = str_c(
         "http://genome.ucsc.edu/cgi-bin/hgTracks?db=",
         track_name,
@@ -1568,7 +1572,7 @@ server <- function(input, output, session) {
         outputtab$end
       )
     )
-    tagList("trackhub:", url)
+    tagList(url)
   })
 
   # link genbank
@@ -1577,14 +1581,14 @@ server <- function(input, output, session) {
     if (nrow(outputtab) > 1) {
       outputtab <- outputtab[1, ]
     }
-    clean <- a(outputtab$unique_gene_symbol,
+    clean <- a("genbank",
       href = str_c(
         "https://www.ncbi.nlm.nih.gov/gene/?term=",
         str_remove(outputtab$unique_gene_symbol, "_.+"),
         "[sym]+AND+human[ORGN]"
       )
     )
-    tagList("genbank:", clean)
+    tagList(clean)
   })
 
   # link hgnc
@@ -1593,13 +1597,13 @@ server <- function(input, output, session) {
     if (nrow(outputtab) > 1) {
       outputtab <- outputtab[1, ]
     }
-    clean <- a(outputtab$unique_gene_symbol,
+    clean <- a("hgnc",
       href = str_c(
         "https://www.genenames.org/data/gene-symbol-report/#!/symbol/",
         str_remove(outputtab$unique_gene_symbol, "_.+")
       )
     )
-    tagList("hgnc:", clean)
+    tagList(clean)
   })
 
   # link genecard
@@ -1608,13 +1612,13 @@ server <- function(input, output, session) {
     if (nrow(outputtab) > 1) {
       outputtab <- outputtab[1, ]
     }
-    clean <- a(outputtab$unique_gene_symbol,
+    clean <- a("genecard",
       href = str_c(
         "https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
         str_remove(outputtab$unique_gene_symbol, "_.+")
       )
     )
-    tagList("genecard:", clean)
+    tagList(clean)
   })
 
   # link blast
@@ -1625,13 +1629,13 @@ server <- function(input, output, session) {
         outputtab <- outputtab[1, ]
       }
       orf <- rv$blast
-      url <- a(outputtab$unique_gene_symbol,
+      url <- a("blast_orf",
         href = str_c(
           "https://blast.ncbi.nlm.nih.gov/blast/Blast.cgi?CMD=Put&PROGRAM=blastp&DATABASE=nr&QUERY=",
           orf
         )
       )
-      tagList("blast orf:", url)
+      tagList(url)
     } else {
       return()
     }
@@ -2264,7 +2268,7 @@ server <- function(input, output, session) {
   })
 
   output$listn2 <- renderUI({
-    HTML(str_c("<strong> # in cart:", rv$listn2, "</strong>"))
+    HTML(str_c("<strong><h5> # in cart: ", rv$listn2, "</h5></strong>"))
   })
 
   output$saveList <- downloadHandler("cart.txt", content = function(file) {
@@ -2356,7 +2360,7 @@ server <- function(input, output, session) {
 
   output$listn <- renderUI({
     rv$line_refresh
-    HTML(paste0("<strong>", rv$listn, " of ", length(historytablist), "</strong>"))
+    HTML(paste0("<strong><h5>", rv$listn, " of ", length(historytablist), "</h5></strong>"))
   })
 
   # list loaded genes as table
