@@ -25,7 +25,7 @@ library(shinyWidgets)
 library(rintrojs)
 
 
-shinyOptions(cache = diskCache("./app-cache",  max_size = 100 * 1024^2))
+shinyOptions(cache = diskCache("./app-cache", max_size = 100 * 1024^2))
 options(readr.num_columns = 0)
 options(stringsAsFactors = FALSE)
 options(spinner.type = 6)
@@ -109,13 +109,13 @@ orf_cols <- c(
 )
 
 maj_cols <- c(
-  "region", 
-  "comp_pair", 
-  "significant_90", 
-  "significant_99", 
-  "LSV_ID", 
+  "region",
+  "comp_pair",
+  "significant_90",
+  "significant_99",
+  "LSV_ID",
   "A5SS",
-  "A3SS", 
+  "A3SS",
   "ES"
 )
 
@@ -367,7 +367,8 @@ fulltbl <- combined3 %>%
 fulltbl_collapse <- fulltbl %>%
   group_by(gene_id) %>%
   arrange(desc(orf_len), .by_group = TRUE) %>%
-  dplyr::slice(1) %>% ungroup()
+  dplyr::slice(1) %>%
+  ungroup()
 
 length_detected_genes <- orfs %>%
   filter(br_expr == 1) %>%
@@ -422,14 +423,15 @@ sort_groups <- function(groups, states, state_order) {
     as.data.frame()
   colnames(full2) <- str_c("V", 1:ncol(full2))
   full2 <- full2 %>%
-    mutate_all(factor, levels = state_order) %>% 
+    mutate_all(factor, levels = state_order) %>%
     arrange(V1)
   full3 <- full2 %>%
     mutate(letter = letters[1:n()]) %>%
     pivot_longer(-letter, names_to = "NA", values_to = "state") %>%
     filter(!(is.na(state))) %>%
     group_by(state) %>%
-    summarize(letter = str_c(letter, collapse = "")) %>% ungroup()
+    summarize(letter = str_c(letter, collapse = "")) %>%
+    ungroup()
   full3
 }
 
@@ -626,13 +628,15 @@ ui <- fluidPage(
       }
   "),
   tags$head(tags$style(
-    HTML('
+    HTML(
+      "
          #SIDE {
             background-color: #F8F8F8;
-        }',
-         '.btn-options {
+        }",
+      ".btn-options {
          background-color: #F8F8F8;
-        }')
+        }"
+    )
   )),
   useShinyjs(),
   introjsUI(),
@@ -674,14 +678,15 @@ ui <- fluidPage(
     margin-right: 1px;
 }"),
   tags$head(tags$script(HTML(jscode))),
-  tags$head(tags$style(type="text/css",
-             ".shiny-output-error { visibility: hidden; }",
-             ".shiny-output-error:before { visibility: hidden; }",
-             ".shiny-output-warning { visibility: hidden; }",
-             ".shiny-output-warning:before { visibility: hidden; }"
+  tags$head(tags$style(
+    type = "text/css",
+    ".shiny-output-error { visibility: hidden; }",
+    ".shiny-output-error:before { visibility: hidden; }",
+    ".shiny-output-warning { visibility: hidden; }",
+    ".shiny-output-warning:before { visibility: hidden; }"
   )),
   tags$head(tags$style(
-    type="text/css",
+    type = "text/css",
     "#ucscPlot img {max-width: 100%; width: 100%; height: auto}"
   )),
   titlePanel(div(
@@ -691,17 +696,20 @@ ui <- fluidPage(
   )),
   fixedPanel(
     style = "z-index:100;",
-    dropdownButton(circle = TRUE, icon = icon("gear"), status = "options", 
-                   size = "sm", up = TRUE, inline = TRUE,
-                   tooltip = tooltipOptions(title = "interface options and tips",
-                                            placement = "top"), margin = "20px",
-                   br(),
-                   actionButton("tutorial", "show me around"),
-                   br(),
-                   div(id = "doLockdiv", checkboxInput("doLock", "lock main panel order", value = F, width = NULL)),
-                   div(id = "doBrdiv", checkboxInput("doBr", "plot brain data", value = T, width = NULL)),
-                   div(id = "doTisdiv",checkboxInput("doTis", "plot non-brain data", value = F, width = NULL))
-                   ),
+    dropdownButton(
+      circle = TRUE, icon = icon("gear"), status = "options",
+      size = "sm", up = TRUE, inline = TRUE,
+      tooltip = tooltipOptions(
+        title = "interface options and tips",
+        placement = "top"
+      ), margin = "20px",
+      br(),
+      actionButton("tutorial", "show me around"),
+      br(),
+      div(id = "doLockdiv", checkboxInput("doLock", "lock main panel order", value = F, width = NULL)),
+      div(id = "doBrdiv", checkboxInput("doBr", "plot brain data", value = T, width = NULL)),
+      div(id = "doTisdiv", checkboxInput("doTis", "plot non-brain data", value = F, width = NULL))
+    ),
     actionButton("back_to_top", label = "to_top"),
     bsButton("showpanel", "sidebar", type = "toggle", value = FALSE),
     right = 10,
@@ -714,123 +722,134 @@ ui <- fluidPage(
       id = "SIDE",
       style = "position:fixed;width:23%;margin-top: 60px;z-index:50;",
       width = 3,
-      div(id = "sideall",
       div(
-        style = "display: inline-block;vertical-align:top; width: 160px;",
-        tagAppendAttributes(selectizeInput("geneID",
-          label = NULL,
-          selected = "",
-          choices = ""
+        id = "sideall",
+        div(
+          style = "display: inline-block;vertical-align:top; width: 160px;",
+          tagAppendAttributes(selectizeInput("geneID",
+            label = NULL,
+            selected = "",
+            choices = ""
+          ),
+          `data-proxy-click` = "Find"
+          )
         ),
-        `data-proxy-click` = "Find"
-        )
-      ),
-      div(
-        style = "display: inline-block;vertical-align:top; width: 10px;",
-        actionButton("Find", "Find", icon = icon("search"))
-      ),
-      bsTooltip("Find", "gene id/symbols accepted"),
-      div(id = "sidediv",
-      tabsetPanel(
-        id = "side1",
-        tabPanel(
-          span(icon("link", class = NULL, lib = "font-awesome"), "links",title = "save files and external links"),
-          fluidRow(
-            column(
-              width = 1),
-            column(
-              width = 4,
-              uiOutput("tab"),
-              uiOutput("blastlink")),
-            column(
-              width = 1),
-            column(
-              width = 4,
-              uiOutput("tab2"),
-              uiOutput("tab3"),
-              uiOutput("tab4"))),
-          downloadButton("savePlot", label = "save plot", class = "download_this"),
-          downloadButton(outputId = "saveTable", label = "save table", class = "download_this"),
-          br(),
-          bsTooltip("savePlot", "save plot as pdf"),
-          bsTooltip("saveTable", "save filtered/result table as csv"),
+        div(
+          style = "display: inline-block;vertical-align:top; width: 10px;",
+          actionButton("Find", "Find", icon = icon("search"))
         ),
-        tabPanel(
-          span("options", title = "options specific to each main tab"),
-          br(.noWS = "outside"),
-          # div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL)),
-          # div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL)),
-          # div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL)),
-          # div(id = "doBrdiv", checkboxInput("doBr", "plot brain data", value = T, width = NULL)),
-          # div(id = "doTisdiv",checkboxInput("doTis", "plot non-brain data", value = F, width = NULL)),
-          div(id = "doEigendiv", checkboxInput("doEigen", "plot model clusters", value = T, width = NULL)),
-          checkboxInput("doUcsc", "pull track", value = T, width = NULL),
-          checkboxInput("doMod", "find module", value = T, width = NULL),
-          checkboxInput("doKegg", "GO terms", value = T, width = NULL),
-          # div(id = "doNormdiv", checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL)),
-          checkboxInput("doTooltips", "show hover tips", value = T, width = NULL),
-          bsTooltip("doPlotlydiv", "toggles main and kmer plot",
-                    options=list(container="body"), placement = "right"),
-          bsTooltip("doPadjdiv", str_c("label groups by p <= ", sig_cut), 
-                    options=list(container="body"), placement = "right"),
-          bsTooltip("doNamediv", "label points by sample", options=list(container="body"), placement = "right"),
-          bsTooltip("doName2div", "show toggleable legend", options=list(container="body"), placement = "right"),
-          bsTooltip("doEigendiv", "assigned per region"),
-          bsTooltip("doNormdiv", "otherwise centered by mean", options=list(container="body"), placement = "right"),
-          bsTooltip("doLockdiv", "by default panels can be dragged and rearranged")
+        bsTooltip("Find", "gene id/symbols accepted"),
+        div(
+          id = "sidediv",
+          tabsetPanel(
+            id = "side1",
+            tabPanel(
+              span(icon("link", class = NULL, lib = "font-awesome"), "links", title = "save files and external links"),
+              fluidRow(
+                column(
+                  width = 1
+                ),
+                column(
+                  width = 4,
+                  uiOutput("tab"),
+                  uiOutput("blastlink")
+                ),
+                column(
+                  width = 1
+                ),
+                column(
+                  width = 4,
+                  uiOutput("tab2"),
+                  uiOutput("tab3"),
+                  uiOutput("tab4")
+                )
+              ),
+              downloadButton("savePlot", label = "save plot", class = "download_this"),
+              downloadButton(outputId = "saveTable", label = "save table", class = "download_this"),
+              br(),
+              bsTooltip("savePlot", "save plot as pdf"),
+              bsTooltip("saveTable", "save filtered/result table as csv"),
+            ),
+            tabPanel(
+              span("options", title = "options specific to each main tab"),
+              br(.noWS = "outside"),
+              # div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL)),
+              # div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL)),
+              # div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL)),
+              # div(id = "doBrdiv", checkboxInput("doBr", "plot brain data", value = T, width = NULL)),
+              # div(id = "doTisdiv",checkboxInput("doTis", "plot non-brain data", value = F, width = NULL)),
+              div(id = "doEigendiv", checkboxInput("doEigen", "plot model clusters", value = T, width = NULL)),
+              checkboxInput("doUcsc", "pull track", value = T, width = NULL),
+              checkboxInput("doMod", "find module", value = T, width = NULL),
+              checkboxInput("doKegg", "GO terms", value = T, width = NULL),
+              # div(id = "doNormdiv", checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL)),
+              checkboxInput("doTooltips", "show hover tips", value = T, width = NULL),
+              bsTooltip("doPlotlydiv", "toggles main and kmer plot",
+                options = list(container = "body"), placement = "right"
+              ),
+              bsTooltip("doPadjdiv", str_c("label groups by p <= ", sig_cut),
+                options = list(container = "body"), placement = "right"
+              ),
+              bsTooltip("doNamediv", "label points by sample", options = list(container = "body"), placement = "right"),
+              bsTooltip("doName2div", "show toggleable legend", options = list(container = "body"), placement = "right"),
+              bsTooltip("doEigendiv", "assigned per region"),
+              bsTooltip("doNormdiv", "otherwise centered by mean", options = list(container = "body"), placement = "right"),
+              bsTooltip("doLockdiv", "by default panels can be dragged and rearranged")
+            )
+          ),
+          tabsetPanel(
+            id = "side2",
+            tabPanel(
+              span(icon("file-alt", class = NULL, lib = "font-awesome"), "load", title = "load list of genes for analysis from file or interactive table"),
+              div(id = "filediv", fileInput("file", label = NULL)),
+              div(
+                uiOutput("listn"),
+                style = "display: inline-block;vertical-align:middle;"
+              ),
+              div(
+                style = "display: inline-block;float:right;vertical-align:middle;",
+                disabled(actionButton("Prev1", "Prev", icon = icon("angle-up"))),
+                disabled(actionButton("Next1", "Next", icon = icon("angle-down")))
+              ),
+              bsTooltip("filediv", "expects gene symbols as first column, or comma separated"),
+              bsTooltip("Prev1", "query previous gene on loaded list"),
+              bsTooltip("Next1", "query next gene on loaded list"),
+              DT::dataTableOutput("tbllist"),
+              style = "height:300px; overflow-y: scroll;"
+            ),
+            tabPanel(
+              value = "cart",
+              introBox(
+                span(icon("shopping-cart", class = NULL, lib = "font-awesome"), "cart", title = "cart list of genes to save and export"),
+                data.step = 1,
+                data.intro = "add genes to a cart list, which can be exported or moved to the loaded list"
+              ),
+              uiOutput("listn2"),
+              actionButton("Add", "Add"),
+              actionButton("Load", "Load"),
+              downloadButton(
+                outputId = "saveList",
+                label = "export"
+              ),
+              bsTooltip("Add", "add current query gene to cart"),
+              bsTooltip("Load", "send to loaded list in side panel"),
+              DT::dataTableOutput("tbllist2"),
+              style = "height:300px; overflow-y: scroll;"
+            ),
+            tabPanel(
+              introBox(
+                span(icon("history", class = NULL, lib = "font-awesome"), "history", title = "history list of query genes"),
+                data.step = 2,
+                data.intro = "list of genes searched",
+                data.position = "right"
+              ),
+              DT::dataTableOutput("historyl"),
+              style = "height:300px; overflow-y: scroll;"
+            )
+          )
         )
-      ),
-      tabsetPanel(
-        id = "side2",
-        tabPanel(
-          span(icon("file-alt", class = NULL, lib = "font-awesome"), "load", title = "load list of genes for analysis from file or interactive table"),
-          div(id = "filediv", fileInput("file", label = NULL)),
-          div(
-            uiOutput("listn"),
-            style = "display: inline-block;vertical-align:middle;"
-          ),
-          div(
-            style = "display: inline-block;float:right;vertical-align:middle;",
-            disabled(actionButton("Prev1", "Prev", icon = icon("angle-up"))),
-            disabled(actionButton("Next1", "Next", icon = icon("angle-down")))
-          ),
-          bsTooltip("filediv", "expects gene symbols as first column, or comma separated"),
-          bsTooltip("Prev1", "query previous gene on loaded list"),
-          bsTooltip("Next1", "query next gene on loaded list"),
-          DT::dataTableOutput("tbllist"),
-          style = "height:300px; overflow-y: scroll;"
-        ),
-        tabPanel(
-          value = "cart",
-          introBox(
-            span(icon("shopping-cart", class = NULL, lib = "font-awesome"), "cart", title = "cart list of genes to save and export"),
-            data.step = 1,
-            data.intro = "add genes to a cart list, which can be exported or moved to the loaded list"
-          ),
-          uiOutput("listn2"),
-          actionButton("Add", "Add"),
-          actionButton("Load", "Load"),
-          downloadButton(
-            outputId = "saveList",
-            label = "export"
-          ),
-          bsTooltip("Add", "add current query gene to cart"),
-          bsTooltip("Load", "send to loaded list in side panel"),
-          DT::dataTableOutput("tbllist2"),
-          style = "height:300px; overflow-y: scroll;"
-        ),          
-        tabPanel(
-          introBox(
-            span(icon("history", class = NULL, lib = "font-awesome"), "history", title = "history list of query genes"), 
-            data.step = 2, 
-            data.intro = "list of genes searched", 
-            data.position = "right"
-          ),
-          DT::dataTableOutput("historyl"),
-          style = "height:300px; overflow-y: scroll;"
-        )
-      ))
-    )),
+      )
+    ),
     mainPanel(
       id = "MAIN",
       width = 9,
@@ -847,15 +866,21 @@ ui <- fluidPage(
             id = "sorted",
             DT::dataTableOutput("results"),
             div(
-              div(style="display: inline-block;vertical-align:top;",
-                  dropdownButton(circle = FALSE, status = "options", icon = icon("gear"), width = "200px", size = "sm",
-                             tooltip = tooltipOptions(title = "plotting options"), margin = "20px",
-                             br(),
-                             div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL)),
-                             div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL)),
-                             div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL)))),
-              div(style="display: inline-block;vertical-align:top;",
-                 uiOutput("boxPlotUI") %>% withLoader(proxy.height = paste0(plot_height * 100 /2, "px")))
+              div(
+                style = "display: inline-block;vertical-align:top;",
+                dropdownButton(
+                  circle = FALSE, status = "options", icon = icon("gear"), width = "200px", size = "sm",
+                  tooltip = tooltipOptions(title = "plotting options"), margin = "20px",
+                  br(),
+                  div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL)),
+                  div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL)),
+                  div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL))
+                )
+              ),
+              div(
+                style = "display: inline-block;vertical-align:top;",
+                uiOutput("boxPlotUI") %>% withLoader(proxy.height = paste0(plot_height * 100 / 2, "px"))
+              )
             ),
             bsCollapse(
               id = "tabs", multiple = TRUE, open = NULL,
@@ -875,7 +900,7 @@ ui <- fluidPage(
             bsCollapse(
               id = "tabs3", multiple = TRUE, open = "NULL",
               bsCollapsePanel(
-                DT::dataTableOutput("majinfo") %>% withLoader(), 
+                DT::dataTableOutput("majinfo") %>% withLoader(),
                 title = "majiq_alternative_splicing",
                 style = "warning"
               )
@@ -925,9 +950,9 @@ ui <- fluidPage(
             id = "doJoindiv",
             style = "display: inline-block;width: 160px;",
             checkboxInput("doJoin",
-                          "gene info",
-                          value = FALSE,
-                          width = NULL
+              "gene info",
+              value = FALSE,
+              width = NULL
             )
           ),
           bsTooltip("doJoindiv", "bring in gene info as last columns"),
@@ -940,14 +965,20 @@ ui <- fluidPage(
             title = "Plot expression of loaded gene list"
           ),
           value = "line_plot",
-          div(style="display: inline-block;vertical-align:top;",
-              dropdownButton(circle = FALSE, status = "options", icon = icon("gear"), width = "200px", size = "sm",
-                             tooltip = tooltipOptions(title = "plotting options"), margin = "20px",
-                             br(),
-                             div(id = "doName2div", checkboxInput("doName2", "additional labels", value = F, width = NULL)),
-                             div(id = "doNormdiv", checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL)))),
-          div(style="display: inline-block;vertical-align:top;",
-              plotlyOutput("linePlot") %>% withLoader())
+          div(
+            style = "display: inline-block;vertical-align:top;",
+            dropdownButton(
+              circle = FALSE, status = "options", icon = icon("gear"), width = "200px", size = "sm",
+              tooltip = tooltipOptions(title = "plotting options"), margin = "20px",
+              br(),
+              div(id = "doName2div", checkboxInput("doName2", "additional labels", value = F, width = NULL)),
+              div(id = "doNormdiv", checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL))
+            )
+          ),
+          div(
+            style = "display: inline-block;vertical-align:top;",
+            plotlyOutput("linePlot") %>% withLoader()
+          )
         ),
         tabPanel(
           title = span("heatmap",
@@ -1035,18 +1066,27 @@ ui <- fluidPage(
             style = "display: inline-block;vertical-align:top;width:250px",
             textInput("rbpterm", "highlight annotation", value = "MEX3C")
           ),
-          div(id = "doPlotly2div", 
-              checkboxInput("doPlotly2", "interactive plot", value = F, width = NULL),
-              style = "width:200px",),
+          div(
+            id = "doPlotly2div",
+            checkboxInput("doPlotly2", "interactive plot", value = F, width = NULL),
+            style = "width:200px",
+          ),
           uiOutput("kmerPlotUI") %>% withLoader(loader = "pacman"),
-          bsTooltip("kmerdiv", 
-            "Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed"),
-          bsTooltip("kmlabdiv", 
-                    "label points with annotations"),
-          bsTooltip("rbptermdiv", 
-                    "highlights annotation in black"),
+          bsTooltip(
+            "kmerdiv",
+            "Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed"
+          ),
+          bsTooltip(
+            "kmlabdiv",
+            "label points with annotations"
+          ),
+          bsTooltip(
+            "rbptermdiv",
+            "highlights annotation in black"
+          ),
           bsTooltip("doPlotly2div", "toggles main and kmer plot",
-                    options=list(container="body")),
+            options = list(container = "body")
+          ),
         ),
         tabPanel(
           title = span("genes_venn",
@@ -1191,22 +1231,22 @@ server <- function(input, output, session) {
   })
 
   # sortable or not
-  jqui_sortable(ui = "#sorted" , operation = "enable", options = list(cancel = ".datatables"))
-  jqui_sortable(ui = "#sidediv" , operation = "enable", options = list(cancel = ".datatables"))
-  jqui_sortable(ui = "#tabMain" , operation = "enable")
+  jqui_sortable(ui = "#sorted", operation = "enable", options = list(cancel = ".datatables"))
+  jqui_sortable(ui = "#sidediv", operation = "enable", options = list(cancel = ".datatables"))
+  jqui_sortable(ui = "#tabMain", operation = "enable")
 
   observe({
     if (input$doLock == TRUE) {
       jqui_sortable(ui = "#sorted", operation = "destroy")
-      jqui_sortable(ui = "#sidediv" , operation = "destroy")
+      jqui_sortable(ui = "#sidediv", operation = "destroy")
       jqui_sortable(ui = "#tabMain", operation = "destroy")
     } else if (input$doLock != TRUE) {
-      jqui_sortable(ui = "#sorted" , operation = "enable", options = list(cancel = ".datatables"))
-      jqui_sortable(ui = "#sidediv" , operation = "enable", options = list(cancel = ".datatables"))
-      jqui_sortable(ui = "#tabMain" , operation = "enable")
+      jqui_sortable(ui = "#sorted", operation = "enable", options = list(cancel = ".datatables"))
+      jqui_sortable(ui = "#sidediv", operation = "enable", options = list(cancel = ".datatables"))
+      jqui_sortable(ui = "#tabMain", operation = "enable")
     }
   })
-  
+
   # jump to plot
   observeEvent(input$Find, {
     if ((input$geneID != "") & (input$geneID != rv$old)) {
@@ -1252,7 +1292,7 @@ server <- function(input, output, session) {
     } else {
       mis <- setdiff(region_main2, plot_temp$region %>% unique() %>% as.character())
     }
-    
+
     if (length(mis) > 0) {
       for (element in mis) {
         l <- as.list(plot_temp[1, ])
@@ -1286,7 +1326,7 @@ server <- function(input, output, session) {
     } else {
       plot_temp <- plot_temp %>% mutate(text = "NA")
     }
-    
+
     set.seed(1)
     g <- ggplot(plot_temp, aes(state, log2_counts, text = text)) +
       ylab("rlog(counts)") +
@@ -1328,7 +1368,8 @@ server <- function(input, output, session) {
             maxy = max(log2_counts),
             miny = min(min),
             nudgey = (maxy - miny) * 0.1
-          ) %>% ungroup()
+          ) %>%
+          ungroup()
         agg3 <- agg2 %>%
           left_join(temp3 %>% select(region, state, letter)) %>%
           replace_na(list(letter = list("")))
@@ -1343,7 +1384,7 @@ server <- function(input, output, session) {
           ))
       }
     }
-  
+
     g
   })
 
@@ -1389,27 +1430,32 @@ server <- function(input, output, session) {
   })
 
   # boxplot - models
-  output$boxPlot3 <- renderCachedPlot({
-    if (input$doEigen != T) {
-      g <- ""
-      g
-    } else {
-      if (nrow(rv$mod_df) == 0) {
-        mods <- c("filtered", "filtered", "filtered")
-        reg <- colnames(mod)[-1]
+  output$boxPlot3 <- renderCachedPlot(
+    {
+      if (input$doEigen != T) {
+        g <- ""
+        g
       } else {
-        mods <- (rv$mod_df[1, ] %>% unlist())[-1]
-        reg <- names(rv$mod_df)[-1]
+        if (nrow(rv$mod_df) == 0) {
+          mods <- c("filtered", "filtered", "filtered")
+          reg <- colnames(mod)[-1]
+        } else {
+          mods <- (rv$mod_df[1, ] %>% unlist())[-1]
+          reg <- names(rv$mod_df)[-1]
+        }
+        cowplot::plot_grid(
+          plotlist = map(mods, function(x) eigen_gg[[x]]),
+          labels = str_c(str_remove(reg, "cluster_"), mods, sep = ": "),
+          ncol = 3,
+          label_x = .3, hjust = 0
+        )
       }
-      cowplot::plot_grid(
-        plotlist = map(mods, function(x) eigen_gg[[x]]),
-        labels = str_c(str_remove(reg, "cluster_"), mods, sep = ": "),
-        ncol = 3,
-        label_x = .3, hjust = 0
-      )
-    }
-  }, cacheKeyExpr = {rv$mod_df %>% select(-1)},
-  sizePolicy = sizeGrowthRatio(width = plot_width * 100, height = plot_height * 100 / 2, growthRate = 1.2))
+    },
+    cacheKeyExpr = {
+      rv$mod_df %>% select(-1)
+    },
+    sizePolicy = sizeGrowthRatio(width = plot_width * 100, height = plot_height * 100 / 2, growthRate = 1.2)
+  )
 
   # filter data
   outputtab <- reactive({
@@ -1430,8 +1476,8 @@ server <- function(input, output, session) {
       rv$pval <<- data.frame()
       rv$temp_orfs <<- data.frame()
     }
-    
-    rv$plot_temp <<- comb_fil_factor(combined2, combined3, inid) 
+
+    rv$plot_temp <<- comb_fil_factor(combined2, combined3, inid)
 
     filtered <- rv$plot_temp %>%
       select(table_cols) %>%
@@ -1533,8 +1579,10 @@ server <- function(input, output, session) {
       selection = "none",
       rownames = FALSE,
       filter = "top",
-      options = list(searchable = FALSE, dom = "t", 
-                     autoWidth = FALSE)
+      options = list(
+        searchable = FALSE, dom = "t",
+        autoWidth = FALSE
+      )
     )
   })
 
@@ -1552,8 +1600,10 @@ server <- function(input, output, session) {
       escape = FALSE,
       selection = "multiple",
       rownames = FALSE,
-      options = list(dom = "ft", searchHighlight = TRUE, 
-                     autoWidth = F)
+      options = list(
+        dom = "ft", searchHighlight = TRUE,
+        autoWidth = F
+      )
     )
   })
 
@@ -1726,7 +1776,8 @@ server <- function(input, output, session) {
     }
     plot_temp <- comb_fil_factor(combined2, combined3, historytablist) %>%
       group_by(region, state, unique_gene_symbol) %>%
-      summarize(counts = mean(2^log2_counts)) %>% ungroup()
+      summarize(counts = mean(2^log2_counts)) %>%
+      ungroup()
     if (input$doNorm == TRUE) {
       plot_temp <- plot_temp %>%
         group_by(unique_gene_symbol, region) %>%
@@ -1882,7 +1933,7 @@ server <- function(input, output, session) {
       Heatmap(matrix(), column_title = "plotting cancelled", show_heatmap_legend = FALSE)
     }
   })
-  
+
   heatPlotr <- reactive({
     output$heatPlot2 <- renderPlot(heatPlot())
     if (input$doTis + input$doBr == 2) {
@@ -1891,7 +1942,7 @@ server <- function(input, output, session) {
       plotOutput("heatPlot2", width = plot_width * 100, height = plot_height * 100)
     }
   })
-  
+
   # actually draw boxplot
   output$heatPlotUI <- renderUI({
     heatPlotr()
@@ -1955,7 +2006,7 @@ server <- function(input, output, session) {
     ) %>%
       layout(autosize = F) %>%
       highlight()
-    event_register(p, 'plotly_click')
+    event_register(p, "plotly_click")
     p
   })
 
@@ -2128,7 +2179,7 @@ server <- function(input, output, session) {
     if (input$doUpper) {
       temp <- sapply(temp, function(x) str_to_upper(x))
     }
-    
+
     if (!is.list(temp)) {
       temp <- list(temp)
       names(temp) <- "Set A"
@@ -2141,8 +2192,10 @@ server <- function(input, output, session) {
     non_none <- !sapply(a, is.null) & !duplicated(c(input$seta, input$setb, input$setc))
     if (sum(non_none) > 1) {
       g <- ggvenn::ggvenn(a, names(a)[non_none], show_elements = TRUE)
-      g2 <- ggvenn::ggvenn(a, names(a)[non_none], show_percentage = FALSE, 
-                           set_name_size = 4, stroke_size = 0, text_size = 6)
+      g2 <- ggvenn::ggvenn(a, names(a)[non_none],
+        show_percentage = FALSE,
+        set_name_size = 4, stroke_size = 0, text_size = 6
+      )
       g2$layers[[3]]$data$text <- c(input$seta, input$setb, input$setc)[non_none]
       g2$layers[[4]]$data$text2 <- g$layers[[4]]$data$text
       rv$venntext <<- g$layers[[4]]$data$text
@@ -2155,22 +2208,26 @@ server <- function(input, output, session) {
         vjust = vjust,
         text = text2
       )
-      g2 + theme_cowplot() + theme(axis.line=element_blank(),
-                                   axis.text.x=element_blank(),
-                                   axis.text.y=element_blank(),
-                                   axis.ticks=element_blank(),
-                                   axis.title.x=element_blank(),
-                                   axis.title.y=element_blank(),
-                                   legend.position="none",
-                                   panel.background=element_blank(),
-                                   panel.border=element_blank(),
-                                   panel.grid.major=element_blank(),
-                                   panel.grid.minor=element_blank(),
-                                   plot.background=element_blank())
+      g2 + theme_cowplot() + theme(
+        axis.line = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        legend.position = "none",
+        panel.background = element_blank(),
+        panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.background = element_blank()
+      )
     } else if (sum(non_none) == 1) {
       g <- ggvenn::ggvenn(a, c(names(a)[non_none], NA), show_elements = TRUE)
-      g2 <- ggvenn::ggvenn(a, c(names(a)[non_none], NA), show_percentage = FALSE, 
-                           set_name_size = 4, stroke_size = 0, text_size = 6)
+      g2 <- ggvenn::ggvenn(a, c(names(a)[non_none], NA),
+        show_percentage = FALSE,
+        set_name_size = 4, stroke_size = 0, text_size = 6
+      )
       g2$data <- g$data %>% filter(group == "A")
       g2$layers[[3]]$data <- g2$layers[[3]]$data[1, ]
       g2$layers[[3]]$data$text <- c(input$seta, input$setb, input$setc)[non_none]
@@ -2186,18 +2243,20 @@ server <- function(input, output, session) {
         vjust = vjust,
         text = text2
       )
-      g2 + theme_cowplot() + theme(axis.line=element_blank(),
-                                   axis.text.x=element_blank(),
-                                   axis.text.y=element_blank(),
-                                   axis.ticks=element_blank(),
-                                   axis.title.x=element_blank(),
-                                   axis.title.y=element_blank(),
-                                   legend.position="none",
-                                   panel.background=element_blank(),
-                                   panel.border=element_blank(),
-                                   panel.grid.major=element_blank(),
-                                   panel.grid.minor=element_blank(),
-                                   plot.background=element_blank())
+      g2 + theme_cowplot() + theme(
+        axis.line = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        legend.position = "none",
+        panel.background = element_blank(),
+        panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.background = element_blank()
+      )
     } else {
       ggplot() +
         ggtitle("no gene lists loaded")
@@ -2211,7 +2270,7 @@ server <- function(input, output, session) {
     ) %>%
       layout(autosize = F, showlegend = FALSE) %>%
       highlight()
-    event_register(p, 'plotly_click')
+    event_register(p, "plotly_click")
     p
   })
 
@@ -2489,7 +2548,8 @@ server <- function(input, output, session) {
         unique_gene_symbol,
         contains("cluster"),
         contains("LRT"),
-        everything())
+        everything()
+      )
     clustercol <- which(str_detect(colnames(temp), "cluster")) - 1
     padjcol <- which(str_detect(colnames(temp), "padj"))
     DT::datatable(
@@ -2551,7 +2611,7 @@ server <- function(input, output, session) {
       maj
     }
   })
-  
+
   output$alt <- DT::renderDataTable({
     DT::datatable(
       majtbl() %>%
@@ -2570,7 +2630,7 @@ server <- function(input, output, session) {
         searchHighlight = TRUE,
         pageLength = pageN,
         scrollX = TRUE,
-        autoWidth = TRUE, 
+        autoWidth = TRUE,
         colReorder = list(enable = !input$doLock)
       )
     )
@@ -2589,10 +2649,12 @@ server <- function(input, output, session) {
 
   onclick("loadtab2", {
     s <- input$alt_rows_all
-    historytablist <- majtbl()[s, ] %>% pull(unique_gene_symbol) %>% unique()
+    historytablist <- majtbl()[s, ] %>%
+      pull(unique_gene_symbol) %>%
+      unique()
     rv$line_refresh <- rv$line_refresh + 1
   })
-  
+
   observeEvent(input$alt_rows_selected, {
     rv$run2 <- 1
     updateSelectizeInput(session,
@@ -2842,13 +2904,15 @@ server <- function(input, output, session) {
     actionButton("bsgo", "Go"),
     actionButton("bscancel", "Cancel")
   )
-  
+
   observeEvent(input$tutorial, {
-               introjs(session, options = list("nextLabel"="next",
-                                               "prevLabel"="prev",
-                                               "skipLabel"="skip",
-                                               "overlayOpacity" = -1))}
-  )
+    introjs(session, options = list(
+      "nextLabel" = "next",
+      "prevLabel" = "prev",
+      "skipLabel" = "skip",
+      "overlayOpacity" = -1
+    ))
+  })
 }
 
 # Run the application
