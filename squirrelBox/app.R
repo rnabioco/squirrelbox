@@ -22,6 +22,7 @@ library(shinythemes)
 library(shinycustomloader)
 library(shinyjqui)
 library(shinyWidgets)
+library(rintrojs)
 
 
 shinyOptions(cache = diskCache("./app-cache",  max_size = 100 * 1024^2))
@@ -228,9 +229,15 @@ for (clu in colnames(eigen[, -1])) {
     ylab("expr") +
     theme(legend.position = "none")
 }
-eigen_gg[["filtered"]] <- ggplot(df_plot, aes(state, value, group = 1))
-eigen_gg[["insig"]] <- ggplot(df_plot, aes(state, value, group = 1))
-eigen_gg[["Unassigned"]] <- ggplot(df_plot, aes(state, value, group = 1))
+eigen_gg[["filtered"]] <- ggplot(df_plot, aes(state, value, group = 1)) +
+  ylab("expr") +
+  theme(legend.position = "none")
+eigen_gg[["insig"]] <- ggplot(df_plot, aes(state, value, group = 1)) +
+  ylab("expr") +
+  theme(legend.position = "none")
+eigen_gg[["Unassigned"]] <- ggplot(df_plot, aes(state, value, group = 1)) +
+  ylab("expr") +
+  theme(legend.position = "none")
 
 # query function
 comb_fil_factor <- function(combined2, combined3, inid) {
@@ -601,18 +608,6 @@ $(function() {
     }
   );
 });
-$(function() {
-    setTimeout(function(){
-      var vals = [0];
-      var powStart = 3;
-      var powStop = 0;
-      for (i = powStart; i >= powStop; i--) {
-        var val = Math.pow(10, -i);
-        val = parseFloat(val.toFixed(8));
-        vals.push(val);
-      }
-      $("#pvalue").data("ionRangeSlider").update({"values":vals})
-}, 5)});
 '
 
 # Define UI for application that draws the boxplot
@@ -640,6 +635,39 @@ ui <- fluidPage(
         }')
   )),
   useShinyjs(),
+  introjsUI(),
+  tags$style("
+  .introjs-helperLayer {
+  background: transparent;
+}
+
+.introjs-overlay {
+  opacity: 0 !important;
+  z-index: 99999999!important;
+}
+
+.introjs-helperLayer:before {
+  opacity: 0;
+  content: '';
+  position: absolute;
+  width: inherit;
+  height: inherit;
+  border-radius: 0.5em;
+  border: .2em solid rgba(255, 217, 68, 0.8);
+  box-shadow: 0 0 0 1000em rgba(0,0,0, .7);
+  opacity: 1;
+}
+
+.introjs-helperLayer:after {
+  content: '';
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  position: absolute;
+  z-index: 1000;
+}
+             "),
   tags$style(".mock {position:fixed;width:7%;margin-top: 60px;z-index:10;}"),
   tags$head(tags$script(HTML(jscode))),
   tags$head(tags$style(type="text/css",
@@ -660,10 +688,16 @@ ui <- fluidPage(
   fixedPanel(
     style = "z-index:100;",
     dropdownButton(circle = TRUE, icon = icon("gear"), status = "options", 
-                   size = "sm", up = TRUE, left = TRUE, inline = TRUE,
+                   size = "sm", up = TRUE, inline = TRUE,
                    tooltip = tooltipOptions(title = "interface options and tips",
                                             placement = "top"), margin = "20px",
-                   br()),
+                   br(),
+                   actionButton("tutorial", "show me around"),
+                   br(),
+                   div(id = "doLockdiv", checkboxInput("doLock", "lock main panel order", value = F, width = NULL)),
+                   div(id = "doBrdiv", checkboxInput("doBr", "plot brain data", value = T, width = NULL)),
+                   div(id = "doTisdiv",checkboxInput("doTis", "plot non-brain data", value = F, width = NULL))
+                   ),
     actionButton("back_to_top", label = "to_top"),
     bsButton("showpanel", "sidebar", type = "toggle", value = FALSE),
     right = 10,
@@ -674,7 +708,7 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       id = "SIDE",
-      style = "position:fixed;width:23%;margin-top: 60px;z-index:10;",
+      style = "position:fixed;width:23%;margin-top: 60px;z-index:50;",
       width = 3,
       div(id = "sideall",
       div(
@@ -713,15 +747,14 @@ ui <- fluidPage(
           # div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL)),
           # div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL)),
           # div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL)),
-          checkboxInput("doBr", "plot brain data", value = T, width = NULL),
-          checkboxInput("doTis", "plot non-brain data", value = F, width = NULL),
+          # div(id = "doBrdiv", checkboxInput("doBr", "plot brain data", value = T, width = NULL)),
+          # div(id = "doTisdiv",checkboxInput("doTis", "plot non-brain data", value = F, width = NULL)),
           div(id = "doEigendiv", checkboxInput("doEigen", "plot model clusters", value = T, width = NULL)),
           checkboxInput("doUcsc", "pull track", value = T, width = NULL),
           checkboxInput("doMod", "find module", value = T, width = NULL),
           checkboxInput("doKegg", "GO terms", value = T, width = NULL),
           # div(id = "doNormdiv", checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL)),
           checkboxInput("doTooltips", "show hover tips", value = T, width = NULL),
-          div(id = "doLockdiv", checkboxInput("doLock", "lock main panel order", value = F, width = NULL)),
           bsTooltip("doPlotlydiv", "toggles main and kmer plot",
                     options=list(container="body"), placement = "right"),
           bsTooltip("doPadjdiv", str_c("label groups by p <= ", sig_cut), 
@@ -758,7 +791,11 @@ ui <- fluidPage(
         ),
         tabPanel(
           value = "cart",
-          span(icon("shopping-cart", class = NULL, lib = "font-awesome"), "cart", title = "cart list of genes to save and export"),
+          introBox(
+            span(icon("shopping-cart", class = NULL, lib = "font-awesome"), "cart", title = "cart list of genes to save and export"),
+            data.step = 1,
+            data.intro = "add genes to a cart list, which can be exported or moved to the loaded list"
+          ),
           uiOutput("listn2"),
           actionButton("Add", "Add"),
           actionButton("Load", "Load"),
@@ -770,9 +807,14 @@ ui <- fluidPage(
           bsTooltip("Load", "send to loaded list in side panel"),
           DT::dataTableOutput("tbllist2"),
           style = "height:300px; overflow-y: scroll;"
-        ),
+        ),          
         tabPanel(
-          span(icon("history", class = NULL, lib = "font-awesome"), "history", title = "history list of query genes"),
+          introBox(
+            span(icon("history", class = NULL, lib = "font-awesome"), "history", title = "history list of query genes"), 
+            data.step = 2, 
+            data.intro = "list of genes searched", 
+            data.position = "right"
+          ),
           DT::dataTableOutput("historyl"),
           style = "height:300px; overflow-y: scroll;"
         )
@@ -782,7 +824,7 @@ ui <- fluidPage(
       id = "MAIN",
       width = 9,
       style = "z-index:1;margin-top: 60px;",
-      sortableTabsetPanel(
+      tabsetPanel(
         id = "tabMain",
         tabPanel(
           title = span(icon("pencil-ruler", class = NULL, lib = "font-awesome"),
@@ -943,7 +985,7 @@ ui <- fluidPage(
               )
             )
           ),
-          plotOutput("heatPlot") %>% withLoader()
+          uiOutput("heatPlotUI") %>% withLoader()
         ),
         tabPanel(
           title = span("GO_enrichment",
@@ -1138,16 +1180,19 @@ server <- function(input, output, session) {
   })
 
   # sortable or not
-  jqui_sortable(ui = "#sorted" , operation = "enable")
-  jqui_sortable(ui = "#sidediv" , operation = "enable")
-  
+  jqui_sortable(ui = "#sorted" , operation = "enable", options = list(cancel = ".datatables"))
+  jqui_sortable(ui = "#sidediv" , operation = "enable", options = list(cancel = ".datatables"))
+  jqui_sortable(ui = "#tabMain" , operation = "enable")
+
   observe({
     if (input$doLock == TRUE) {
       jqui_sortable(ui = "#sorted", operation = "destroy")
       jqui_sortable(ui = "#sidediv" , operation = "destroy")
+      jqui_sortable(ui = "#tabMain", operation = "destroy")
     } else if (input$doLock != TRUE) {
-      jqui_sortable(ui = "#sorted")
-      jqui_sortable(ui = "#sidediv")
+      jqui_sortable(ui = "#sorted" , operation = "enable", options = list(cancel = ".datatables"))
+      jqui_sortable(ui = "#sidediv" , operation = "enable", options = list(cancel = ".datatables"))
+      jqui_sortable(ui = "#tabMain" , operation = "enable")
     }
   })
   
@@ -1353,7 +1398,8 @@ server <- function(input, output, session) {
       cowplot::plot_grid(
         plotlist = map(mods, function(x) eigen_gg[[x]]),
         labels = str_c(str_remove(reg, "cluster_"), mods, sep = ": "),
-        ncol = 3
+        ncol = 3,
+        label_x = .3, hjust = 0
       )
     }
   }, cacheKeyExpr = {rv$mod_df %>% select(-1)},
@@ -1820,7 +1866,7 @@ server <- function(input, output, session) {
     }
   })
 
-  output$heatPlot <- renderPlot({
+  heatPlot <- reactive({
     if ((rv$toolarge == 0) | (rv$toolarge == 1 & rv$go == 2)) {
       heatPlot1()
     } else {
@@ -1829,6 +1875,20 @@ server <- function(input, output, session) {
       }
       Heatmap(matrix(), column_title = "plotting cancelled", show_heatmap_legend = FALSE)
     }
+  })
+  
+  heatPlotr <- reactive({
+    output$heatPlot2 <- renderPlot(heatPlot())
+    if (input$doTis + input$doBr == 2) {
+      plotOutput("heatPlot2", width = plot_width * 100, height = plot_height * 100 * 2)
+    } else {
+      plotOutput("heatPlot2", width = plot_width * 100, height = plot_height * 100)
+    }
+  })
+  
+  # actually draw boxplot
+  output$heatPlotUI <- renderUI({
+    heatPlotr()
   })
 
   savePlot3 <- downloadHandler(
@@ -2437,7 +2497,7 @@ server <- function(input, output, session) {
         columnDefs = list(list(width = "175px", visible = TRUE, targets = list(7, 8, 9), className = "dt-center")),
         scrollX = TRUE,
         autoWidth = TRUE,
-        colReorder = TRUE
+        colReorder = list(enable = !input$doLock)
       ),
       callback = JS(paste0("var tips = [", columns_tips, "],
                             firstRow = $('#tbl thead tr th');
@@ -2502,7 +2562,8 @@ server <- function(input, output, session) {
         searchHighlight = TRUE,
         pageLength = pageN,
         scrollX = TRUE,
-        autoWidth = TRUE, colReorder = TRUE
+        autoWidth = TRUE, 
+        colReorder = list(enable = !input$doLock)
       )
     )
   })
@@ -2729,9 +2790,6 @@ server <- function(input, output, session) {
       removeCssClass("SIDE", "col-sm-6")
       addCssClass("SIDE", "col-sm-3")
       shinyjs::show(id = "SIDE")
-      # shinyjs::hide(id = "SIDE2")
-      # shinyjs::show(id = "SIDE")
-      # shinyjs::enable(id = "SIDE")
     }
     else {
       removeCssClass("MAIN", "col-sm-9")
@@ -2739,7 +2797,6 @@ server <- function(input, output, session) {
       removeCssClass("SIDE", "col-sm-3")
       addCssClass("SIDE", "col-sm-6")
       shinyjs::hide(id = "SIDE")
-      #shinyjs::show(id = "SIDE2")
     }
   })
 
@@ -2776,6 +2833,13 @@ server <- function(input, output, session) {
     fade = TRUE,
     actionButton("bsgo", "Go"),
     actionButton("bscancel", "Cancel")
+  )
+  
+  observeEvent(input$tutorial, {
+               introjs(session, options = list("nextLabel"="next",
+                                               "prevLabel"="prev",
+                                               "skipLabel"="skip",
+                                               "overlayOpacity" = -1))}
   )
 }
 
