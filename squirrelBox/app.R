@@ -669,6 +669,10 @@ ui <- fluidPage(
 }
              "),
   tags$style(".mock {position:fixed;width:7%;margin-top: 60px;z-index:10;}"),
+  tags$style("
+             .download_this{
+    margin-right: 1px;
+}"),
   tags$head(tags$script(HTML(jscode))),
   tags$head(tags$style(type="text/css",
              ".shiny-output-error { visibility: hidden; }",
@@ -723,7 +727,7 @@ ui <- fluidPage(
       ),
       div(
         style = "display: inline-block;vertical-align:top; width: 10px;",
-        actionButton("Find", "Find")
+        actionButton("Find", "Find", icon = icon("search"))
       ),
       bsTooltip("Find", "gene id/symbols accepted"),
       div(id = "sidediv",
@@ -731,13 +735,23 @@ ui <- fluidPage(
         id = "side1",
         tabPanel(
           span(icon("link", class = NULL, lib = "font-awesome"), "links",title = "save files and external links"),
-          uiOutput("tab"),
-          uiOutput("blastlink"),
-          uiOutput("tab2"),
-          uiOutput("tab3"),
-          uiOutput("tab4"),
-          downloadButton("savePlot", label = "plot"),
-          downloadButton(outputId = "saveTable", label = "table"),
+          fluidRow(
+            column(
+              width = 1),
+            column(
+              width = 4,
+              uiOutput("tab"),
+              uiOutput("blastlink")),
+            column(
+              width = 1),
+            column(
+              width = 4,
+              uiOutput("tab2"),
+              uiOutput("tab3"),
+              uiOutput("tab4"))),
+          downloadButton("savePlot", label = "save plot", class = "download_this"),
+          downloadButton(outputId = "saveTable", label = "save table", class = "download_this"),
+          br(),
           bsTooltip("savePlot", "save plot as pdf"),
           bsTooltip("saveTable", "save filtered/result table as csv"),
         ),
@@ -764,9 +778,6 @@ ui <- fluidPage(
           bsTooltip("doEigendiv", "assigned per region"),
           bsTooltip("doNormdiv", "otherwise centered by mean", options=list(container="body"), placement = "right"),
           bsTooltip("doLockdiv", "by default panels can be dragged and rearranged")
-        ),
-        tabPanel(
-          span("hide", title = "hide this tab bar")
         )
       ),
       tabsetPanel(
@@ -801,7 +812,7 @@ ui <- fluidPage(
           actionButton("Load", "Load"),
           downloadButton(
             outputId = "saveList",
-            label = "save"
+            label = "export"
           ),
           bsTooltip("Add", "add current query gene to cart"),
           bsTooltip("Load", "send to loaded list in side panel"),
@@ -1339,12 +1350,7 @@ server <- function(input, output, session) {
   # boxplot size
   boxPlotr <- reactive({
     g <- boxPlot1()
-    output$boxPlot <- renderPlot(g #, 
-                                       # cacheKeyExpr = {list(boxPlot1(), input$doTis, input$doBr)},
-                                       # sizePolicy = sizeGrowthRatio(width = plot_width * 100, 
-                                       #                              height = plot_height * 100 / 2 * (input$doTis + input$doBr), 
-                                       #                              growthRate = 1.2)
-                                       )
+    output$boxPlot <- renderPlot(g)
     if (input$doTis + input$doBr == 2) {
       plotOutput("boxPlot", width = plot_width * 100, height = plot_height * 100)
     } else {
@@ -2478,14 +2484,16 @@ server <- function(input, output, session) {
 
   # explore bed table
   output$tbl <- DT::renderDataTable({
+    temp <- orftbl() %>%
+      select(
+        unique_gene_symbol,
+        contains("cluster"),
+        contains("LRT"),
+        everything())
+    clustercol <- which(str_detect(colnames(temp), "cluster")) - 1
+    padjcol <- which(str_detect(colnames(temp), "padj"))
     DT::datatable(
-      orftbl() %>%
-        select(
-          unique_gene_symbol,
-          contains("cluster"),
-          contains("LRT"),
-          everything()
-        ),
+      temp,
       filter = "top",
       escape = FALSE,
       selection = "single",
@@ -2494,7 +2502,7 @@ server <- function(input, output, session) {
       options = list(
         # searchHighlight = TRUE, # breaks width
         pageLength = pageN,
-        columnDefs = list(list(width = "175px", visible = TRUE, targets = list(7, 8, 9), className = "dt-center")),
+        columnDefs = list(list(width = "125px", visible = TRUE, targets = as.list(clustercol), className = "dt-center")),
         scrollX = TRUE,
         autoWidth = TRUE,
         colReorder = list(enable = !input$doLock)
@@ -2505,7 +2513,7 @@ server <- function(input, output, session) {
                               $(firstRow[i]).attr('title', tips[i]);
                             }"))
     ) %>%
-      DT::formatRound(columns = c(5, 6, 7), digits = 4)
+      DT::formatRound(columns = padjcol, digits = 4)
   })
 
   saveFiltered <- downloadHandler("filtré.csv", content = function(file) {
