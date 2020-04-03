@@ -794,6 +794,7 @@ ui <- fluidPage(
               bsTooltip("doName2div", "show toggleable legend", options = list(container = "body"), placement = "right"),
               bsTooltip("doEigendiv", "assigned per region"),
               bsTooltip("doNormdiv", "otherwise centered by mean", options = list(container = "body"), placement = "right"),
+              bsTooltip("doSummarydiv", "summarize instead of individual lines", options = list(container = "body"), placement = "right"),
               bsTooltip("doLockdiv", "by default panels can be dragged and rearranged")
             )
           ),
@@ -972,7 +973,8 @@ ui <- fluidPage(
               tooltip = tooltipOptions(title = "plotting options"), margin = "20px",
               br(),
               div(id = "doName2div", checkboxInput("doName2", "additional labels", value = F, width = NULL)),
-              div(id = "doNormdiv", checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL))
+              div(id = "doNormdiv", checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL)),
+              div(id = "doSummaryiv", checkboxInput("doSummary", "summary line", value = F, width = NULL))
             )
           ),
           div(
@@ -1818,7 +1820,7 @@ server <- function(input, output, session) {
   # actually draw line plot
   linePlot1 <- reactive({
     set.seed(1)
-    linetemp()
+    temp <- linetemp()
     if (length(historytablist) == 0) {
       return(ggplotly(ggplot() +
         ggtitle("no genes loaded")))
@@ -1833,6 +1835,25 @@ server <- function(input, output, session) {
       theme(legend.position = "none") +
       geom_point(aes(color = unique_gene_symbol)) +
       geom_line(aes(color = unique_gene_symbol))
+    
+    if (input$doSummary) {
+      temp <- temp %>%
+        group_by(region, state) %>% 
+        summarize(log2_counts = log2(mean(2^log2_counts)),
+                  sem = log2(2^log2_counts) / sqrt(n())) %>%
+        mutate(unique_gene_symbol = "summary") %>% 
+        ungroup()
+      
+      g <- ggplot(temp, aes(state, log2_counts,
+                         group = unique_gene_symbol,
+                         text = unique_gene_symbol)) +
+        ylab("log2fold") +
+        facet_wrap(~region) +
+        theme(legend.position = "none") +
+        geom_point(aes(color = unique_gene_symbol)) +
+        geom_line(aes(color = unique_gene_symbol)) +
+        geom_errorbar(aes(ymin = log2_counts - sem, ymax = log2_counts + sem), width =.05, size = 0.5)
+    }
     g
   })
 
