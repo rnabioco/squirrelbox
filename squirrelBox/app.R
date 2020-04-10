@@ -7,7 +7,7 @@ library(tidyr)
 library(feather)
 library(ggplot2)
 library(ggrepel)
-library(ggvenn)
+library(ggvenn) # devtools::install_github("yanlinlin82/ggvenn")
 library(cowplot)
 library(ComplexHeatmap)
 library(igraph)
@@ -745,6 +745,7 @@ ui <- fluidPage(
             id = "side1",
             tabPanel(
               span(icon("link", class = NULL, lib = "font-awesome"), "links", title = "save files and external links"),
+              br(.noWS = "outside"),
               fluidRow(
                 column(
                   width = 1
@@ -764,9 +765,10 @@ ui <- fluidPage(
                   uiOutput("tab4")
                 )
               ),
+              br(.noWS = "outside"),
               downloadButton("savePlot", label = "save plot", class = "download_this"),
               downloadButton(outputId = "saveTable", label = "save table", class = "download_this"),
-              br(),
+              br(.noWS = "outside"),
               bsTooltip("savePlot", "save plot as pdf"),
               bsTooltip("saveTable", "save filtered/result table as csv"),
             ),
