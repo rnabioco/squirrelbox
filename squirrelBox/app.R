@@ -7,7 +7,7 @@ library(tidyr)
 library(feather)
 library(ggplot2)
 library(ggrepel)
-library(ggvenn) # devtools::install_github("yanlinlin82/ggvenn")
+#library(ggvenn) # devtools::install_github("yanlinlin82/ggvenn")
 library(cowplot)
 library(ComplexHeatmap)
 library(igraph)
@@ -23,6 +23,7 @@ library(shinycustomloader)
 library(shinyjqui)
 library(shinyWidgets)
 library(rintrojs)
+source("ggvenn.R")
 
 
 shinyOptions(cache = diskCache("./app-cache", max_size = 100 * 1024^2))
@@ -159,7 +160,7 @@ region_main2 <- c(
   "Liver"
 )
 region_short <- c(
-  "fore",
+  "fb",
   "hy",
   "med",
   "adr",
@@ -348,7 +349,7 @@ orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
     everything()
   ) %>%
   mutate(novel = factor(ifelse(str_detect(gene_id, "^G"), 1, 0))) %>%
-  mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fore_LRT_padj, na.rm = T)) %>%
+  mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fb_LRT_padj, na.rm = T)) %>%
   mutate(domains = factor(ifelse(gene_id %in% domains$gene_id, 1, 0))) %>%
   mutate(
     br_expr = factor(ifelse(gene_id %in% br_expr, 1, 0)),
@@ -1104,7 +1105,7 @@ ui <- fluidPage(
                 "_none", "_load_list", "_cart_list",
                 names(gene_list)
               ),
-              selected = "fore_sig"
+              selected = "fb_sig"
             )
           ),
           div(
@@ -1828,16 +1829,6 @@ server <- function(input, output, session) {
         ggtitle("no genes loaded")))
     }
 
-    g <- ggplot(d, aes(state, log2_counts,
-      group = unique_gene_symbol,
-      text = unique_gene_symbol
-    )) +
-      ylab("log2fold") +
-      facet_wrap(~region) +
-      theme(legend.position = "none") +
-      geom_point(aes(color = unique_gene_symbol)) +
-      geom_line(aes(color = unique_gene_symbol))
-    
     if (input$doSummary) {
       temp <- temp %>%
         group_by(region, state) %>% 
@@ -1855,6 +1846,16 @@ server <- function(input, output, session) {
         geom_point(aes(color = unique_gene_symbol)) +
         geom_line(aes(color = unique_gene_symbol)) +
         geom_errorbar(aes(ymin = log2_counts - sem, ymax = log2_counts + sem), width =.05, size = 0.5)
+    } else {
+      g <- ggplot(d, aes(state, log2_counts,
+                         group = unique_gene_symbol,
+                         text = unique_gene_symbol
+      )) +
+        ylab("log2fold") +
+        facet_wrap(~region) +
+        theme(legend.position = "none") +
+        geom_point(aes(color = unique_gene_symbol)) +
+        geom_line(aes(color = unique_gene_symbol))
     }
     g
   })
@@ -1862,7 +1863,7 @@ server <- function(input, output, session) {
   output$linePlot <- renderPlotly({
     g <- linePlot1()
     fac <- input$doTis + input$doBr
-    if ((rv$toolarge == 0) | (rv$toolarge == 1 & rv$go == 2)) {
+    if ((rv$toolarge == 0) | (rv$toolarge == 1 & rv$go == 2) | input$doSummary) {
       if (input$doName2 == T) {
         ggplotly(g, tooltip = "text", height = plot_height * 100 * fac / 2, width = plot_width * 100) %>%
           layout(
@@ -1874,7 +1875,7 @@ server <- function(input, output, session) {
       }
     } else {
       if (rv$go <= 0) {
-        showModal(modalWarn)
+        showModal(modalWarn_line)
       }
       ggplotly(ggplot() +
         ggtitle("plotting cancelled"))
@@ -2212,10 +2213,10 @@ server <- function(input, output, session) {
 
   vennPlot1 <- reactive({
     a <- venntemp()
-    non_none <- !sapply(a, is.null) & !duplicated(c(input$seta, input$setb, input$setc))
+    non_none <- !sapply(a, is.null) & !duplicated(c(input$seta, input$setb, input$setc)) & !(c(input$seta, input$setb, input$setc) == "_none")
     if (sum(non_none) > 1) {
-      g <- ggvenn::ggvenn(a, names(a)[non_none], show_elements = TRUE)
-      g2 <- ggvenn::ggvenn(a, names(a)[non_none],
+      g <- ggvenn(a, names(a)[non_none], show_elements = TRUE)
+      g2 <- ggvenn(a, names(a)[non_none],
         show_percentage = FALSE,
         set_name_size = 4, stroke_size = 0, text_size = 6
       )
@@ -2246,8 +2247,8 @@ server <- function(input, output, session) {
         plot.background = element_blank()
       )
     } else if (sum(non_none) == 1) {
-      g <- ggvenn::ggvenn(a, c(names(a)[non_none], NA), show_elements = TRUE)
-      g2 <- ggvenn::ggvenn(a, c(names(a)[non_none], NA),
+      g <- ggvenn(a, c(names(a)[non_none], NA), show_elements = TRUE)
+      g2 <- ggvenn(a, c(names(a)[non_none], NA),
         show_percentage = FALSE,
         set_name_size = 4, stroke_size = 0, text_size = 6
       )
@@ -2897,6 +2898,12 @@ server <- function(input, output, session) {
     rv$go <- 2
     removeModal()
   })
+  
+  onclick("bssum", {
+    updateCheckboxInput(session = session, inputId = "doSummary", value = T, label =  "summary line")
+    rv$go <- 1
+    removeModal()
+  })
 
   onclick("bscancel", {
     rv$go <- 1
@@ -2925,6 +2932,20 @@ server <- function(input, output, session) {
     easyClose = FALSE,
     fade = TRUE,
     actionButton("bsgo", "Go"),
+    actionButton("bscancel", "Cancel")
+  )
+  
+  modalWarn_line <- draggableModalDialog(
+    id = "bsconfirm",
+    icon("exclamation-triangle"),
+    p("plotting large number of genes may be\n slow and hard to interpret"),
+    br(),
+    footer = NULL,
+    size = "s",
+    easyClose = FALSE,
+    fade = TRUE,
+    actionButton("bsgo", "Go"),
+    actionButton("bssum", "Summary only"),
     actionButton("bscancel", "Cancel")
   )
 
