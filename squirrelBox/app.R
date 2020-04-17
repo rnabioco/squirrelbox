@@ -16,13 +16,12 @@ library(plotly)
 library(crosstalk)
 library(shiny)
 library(shinyjs)
-library(shinyBS)
 library(shinythemes)
 library(shinycustomloader)
 library(shinyjqui)
 library(shinyWidgets)
 library(rintrojs)
-source("ggvenn.R")
+library(shinyBS)
 
 shinyOptions(cache = diskCache("./app-cache", max_size = 100 * 1024^2))
 options(readr.num_columns = 0)
@@ -32,12 +31,16 @@ theme_set(theme_cowplot())
 # options(shiny.reactlog = TRUE)
 
 ### folders
+rpath <- "R"
 datapath <- "data"
 annotpath <- "annot"
 listpath <- "data/lists"
 
+### source R
+source(paste0(rpath, "/ggvenn.R"))
+
 ### general data settings
-versionN <- 0.97
+versionN <- 0.98
 geoN <- "G1234"
 pageN <- 10
 warningN <- 100
@@ -50,6 +53,7 @@ gmt_file <- "c5.bp.v7.0.symbols.gmt" # add MF back in
 gmt_short <- "GO_"
 sig_cut <- 0.001
 ncore <- parallel::detectCores() - 1
+start_tutorial <- FALSE
 
 ### choose and order columns
 table_cols <- c(
@@ -605,7 +609,8 @@ $(function() {
     }
   );
 });
-'
+
+ '
 
 # Define UI for application that draws the boxplot
 ui <- fluidPage(
@@ -692,11 +697,15 @@ ui <- fluidPage(
   fixedPanel(
     style = "z-index:100;",
     right = 10,
-    top = 20,
+    top = 20
+  ),
+  fixedPanel(
+    style = "z-index:1001;",
     introBox(
+      tipify(
       dropdownButton(
         circle = TRUE, icon = icon("gear"), status = "options",
-        size = "default", margin = "20px",
+        size = "sm", margin = "20px", inline = TRUE, up = TRUE,
         br(),
         actionButton("tutorial", "show me around"),
         br(),
@@ -704,12 +713,9 @@ ui <- fluidPage(
         div(id = "doPromptoffdiv", checkboxInput("doPromptoff", "no prompts or hints", value = F, width = NULL)),
         div(id = "doBrdiv", checkboxInput("doBr", "plot brain data", value = T, width = NULL)),
         div(id = "doTisdiv", checkboxInput("doTis", "plot non-brain data", value = F, width = NULL))
-      ),
+      ), "options", options = list(sanitize = F)),
       data.step = 16,
-      data.intro = "additional options, including this tutorial")
-  ),
-  fixedPanel(
-    style = "z-index:100;",
+      data.intro = "additional options, including this tutorial"),
     actionButton("back_to_top", label = "to_top"),
     bsButton("showpanel", "sidebar", type = "toggle", value = FALSE),
     right = 10,
@@ -1235,6 +1241,7 @@ server <- function(input, output, session) {
   rv$tabinit_enrich <- 0
   rv$tabinit_kmer <- 0
   rv$tabinit_venn <- 0
+  rv$starttutorial <- 0
 
   # hide some checkboxes
   removeModal()
@@ -1497,7 +1504,8 @@ server <- function(input, output, session) {
       }
     },
     cacheKeyExpr = {
-      rv$mod_df %>% select(-1)
+      tryCatch(rv$mod_df %>% select(-1),
+               error = function(e) {"error"})
     },
     sizePolicy = sizeGrowthRatio(width = plot_width * 100, height = plot_height * 100 / 2, growthRate = 1.2)
   )
@@ -2347,7 +2355,8 @@ server <- function(input, output, session) {
     aa <- event_data("plotly_click", source = "vennPlot")
     if (!is.null(aa$pointNumber)) {
       gene_string <- rv$venntext[aa$pointNumber + 1]
-      gene_vec <- str_split(gene_string, ",")[[1]]
+      gene_vec <- tryCatch(str_split(gene_string, ",")[[1]],
+                           error = function(e) {""})
       carttablist <<- gene_vec
       rv$listn2 <- length(carttablist)
       updateTabsetPanel(session,
@@ -3006,6 +3015,18 @@ server <- function(input, output, session) {
       "skipLabel" = "skip",
       "overlayOpacity" = -1
     ))
+  })
+  
+  observeEvent((rv$init == 1 & rv$starttutorial == 0), {
+    if (start_tutorial) {
+      introjs(session, options = list(
+        "nextLabel" = "next",
+        "prevLabel" = "prev",
+        "skipLabel" = "skip",
+        "overlayOpacity" = -1
+      ))
+    }
+    rv$starttutorial <- 1
   })
 }
 
