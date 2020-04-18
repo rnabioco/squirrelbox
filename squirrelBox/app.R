@@ -56,7 +56,7 @@ gmt_file <- "c5.all.v7.0.symbols.gmt"
 gmt_short <- "GO_"
 sig_cut <- 0.001
 ncore <- parallel::detectCores() - 1
-start_tutorial <- FALSE
+start_tutorial <- TRUE
 
 ### choose and order columns
 table_cols <- c(
@@ -708,23 +708,17 @@ ui <- fluidPage(
     style = "z-index:100;",
     right = 10,
     top = 20,
-    actionButton("tutorial", "", icon = icon("question")) %>% bs_embed_tooltip("Take a tour through the app!")
-  ),
+    introBox(
+      actionButton("tutorial", "", icon = icon("question")) %>%
+        bs_embed_tooltip("Take a tour through the app!", placement = "bottom"),
+      data.step = 1,
+      data.intro = "Welcome to the squirrelBox.<br><br>
+      Please note that most buttons, tabs, and table columns have hover-over tips.",
+      data.position = "left"
+  )),
   fixedPanel(
     style = "z-index:100;",
-    # introBox(
-    #   dropdownButton(
-    #     circle = TRUE, icon = icon("gear"), status = "options",
-    #     size = "sm", margin = "20px", inline = TRUE, up = TRUE, tooltip = tooltipOptions(title = "system-wide options"),
-    #     br(),
-    #     actionButton("tutorial", "show me around"),
-    #     br(),
-    #       ,
-    #     div(id = "doPromptoffdiv", checkboxInput("doPromptoff", "no prompts or hints", value = F, width = NULL)),
-    #     
-    #   ), data.step = 16,
-    #   data.intro = "additional options, including this tutorial"),
-      actionButton("back_to_top", label = "to_top") %>% bs_embed_tooltip("scroll back to the top of the page"), 
+    actionButton("back_to_top", label = "to_top") %>% bs_embed_tooltip("scroll back to the top of the page"), 
       bsButton("showpanel", "sidebar", type = "toggle", value = FALSE) %>% bs_embed_tooltip("turn sidebar on/off"), 
     right = 10,
     bottom = 10
@@ -751,8 +745,9 @@ ui <- fluidPage(
             style = "display: inline-block;vertical-align:top; width: 10px;",
             actionButton("Find", "Find", icon = icon("search")) %>% bs_embed_tooltip("gene id/symbols accepted", placement = "right")
           )),
-          data.step = 1, 
-          data.intro = "query by gene id or symbol for plotting and tabled info on main tab"),
+          data.step = 2, 
+          data.intro = "Query individual genes by id or symbol.",
+          data.position = "bottom"),
         div(
           id = "sidediv",
           tabsetPanel(
@@ -777,6 +772,9 @@ ui <- fluidPage(
                     uiOutput("tab4")
                     )
                   ),
+                data.step = 5,
+                data.intro = "Other external links for the query gene.",
+                data.position = "right"),
                 fluidRow(
                   column(
                     width = 4,
@@ -792,14 +790,6 @@ ui <- fluidPage(
                   )
 
                 ),
-                data.step = 2,
-                data.intro = "other useful links for the query gene"),
-              # introBox(
-              #   div(
-              #     ,
-              #     ,
-              #   data.step = 5,
-              #   data.intro = "save plots and/or tables on right side tab to file"),
               br(.noWS = "outside"),
               style = "height:150px;"
             ),
@@ -838,8 +828,10 @@ ui <- fluidPage(
             tabPanel(
               introBox(
                 span(icon("file-alt", class = NULL, lib = "font-awesome"), "Genelist", title = "load list of genes for analysis from file or interactive table"),
-                data.step = 6,
-                data.intro = "gene lists can be loaded from external file, lineplot/heatmap/go_enrichment/kmer pull from this list"),
+                data.step = 8,
+                data.intro = "Gene lists can be loaded from external file, or passed from the tables/cart.<br><br>
+                The other multi-gene analysis tabs, Lineplot/Heatmap/GO/Kmer, all use genes from this list.",
+                data.position = "top"),
               div(id = "filediv", fileInput("file", label = NULL) %>% 
                     bs_embed_tooltip("expects gene symbols as first column, or comma separated")),
               div(
@@ -861,8 +853,10 @@ ui <- fluidPage(
               value = "Cart",
               introBox(
                 span(icon("shopping-cart", class = NULL, lib = "font-awesome"), "Cart", title = "cart list of genes to save and export"),
-                data.step = 7,
-                data.intro = "add genes to a cart list, which can be exported or moved to the loaded list"
+                data.step = 9,
+                data.intro = "A cart list stores query genes that were added (see button above), which can be exported to .txt file, or moved to the loaded Genelist.<br><br>
+                Interactive clicking on the GO_enrich and Venn plots also put the corresponding genes into the cart.",
+                data.position = "top"
               ),
               uiOutput("listn2"),
               fluidRow(
@@ -887,8 +881,8 @@ ui <- fluidPage(
             tabPanel(
               introBox(
                 span(icon("history", class = NULL, lib = "font-awesome"), "History", title = "history list of query genes"),
-                data.step = 8,
-                data.intro = "list of genes queried",
+                data.step = 10,
+                data.intro = "A list of genes previously queried is also documented for review.",
                 data.position = "right"
               ),
               DT::dataTableOutput("historyl"),
@@ -911,7 +905,8 @@ ui <- fluidPage(
               title = "Plot expression box plot and other info of query gene"
             ),
             data.step = 3, 
-            data.intro = "boxplot for expression, and other annotation and analyses for the query gene"),
+            data.intro = "For the query gene, this tab displays the expression boxplot, as well as other annotations and analyses.",
+            data.position = "top"),
           value = "Gene_query",
           div(
             id = "sorted",
@@ -932,7 +927,8 @@ ui <- fluidPage(
                           bs_embed_tooltip("label points by sample", placement = "right"))
                   ),
                   data.step = 4,
-                  data.intro = "additional plotting options"),
+                  data.intro = "Additional plotting options, for interactivity and labels, can be accessed here.",
+                  data.position = "left"),
               ),
               div(
                 style = "display: inline-block;vertical-align:top;",
@@ -984,8 +980,11 @@ ui <- fluidPage(
               "Transcript_gene",
               title = "Table of expression and other info of all genes/transcripts"
             ),
-            data.step = 9,
-            data.intro = "summary of genes in this study, can be filtered, exported, and passed to load list. hover over column names for additional descriptions"),
+            data.step = 6,
+            data.intro = "Here we summarize the genes in this study.<br><br>
+            The table can be filtered, exported as .csv, and passed to Genelist for additional on-the-fly analyses.<br><br>
+            Hover over column names for additional descriptions.",
+            data.position = "top"),
           value = "table_data",
           div(
             id = "doCollapsediv",
@@ -1005,8 +1004,11 @@ ui <- fluidPage(
             span("Majiq_alt",
               title = "Table of majiq output for alternative splicing events"
             ),
-            data.step = 10,
-            data.intro = "splicing analysis table, can be filtered, exported, and passed to load list. hover over column names for additional descriptions"),
+            data.step = 7,
+            data.intro = "Similarly, splicing analysis via MAJIQ is presented as a table.<br><br>
+            The table can be filtered, exported as .csv, and passed to Genelist for additional on-the-fly analyses.<br><br>
+            Hover over column names for additional descriptions.",
+            data.position = "top"),
           value = "table_AS",
           div(
             id = "doJoindiv",
@@ -1027,7 +1029,8 @@ ui <- fluidPage(
               title = "Plot expression of loaded gene list"
             ),
             data.step = 11,
-            data.intro = "visualize loaded gene list as line plot, also supports summarized line"),
+            data.intro = "Visualize loaded Genelist as line plot, also supports summarized line.",
+            data.position = "top"),
           value = "line_plot",
           div(
             style = "display: inline-block;vertical-align:top;",
@@ -1054,7 +1057,8 @@ ui <- fluidPage(
               title = "Plot Z-Score of loaded gene list as heat map"
             ),
             data.step = 12,
-            data.intro = "visualize loaded gene list as heatmap"),
+            data.intro = "Similar to the lineplot, visualize loaded Genelist as heatmap.",
+            data.position = "top"),
           value = "heat_plot",
           br(),
           fluidRow(
@@ -1106,17 +1110,22 @@ ui <- fluidPage(
               title = "GO term enrichment for loaded gene list (slow)"
             ),
             data.step = 13,
-            data.intro = "GO term enrichment of loaded gene list by fisher exact test, plot top 15, export full table"),
+            data.intro = "GO term enrichment of loaded Genelist by fisher exact test.<br><br>
+            Top 15 results are plotted, while full table can be exported.<br><br>
+            Clicking on bar loads the corresponding genes into Cart.",
+            data.position = "top"),
           value = "enrichment_plot",
           plotlyOutput("richPlot") %>% withLoader()
         ),
         tabPanel(
           introBox(
             span("Kmer",
-              title = "kmer enrichment analysis and annotation for loaded gene list (slow)"
+              title = "Kmer enrichment analysis and annotation for loaded Genelist (slow)"
             ),
             data.step = 14,
-            data.intro = "kmer analysis of loaded gene list, with option to annotate known RBP motifs or mir seeds"),
+            data.intro = "Kmer analysis of loaded Genelist, with option to annotate known RBP motifs or mir seeds.<br><br>
+            Note that this process may take ~30 seconds.",
+            data.position = "top"),
           value = "kmer_analysis",
           tags$style(HTML(".radio-inline {margin-left: 5px;margin-right: 25px;}")),
           div(
@@ -1159,7 +1168,9 @@ ui <- fluidPage(
               title = "visualize gene overlap between regions by venn diagram, and retrieve lists"
             ),
             data.step = 15,
-            data.intro = "venn diagram to visualize documented and loaded gene sets, clicking on numbers moves genes of that category to cart"),
+            data.intro = "Use venn diagram to visualize documented and loaded Genelist/Cart.<br><br>
+            Clicking on numbers moves genes of that category to Cart",
+            data.position = "top"),
           value = "venn",
           div(
             style = "display: inline-block;vertical-align:top; width: 160px;",
@@ -1210,9 +1221,15 @@ ui <- fluidPage(
           plotlyOutput("vennPlot") %>% withLoader()
         ),
         tabPanel(
-          span(icon("question", class = NULL, lib = "font-awesome"),
-            "About",
-            title = "View version and author info",
+          introBox(
+            span(icon("question", class = NULL, lib = "font-awesome"),
+              "About",
+               title = "View version and author info",
+            ),
+            data.step = 16,
+            data.intro = "Additional information on the study and authors.<br><br>
+            Hope squirrelBox will be informative for your data explorations.",
+            data.position = "top"
           ),
           value = "about",
           uiOutput("intro"),
@@ -3053,17 +3070,17 @@ server <- function(input, output, session) {
     ))
   })
   
-  # observeEvent((rv$init == 1 & rv$starttutorial == 0), {
-  #   if (start_tutorial) {
-  #     introjs(session, options = list(
-  #       "nextLabel" = "next",
-  #       "prevLabel" = "prev",
-  #       "skipLabel" = "skip",
-  #       "overlayOpacity" = -1
-  #     ))
-  #   }
-  #   rv$starttutorial <- 1
-  # })
+  observeEvent((rv$init == 1 & rv$starttutorial == 0), {
+    if (start_tutorial) {
+      introjs(session, options = list(
+        "nextLabel" = "next",
+        "prevLabel" = "prev",
+        "skipLabel" = "skip",
+        "overlayOpacity" = -1
+      ))
+    }
+    rv$starttutorial <- 1
+  })
   
 }
 
