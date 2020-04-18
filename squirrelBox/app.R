@@ -832,6 +832,7 @@ ui <- fluidPage(
                 data.intro = "Gene lists can be loaded from external file, or passed from the tables/cart.<br><br>
                 The other multi-gene analysis tabs, Lineplot/Heatmap/GO/Kmer, all use genes from this list.",
                 data.position = "top"),
+              value = "load",
               div(id = "filediv", fileInput("file", label = NULL) %>% 
                     bs_embed_tooltip("expects gene symbols as first column, or comma separated")),
               div(
@@ -850,7 +851,7 @@ ui <- fluidPage(
               style = "height:300px; overflow-y: scroll;"
             ),
             tabPanel(
-              value = "Cart",
+              value = "cart",
               introBox(
                 span(icon("shopping-cart", class = NULL, lib = "font-awesome"), "Cart", title = "cart list of genes to save and export"),
                 data.step = 9,
@@ -1160,7 +1161,16 @@ ui <- fluidPage(
               bs_embed_tooltip("display interactive plot with additional info on hover", placement = "right"),
             style = "width:200px",
           ),
-          uiOutput("kmerPlotUI") %>% withLoader(loader = "pacman")
+          uiOutput("kmerPlotUI") %>% withLoader(loader = "pacman", proxy.height = paste0(plot_height * 100 / 2, "px"))
+          # conditionalPanel(
+          #   condition = 'input.doPlotly2 == true',
+          #   plotOutput('kmerPlot')
+          # ),
+          # 
+          # conditionalPanel(
+          #   condition = 'input.interactive == false',
+          #   plotlyOutput('kmerPlot2')
+          # )
         ),
         tabPanel(
           introBox(
@@ -2085,11 +2095,12 @@ server <- function(input, output, session) {
 
   richPlot1 <- reactive({
     tops <- richtemp()
-    tops <- tops %>% dplyr::slice(1:max(min(which(tops$padj > sig_cut)), 15))
     if (nrow(tops) == 0) {
       return(ggplot() +
-        ggtitle("no genes loaded"))
+               ggtitle("no genes loaded"))
     }
+    tops <<- tops %>% dplyr::slice(1:max(min(which(tops$padj > sig_cut)), 15))
+    
     ggplot(
       tops %>% dplyr::slice(1:15),
       aes(x = pathway, y = minuslog10, fill = -minuslog10, text = len)
@@ -2512,6 +2523,10 @@ server <- function(input, output, session) {
   onclick("Load", {
     historytablist <- carttablist
     rv$line_refresh <- rv$line_refresh + 1
+    updateTabsetPanel(session,
+                      "side2",
+                      selected = "load"
+    )
   })
 
   # list cart genes as table
@@ -2703,6 +2718,10 @@ server <- function(input, output, session) {
     s <- input$genes_rows_all
     historytablist <- orftbl()[s, ] %>% pull(unique_gene_symbol)
     rv$line_refresh <- rv$line_refresh + 1
+    updateTabsetPanel(session,
+                      "side2",
+                      selected = "load"
+    )
   })
 
   observeEvent(input$genes_rows_selected, {
@@ -2774,6 +2793,10 @@ server <- function(input, output, session) {
       pull(unique_gene_symbol) %>%
       unique()
     rv$line_refresh <- rv$line_refresh + 1
+    updateTabsetPanel(session,
+                      "side2",
+                      selected = "load"
+    )
   })
 
   observeEvent(input$alt_rows_selected, {
@@ -2910,23 +2933,23 @@ server <- function(input, output, session) {
       disable("saveTable")
       output$savePlot <- savePlot
       output$savePlot2 <- savePlot
-      if (rv$tabinit_plot == 0) {
-        showNotification("tabs, modules, and columns of tables can be dragged and rearranged",
-          type = "message"
-        )
-        rv$tabinit_plot <<- 1
-      }
+      # if (rv$tabinit_plot == 0) {
+      #   showNotification("tabs, modules, and columns of tables can be dragged and rearranged",
+      #     type = "message"
+      #   )
+      #   rv$tabinit_plot <<- 1
+      # }
     } else if (input$tabMain == "table_data") {
       disable("savePlot")
       disable("savePlot2")
       enable("saveTable")
       output$saveTable <- saveFiltered
-      if (rv$tabinit_data == 0) {
-        showNotification("type `low...high` to input custom range for numeric filtering on column",
-          type = "message"
-        )
-        rv$tabinit_data <<- 1
-      }
+      # if (rv$tabinit_data == 0) {
+      #   showNotification("type `low...high` to input custom range for numeric filtering on column",
+      #     type = "message"
+      #   )
+      #   rv$tabinit_data <<- 1
+      # }
     } else if (input$tabMain == "table_AS") {
       disable("savePlot")
       disable("savePlot2")
@@ -2945,12 +2968,12 @@ server <- function(input, output, session) {
       output$savePlot <- savePlot2
       output$savePlot2 <- savePlot2
       output$saveTable <- saveEnrich
-      if (rv$tabinit_enrich == 0) {
-        showNotification("add corresponding genes to Cart by clicking on GO term bar",
-          type = "message"
-        )
-        rv$tabinit_enrich <<- 1
-      }
+      # if (rv$tabinit_enrich == 0) {
+      #   showNotification("add corresponding genes to Cart by clicking on GO term bar",
+      #     type = "message"
+      #   )
+      #   rv$tabinit_enrich <<- 1
+      # }
     } else if (input$tabMain == "heat_plot") {
       enable("savePlot")
       enable("savePlot2")
@@ -2964,24 +2987,24 @@ server <- function(input, output, session) {
       output$savePlot <- savePlot4
       output$savePlot2 <- savePlot4
       output$saveTable <- saveK
-      if (rv$tabinit_kmer == 0) {
-        showNotification("Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed",
-          type = "message"
-        )
-        rv$tabinit_kmer <<- 1
-      }
+      # if (rv$tabinit_kmer == 0) {
+      #   showNotification("Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed",
+      #     type = "message"
+      #   )
+      #   rv$tabinit_kmer <<- 1
+      # }
     } else if (input$tabMain == "venn") {
       enable("savePlot")
       enable("savePlot2")
       disable("saveTable")
       output$savePlot <- savePlot6
-      output$savePlot2 <- savePlot6
-      if (rv$tabinit_venn == 0) {
-        showNotification("click on venn numbers to load associated genes into Cart",
-          type = "message"
-        )
-        rv$tabinit_venn <<- 1
-      }
+      # output$savePlot2 <- savePlot6
+      # if (rv$tabinit_venn == 0) {
+      #   showNotification("click on venn numbers to load associated genes into Cart",
+      #     type = "message"
+      #   )
+      #   rv$tabinit_venn <<- 1
+      # }
     } else if (input$tabMain == "about") {
       disable("savePlot")
       disable("savePlot2")
