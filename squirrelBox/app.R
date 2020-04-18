@@ -1,3 +1,4 @@
+library(shiny)
 library(dplyr)
 library(tibble)
 library(purrr)
@@ -14,15 +15,14 @@ library(valr)
 library(transite)
 library(plotly)
 library(crosstalk)
-library(shiny)
 library(shinyjs)
-library(shinyBS)
 library(shinythemes)
 library(shinycustomloader)
 library(shinyjqui)
 library(shinyWidgets)
 library(rintrojs)
-source("ggvenn.R")
+library(shinyBS)
+library(bsplus)
 
 shinyOptions(cache = diskCache("./app-cache", max_size = 100 * 1024^2))
 options(readr.num_columns = 0)
@@ -32,12 +32,18 @@ theme_set(theme_cowplot())
 # options(shiny.reactlog = TRUE)
 
 ### folders
+rpath <- "R"
 datapath <- "data"
 annotpath <- "annot"
 listpath <- "data/lists"
 
+### source R
+source(paste0(rpath, "/ggvenn.R"))
+source(paste0(rpath, "/debounce.R"))
+
+
 ### general data settings
-versionN <- 0.97
+versionN <- 0.98
 geoN <- "G1234"
 pageN <- 10
 warningN <- 100
@@ -46,10 +52,11 @@ plot_height <- 6
 set_shinytheme <- "paper"
 track_name <- "hub_1512849_KG_HiC"
 track_url <- "https://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
-gmt_file <- "c5.bp.v7.0.symbols.gmt" # add MF back in
+gmt_file <- "c5.all.v7.0.symbols.gmt"
 gmt_short <- "GO_"
 sig_cut <- 0.001
 ncore <- parallel::detectCores() - 1
+start_tutorial <- TRUE
 
 ### choose and order columns
 table_cols <- c(
@@ -103,7 +110,8 @@ if (file.exists(paste0(annotpath, "/alt.csv"))) {
     maj_tips <- maj_df[[1]]
   }
 }
-  maj_cols <- c(
+
+maj_cols <- c(
     "region",
     "comp_pair",
     "significant_90",
@@ -112,7 +120,7 @@ if (file.exists(paste0(annotpath, "/alt.csv"))) {
     "A5SS",
     "A3SS",
     "ES"
-  )
+)
 
 ### sample settings, define state colors and order, region order
 state_cols <- c(
@@ -466,6 +474,7 @@ fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
     )
     return(c(hits = stringofhits, pval = pval))
   }, simplify = FALSE)
+  
   res <- data.frame(res) %>% data.table::transpose()
   names(res) <- c("hits", "pval")
   res$pathway <- names(gmtlist)
@@ -589,6 +598,7 @@ gene_list <- sapply(lists_vec, function(x) {
 names(gene_list) <- names(gene_list) %>% str_remove("\\..+")
 
 # some other code for webpage functions
+
 jscode <- '
 $(function() {
   var $els = $("[data-proxy-click]");
@@ -630,11 +640,15 @@ ui <- fluidPage(
         }",
       ".btn-options {
          background-color: #F8F8F8;
-        }"
+        }",
+      ".btn {
+  text-transform: unset !important;
+}"
     )
   )),
   useShinyjs(),
   introjsUI(),
+  use_bs_tooltip(),
   tags$style("
   .introjs-helperLayer {
   background: transparent;
@@ -672,6 +686,7 @@ ui <- fluidPage(
              .download_this{
     margin-right: 1px;
 }"),
+  tags$script(src = "shinyBS_mod.js"),
   tags$head(tags$script(HTML(jscode))),
   tags$head(tags$style(
     type = "text/css",
@@ -694,28 +709,19 @@ ui <- fluidPage(
     right = 10,
     top = 20,
     introBox(
-      dropdownButton(
-        circle = TRUE, icon = icon("gear"), status = "options",
-        size = "default", margin = "20px",
-        br(),
-        actionButton("tutorial", "show me around"),
-        br(),
-        div(id = "doLockdiv", checkboxInput("doLock", "lock main panel order", value = F, width = NULL)),
-        div(id = "doPromptoffdiv", checkboxInput("doPromptoff", "no prompts or hints", value = F, width = NULL)),
-        div(id = "doBrdiv", checkboxInput("doBr", "plot brain data", value = T, width = NULL)),
-        div(id = "doTisdiv", checkboxInput("doTis", "plot non-brain data", value = F, width = NULL))
-      ),
-      data.step = 16,
-      data.intro = "additional options, including this tutorial")
-  ),
+      actionButton("tutorial", "", icon = icon("question")) %>%
+        bs_embed_tooltip("Take a tour through the app!", placement = "bottom"),
+      data.step = 1,
+      data.intro = "Welcome to the squirrelBox.<br><br>
+      Please note that most buttons, tabs, and table columns have hover-over tips.",
+      data.position = "left"
+  )),
   fixedPanel(
     style = "z-index:100;",
-    actionButton("back_to_top", label = "to_top"),
-    bsButton("showpanel", "sidebar", type = "toggle", value = FALSE),
+    actionButton("back_to_top", label = "to_top") %>% bs_embed_tooltip("scroll back to the top of the page"), 
+      bsButton("showpanel", "sidebar", type = "toggle", value = FALSE) %>% bs_embed_tooltip("turn sidebar on/off"), 
     right = 10,
-    bottom = 10,
-    bsTooltip("back_to_top", "reset to top of page", placement = "top"),
-    bsTooltip("showpanel", "toggle sidebar display", placement = "top")
+    bottom = 10
   ),
   sidebarLayout(
     sidebarPanel(
@@ -737,23 +743,20 @@ ui <- fluidPage(
           ),
           div(
             style = "display: inline-block;vertical-align:top; width: 10px;",
-            actionButton("Find", "Find", icon = icon("search"))
+            actionButton("Find", "Find", icon = icon("search")) %>% bs_embed_tooltip("gene id/symbols accepted", placement = "right")
           )),
-          data.step = 1, 
-          data.intro = "query by gene id or symbol for plotting and tabled info on main tab"),
-        bsTooltip("Find", "gene id/symbols accepted"),
+          data.step = 2, 
+          data.intro = "Query individual genes by id or symbol.",
+          data.position = "bottom"),
         div(
           id = "sidediv",
           tabsetPanel(
             id = "side1",
             tabPanel(
-              span(icon("link", class = NULL, lib = "font-awesome"), "links", title = "save files and external links"),
+              span(icon("link", class = NULL, lib = "font-awesome"), "Gene_links", title = "additional external links for querying a specific gene"),
               br(.noWS = "outside"),
               introBox(
                 fluidRow(
-                  column(
-                    width = 1
-                  ),
                   column(
                     width = 4,
                     uiOutput("tab"),
@@ -767,95 +770,119 @@ ui <- fluidPage(
                     uiOutput("tab2"),
                     uiOutput("tab3"),
                     uiOutput("tab4")
-                  )
-                ),
-                data.step = 2,
-                data.intro = "other useful links for the query gene"),
-              br(.noWS = "outside"),
-              introBox(
-                div(downloadButton("savePlot", label = "save plot", class = "download_this"),
-                downloadButton(outputId = "saveTable", label = "save table", class = "download_this")),
+                    )
+                  ),
                 data.step = 5,
-                data.intro = "save plots and/or tables on right side tab to file"),
+                data.intro = "Other external links for the query gene.",
+                data.position = "right"),
+                fluidRow(
+                  column(
+                    width = 4,
+                    downloadButton("savePlot", label = "PLOT", class = "download_this") %>%
+                      bs_embed_tooltip("save current plot as .pdf", placement = "bottom")
+                  ),
+                  column(
+                    width = 1
+                  ),
+                  column(
+                    width = 4,
+                    actionButton("Add", "add to Cart") %>% bs_embed_tooltip("add current query gene to cart", placement = "bottom")
+                  )
+
+                ),
               br(.noWS = "outside"),
-              bsTooltip("savePlot", "save plot as pdf"),
-              bsTooltip("saveTable", "save filtered/result table as csv"),
+              style = "height:150px;"
             ),
             tabPanel(
-              span("options", title = "options specific to each main tab"),
+              span(icon("cogs", class = NULL, lib = "font-awesome"), "Plot_options", title = "options specific to each main tab"),
               br(.noWS = "outside"),
-              # div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL)),
-              # div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL)),
-              # div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL)),
-              # div(id = "doBrdiv", checkboxInput("doBr", "plot brain data", value = T, width = NULL)),
-              # div(id = "doTisdiv",checkboxInput("doTis", "plot non-brain data", value = F, width = NULL)),
               div(id = "doEigendiv", checkboxInput("doEigen", "plot model clusters", value = T, width = NULL)),
               checkboxInput("doUcsc", "pull track", value = T, width = NULL),
               checkboxInput("doMod", "find module", value = T, width = NULL),
               checkboxInput("doKegg", "GO terms", value = T, width = NULL),
-              # div(id = "doNormdiv", checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL)),
               checkboxInput("doTooltips", "show hover tips", value = T, width = NULL),
-              bsTooltip("doPlotlydiv", "toggles main and kmer plot",
-                options = list(container = "body"), placement = "right"
+              div(id = "doBrdiv", checkboxInput("doBr", "plot brain data", value = T, width = NULL)),
+              div(id = "doTisdiv", checkboxInput("doTis", "plot non-brain data", value = F, width = NULL)),
+              div(id = "doLockdiv", 
+                  checkboxInput("doLock", "lock main panel order", value = T, width = NULL)),
+              fluidRow(
+                column(
+                  width = 4,
+                  downloadButton("savePlot2", label = "PLOT", class = "download_this") %>%
+                    bs_embed_tooltip("save current plot as .pdf", placement = "bottom")
+                ),
+                column(
+                  width = 1
+                ),
+                column(
+                  width = 4,
+                  downloadButton(outputId = "saveTable", label = "TABLE", class = "download_this") %>% 
+                    bs_embed_tooltip("save output/filtered table as .csv", placement = "bottom")
+                )
               ),
-              bsTooltip("doPadjdiv", str_c("label groups by p <= ", sig_cut),
-                options = list(container = "body"), placement = "right"
-              ),
-              bsTooltip("doNamediv", "label points by sample", options = list(container = "body"), placement = "right"),
-              bsTooltip("doName2div", "show toggleable legend", options = list(container = "body"), placement = "right"),
-              bsTooltip("doEigendiv", "assigned per region"),
-              bsTooltip("doNormdiv", "otherwise centered by mean", options = list(container = "body"), placement = "right"),
-              bsTooltip("doSummarydiv", "summarize instead of individual lines", options = list(container = "body"), placement = "right"),
-              bsTooltip("doLockdiv", "by default panels can be dragged and rearranged")
+              style = "height:150px;"
             )
           ),
           tabsetPanel(
             id = "side2",
             tabPanel(
               introBox(
-                span(icon("file-alt", class = NULL, lib = "font-awesome"), "load", title = "load list of genes for analysis from file or interactive table"),
-                data.step = 6,
-                data.intro = "gene lists can be loaded from external file, lineplot/heatmap/go_enrichment/kmer pull from this list"),
-              div(id = "filediv", fileInput("file", label = NULL)),
+                span(icon("file-alt", class = NULL, lib = "font-awesome"), "Genelist", title = "load list of genes for analysis from file or interactive table"),
+                data.step = 8,
+                data.intro = "Gene lists can be loaded from external file, or passed from the tables/cart.<br><br>
+                The other multi-gene analysis tabs, Lineplot/Heatmap/GO/Kmer, all use genes from this list.",
+                data.position = "top"),
+              div(id = "filediv", fileInput("file", label = NULL) %>% 
+                    bs_embed_tooltip("expects gene symbols as first column, or comma separated")),
               div(
                 uiOutput("listn"),
                 style = "display: inline-block;vertical-align:middle;"
               ),
               div(
                 style = "display: inline-block;float:right;vertical-align:middle;",
-                disabled(actionButton("Prev1", "Prev", icon = icon("angle-up"))),
-                disabled(actionButton("Next1", "Next", icon = icon("angle-down")))
+                disabled(actionButton("Prev1", "Prev", icon = icon("angle-up")) %>% 
+                           bs_embed_tooltip("query previous gene on loaded list", placement = "bottom")),
+                disabled(actionButton("Next1", "Next", icon = icon("angle-down")) %>% 
+                           bs_embed_tooltip("query next gene on loaded list", placement = "bottom"))
               ),
-              bsTooltip("filediv", "expects gene symbols as first column, or comma separated"),
-              bsTooltip("Prev1", "query previous gene on loaded list"),
-              bsTooltip("Next1", "query next gene on loaded list"),
+              
               DT::dataTableOutput("tbllist"),
               style = "height:300px; overflow-y: scroll;"
             ),
             tabPanel(
-              value = "cart",
+              value = "Cart",
               introBox(
-                span(icon("shopping-cart", class = NULL, lib = "font-awesome"), "cart", title = "cart list of genes to save and export"),
-                data.step = 7,
-                data.intro = "add genes to a cart list, which can be exported or moved to the loaded list"
+                span(icon("shopping-cart", class = NULL, lib = "font-awesome"), "Cart", title = "cart list of genes to save and export"),
+                data.step = 9,
+                data.intro = "A cart list stores query genes that were added (see button above), which can be exported to .txt file, or moved to the loaded Genelist.<br><br>
+                Interactive clicking on the GO_enrich and Venn plots also put the corresponding genes into the cart.",
+                data.position = "top"
               ),
               uiOutput("listn2"),
-              actionButton("Add", "Add"),
-              actionButton("Load", "Load"),
-              downloadButton(
-                outputId = "saveList",
-                label = "export"
+              fluidRow(
+                column(
+                  width = 4,
+                  downloadButton(
+                    outputId = "saveList",
+                    label = "CART"
+                  ) %>% bs_embed_tooltip("save genes in cart as .txt", placement = "bottom"),
+                ),
+                column(
+                  width = 1
+                ),
+                column(
+                  width = 4,
+                  actionButton("Load", "to Genelist") %>% bs_embed_tooltip("send genes in Cart to loaded Genelist in side panel", placement = "bottom")
+                )
               ),
-              bsTooltip("Add", "add current query gene to cart"),
-              bsTooltip("Load", "send to loaded list in side panel"),
               DT::dataTableOutput("tbllist2"),
               style = "height:300px; overflow-y: scroll;"
             ),
             tabPanel(
               introBox(
-                span(icon("history", class = NULL, lib = "font-awesome"), "history", title = "history list of query genes"),
-                data.step = 8,
-                data.intro = "list of genes queried",
+                span(icon("history", class = NULL, lib = "font-awesome"), "History", title = "history list of query genes"),
+                data.step = 10,
+                data.intro = "A list of genes previously queried is also documented for review.",
                 data.position = "right"
               ),
               DT::dataTableOutput("historyl"),
@@ -874,12 +901,13 @@ ui <- fluidPage(
         tabPanel(
           introBox(
             span(icon("pencil-ruler", class = NULL, lib = "font-awesome"),
-              "main",
+              "Gene_query",
               title = "Plot expression box plot and other info of query gene"
             ),
             data.step = 3, 
-            data.intro = "boxplot for expression, and other annotation and analyses for the query gene"),
-          value = "plot",
+            data.intro = "For the query gene, this tab displays the expression boxplot, as well as other annotations and analyses.",
+            data.position = "top"),
+          value = "Gene_query",
           div(
             id = "sorted",
             DT::dataTableOutput("results"),
@@ -891,12 +919,16 @@ ui <- fluidPage(
                     circle = FALSE, status = "options", icon = icon("gear"), width = "200px", size = "sm",
                     tooltip = tooltipOptions(title = "plotting options"), margin = "20px",
                     br(),
-                    div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL)),
-                    div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL)),
-                    div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL))
+                    div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL) %>% 
+                          bs_embed_tooltip("display interactive plot with additional info on hover", placement = "right")),
+                    div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL) %>% 
+                          bs_embed_tooltip(str_c("label groups by p <= ", sig_cut), placement = "right")),
+                    div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL) %>% 
+                          bs_embed_tooltip("label points by sample", placement = "right"))
                   ),
                   data.step = 4,
-                  data.intro = "additional plotting options"),
+                  data.intro = "Additional plotting options, for interactivity and labels, can be accessed here.",
+                  data.position = "left"),
               ),
               div(
                 style = "display: inline-block;vertical-align:top;",
@@ -945,11 +977,14 @@ ui <- fluidPage(
         tabPanel(
           introBox(
             span(icon("table", class = NULL, lib = "font-awesome"),
-              "transcript_gene",
+              "Transcript_gene",
               title = "Table of expression and other info of all genes/transcripts"
             ),
-            data.step = 9,
-            data.intro = "summary of genes in this study, can be filtered, exported, and passed to load list. hover over column names for additional descriptions"),
+            data.step = 6,
+            data.intro = "Here we summarize the genes in this study.<br><br>
+            The table can be filtered, exported as .csv, and passed to Genelist for additional on-the-fly analyses.<br><br>
+            Hover over column names for additional descriptions.",
+            data.position = "top"),
           value = "table_data",
           div(
             id = "doCollapsediv",
@@ -958,20 +993,22 @@ ui <- fluidPage(
               "longest transcript",
               value = T,
               width = NULL
-            )
+            ) %>% bs_embed_tooltip("only show longest orf transcript for each gene", placement = "bottom")
           ),
-          bsTooltip("doCollapsediv", "only show longest orf transcript for each gene"),
-          actionButton("loadtab", "load"),
-          bsTooltip("loadtab", "send to loaded list in side panel"),
+          actionButton("loadtab", "to Genelist") %>% 
+            bs_embed_tooltip("send filtered results to loaded Genelist in side panel", placement = "right"),
           DT::dataTableOutput("genes")
         ),
         tabPanel(
           introBox(
-            span("majiq_alt",
+            span("Majiq_alt",
               title = "Table of majiq output for alternative splicing events"
             ),
-            data.step = 10,
-            data.intro = "splicing analysis table, can be filtered, exported, and passed to load list. hover over column names for additional descriptions"),
+            data.step = 7,
+            data.intro = "Similarly, splicing analysis via MAJIQ is presented as a table.<br><br>
+            The table can be filtered, exported as .csv, and passed to Genelist for additional on-the-fly analyses.<br><br>
+            Hover over column names for additional descriptions.",
+            data.position = "top"),
           value = "table_AS",
           div(
             id = "doJoindiv",
@@ -980,20 +1017,20 @@ ui <- fluidPage(
               "gene info",
               value = FALSE,
               width = NULL
-            )
+            ) %>% bs_embed_tooltip("bring in gene info as last columns", placement = "bottom")
           ),
-          bsTooltip("doJoindiv", "bring in gene info as last columns"),
-          actionButton("loadtab2", "load"),
-          bsTooltip("loadtab2", "send to loaded list in side panel"),
+          actionButton("loadtab2", "to Genelist") %>% 
+            bs_embed_tooltip("send filtered results to loaded Genelist in side panel", placement = "right"),
           DT::dataTableOutput("alt")
         ),
         tabPanel(
           introBox(
-            span("line_plot",
+            span("Line_plot",
               title = "Plot expression of loaded gene list"
             ),
             data.step = 11,
-            data.intro = "visualize loaded gene list as line plot, also supports summarized line"),
+            data.intro = "Visualize loaded Genelist as line plot, also supports summarized line.",
+            data.position = "top"),
           value = "line_plot",
           div(
             style = "display: inline-block;vertical-align:top;",
@@ -1001,9 +1038,12 @@ ui <- fluidPage(
               circle = FALSE, status = "options", icon = icon("gear"), width = "200px", size = "sm",
               tooltip = tooltipOptions(title = "plotting options"), margin = "20px",
               br(),
-              div(id = "doName2div", checkboxInput("doName2", "additional labels", value = F, width = NULL)),
-              div(id = "doNormdiv", checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL)),
-              div(id = "doSummaryiv", checkboxInput("doSummary", "summary line", value = F, width = NULL))
+              div(id = "doName2div", checkboxInput("doName2", "additional labels", value = F, width = NULL) %>% 
+                    bs_embed_tooltip("show toggleable legend", placement = "right")),
+              div(id = "doNormdiv", checkboxInput("doNorm", "normalize to SA", value = F, width = NULL) %>% 
+                    bs_embed_tooltip("otherwise centered by mean expression", placement = "right")),
+              div(id = "doSummaryiv", checkboxInput("doSummary", "summary line", value = F, width = NULL) %>% 
+                    bs_embed_tooltip("summarize instead of individual lines", placement = "right"))
             )
           ),
           div(
@@ -1013,11 +1053,12 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span("heatmap",
+            span("Heatmap",
               title = "Plot Z-Score of loaded gene list as heat map"
             ),
             data.step = 12,
-            data.intro = "visualize loaded gene list as heatmap"),
+            data.intro = "Similar to the lineplot, visualize loaded Genelist as heatmap.",
+            data.position = "top"),
           value = "heat_plot",
           br(),
           fluidRow(
@@ -1069,17 +1110,22 @@ ui <- fluidPage(
               title = "GO term enrichment for loaded gene list (slow)"
             ),
             data.step = 13,
-            data.intro = "GO term enrichment of loaded gene list by fisher exact test, plot top 15, export full table"),
+            data.intro = "GO term enrichment of loaded Genelist by fisher exact test.<br><br>
+            Top 15 results are plotted, while full table can be exported.<br><br>
+            Clicking on bar loads the corresponding genes into Cart.",
+            data.position = "top"),
           value = "enrichment_plot",
           plotlyOutput("richPlot") %>% withLoader()
         ),
         tabPanel(
           introBox(
-            span("kmer",
-              title = "kmer enrichment analysis and annotation for loaded gene list (slow)"
+            span("Kmer",
+              title = "Kmer enrichment analysis and annotation for loaded Genelist (slow)"
             ),
             data.step = 14,
-            data.intro = "kmer analysis of loaded gene list, with option to annotate known RBP motifs or mir seeds"),
+            data.intro = "Kmer analysis of loaded Genelist, with option to annotate known RBP motifs or mir seeds.<br><br>
+            Note that this process may take ~30 seconds.",
+            data.position = "top"),
           value = "kmer_analysis",
           tags$style(HTML(".radio-inline {margin-left: 5px;margin-right: 25px;}")),
           div(
@@ -1095,7 +1141,8 @@ ui <- fluidPage(
             id = "kmlabdiv",
             style = "display: inline-block;vertical-align:top; width:250px;",
             tags$style(HTML(".radio-inline {margin-right: 10px;}")),
-            radioButtons("kmlab", "annotate kmer", c("RBP/mir", "seq", "none"), selected = "RBP/mir", inline = TRUE)
+            radioButtons("kmlab", "annotate kmer", c("RBP/mir", "seq", "none"), selected = "RBP/mir", inline = TRUE) %>% 
+              bs_embed_tooltip("Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed")
           ),
           div(
             style = "display: inline-block;vertical-align:top;",
@@ -1104,43 +1151,32 @@ ui <- fluidPage(
           div(
             id = "rbptermdiv",
             style = "display: inline-block;vertical-align:top;width:250px",
-            textInput("rbpterm", "highlight annotation", value = "MEX3C")
+            textInput("rbpterm", "highlight annotation", value = "MEX3C") %>% 
+              bs_embed_tooltip("highlights annotation in black, case insensitive", placement = "bottom")
           ),
           div(
             id = "doPlotly2div",
-            checkboxInput("doPlotly2", "interactive plot", value = F, width = NULL),
+            checkboxInput("doPlotly2", "interactive plot", value = F, width = NULL) %>% 
+              bs_embed_tooltip("display interactive plot with additional info on hover", placement = "right"),
             style = "width:200px",
           ),
-          uiOutput("kmerPlotUI") %>% withLoader(loader = "pacman"),
-          bsTooltip(
-            "kmerdiv",
-            "Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed"
-          ),
-          bsTooltip(
-            "kmlabdiv",
-            "label points with annotations"
-          ),
-          bsTooltip(
-            "rbptermdiv",
-            "highlights annotation in black"
-          ),
-          bsTooltip("doPlotly2div", "toggles main and kmer plot",
-            options = list(container = "body")
-          ),
+          uiOutput("kmerPlotUI") %>% withLoader(loader = "pacman")
         ),
         tabPanel(
           introBox(
-            span("genes_venn",
+            span("Genes_venn",
               title = "visualize gene overlap between regions by venn diagram, and retrieve lists"
             ),
             data.step = 15,
-            data.intro = "venn diagram to visualize documented and loaded gene sets, clicking on numbers moves genes of that category to cart"),
+            data.intro = "Use venn diagram to visualize documented and loaded Genelist/Cart.<br><br>
+            Clicking on numbers moves genes of that category to Cart",
+            data.position = "top"),
           value = "venn",
           div(
             style = "display: inline-block;vertical-align:top; width: 160px;",
             selectizeInput("seta", "geneset_A",
               choices = c(
-                "_none", "_load_list", "_cart_list",
+                "_none", "_Gene_list", "_Cart_list",
                 names(gene_list)
               ),
               selected = "fb_sig"
@@ -1150,7 +1186,7 @@ ui <- fluidPage(
             style = "display: inline-block;vertical-align:top; width: 160px;",
             selectizeInput("setb", "geneset_B",
               choices = c(
-                "_none", "_load_list", "_cart_list",
+                "_none", "_Gene_list", "_Cart_list",
                 names(gene_list)
               ),
               selected = "hy_sig"
@@ -1160,7 +1196,7 @@ ui <- fluidPage(
             style = "display: inline-block;vertical-align:top; width: 160px;",
             selectizeInput("setc", "geneset_C",
               choices = c(
-                "_none", "_load_list", "_cart_list",
+                "_none", "_Gene_list", "_Cart_list",
                 names(gene_list)
               ),
               selected = "med_sig"
@@ -1172,22 +1208,28 @@ ui <- fluidPage(
               "ignore case",
               value = T,
               width = NULL
-            ),
+            ) %>% 
+              bs_embed_tooltip("coerce all gene symbols to upper case", placement = "bottom"),
             style = "display: inline-block; width: 100px;"
           ),
           div(
             id = "loadalldiv",
-            actionButton("Cart_all", "Cart_all"),
+            actionButton("Cart_all", "all genes to Cart") %>% 
+              bs_embed_tooltip("add all genes from these sets into `Cart` side panel", placement = "bottom"),
             style = "display: inline-block"
           ),
-          bsTooltip("doUpperdiv", "coerce all gene symbols to upper case"),
-          bsTooltip("loadalldiv", "add all genes from these sets into `cart` side panel"),
           plotlyOutput("vennPlot") %>% withLoader()
         ),
         tabPanel(
-          span(icon("question", class = NULL, lib = "font-awesome"),
-            "about",
-            title = "View version and author info",
+          introBox(
+            span(icon("question", class = NULL, lib = "font-awesome"),
+              "About",
+               title = "View version and author info",
+            ),
+            data.step = 16,
+            data.intro = "Additional information on the study and authors.<br><br>
+            Hope squirrelBox will be informative for your data explorations.",
+            data.position = "top"
           ),
           value = "about",
           uiOutput("intro"),
@@ -1199,7 +1241,8 @@ ui <- fluidPage(
           uiOutput("contact"),
           column(width = 4, DT::dataTableOutput("explain")),
           column(width = 1),
-          column(width = 4, DT::dataTableOutput("explain2"))
+          column(width = 4, DT::dataTableOutput("explain2")
+          )
         )
       )
     )
@@ -1235,6 +1278,7 @@ server <- function(input, output, session) {
   rv$tabinit_enrich <- 0
   rv$tabinit_kmer <- 0
   rv$tabinit_venn <- 0
+  rv$starttutorial <- 0
 
   # hide some checkboxes
   removeModal()
@@ -1295,7 +1339,7 @@ server <- function(input, output, session) {
     if ((input$geneID != "") & (input$geneID != rv$old)) {
       updateTabsetPanel(session,
         "tabMain",
-        selected = "plot"
+        selected = "Gene_query"
       )
       rv$actuallygo <- rv$actuallygo + 1
       if (rv$init == 1) {
@@ -1497,7 +1541,8 @@ server <- function(input, output, session) {
       }
     },
     cacheKeyExpr = {
-      rv$mod_df %>% select(-1)
+      tryCatch(rv$mod_df %>% select(-1),
+               error = function(e) {"error"})
     },
     sizePolicy = sizeGrowthRatio(width = plot_width * 100, height = plot_height * 100 / 2, growthRate = 1.2)
   )
@@ -1856,8 +1901,8 @@ server <- function(input, output, session) {
   # plotly interative parts of line plot
   observeEvent(linetemp(), {
     rv$line <- rv$line + 1
-    d <<- SharedData$new(linetemp, ~unique_gene_symbol, as.character(rv$line))
-    d$clearSelection()
+    shared_d <<- SharedData$new(linetemp, ~unique_gene_symbol, as.character(rv$line))
+    shared_d$clearSelection()
   })
 
   # actually draw line plot
@@ -1887,7 +1932,7 @@ server <- function(input, output, session) {
         geom_line(aes(color = unique_gene_symbol)) +
         geom_errorbar(aes(ymin = log2_counts - sem, ymax = log2_counts + sem), width =.05, size = 0.5)
     } else {
-      g <- ggplot(d, aes(state, log2_counts,
+      g <- ggplot(shared_d, aes(state, log2_counts,
                          group = unique_gene_symbol,
                          text = unique_gene_symbol
       )) +
@@ -2034,13 +2079,13 @@ server <- function(input, output, session) {
     }
     genevec <- unique_to_clean(historytablist, namedvec) %>% str_to_upper()
     tops <- fisher(genevec, gmtlist, length_detected_genes)
-    tops <- tops %>% dplyr::slice(1:max(min(which(tops$padj > 0.01)), 15))
     tops$pathway <- reorder(tops$pathway, tops$minuslog10)
     tops
   })
 
   richPlot1 <- reactive({
     tops <- richtemp()
+    tops <- tops %>% dplyr::slice(1:max(min(which(tops$padj > sig_cut)), 15))
     if (nrow(tops) == 0) {
       return(ggplot() +
         ggtitle("no genes loaded"))
@@ -2061,7 +2106,7 @@ server <- function(input, output, session) {
         legend.position = "none"
       ) +
       scale_y_continuous(expand = c(0, 0)) +
-      geom_hline(yintercept = -log10(0.05))
+      geom_hline(yintercept = -log10(sig_cut))
   })
 
   output$richPlot <- renderPlotly({
@@ -2149,18 +2194,19 @@ server <- function(input, output, session) {
 
   kmerPlot1 <- reactive({
     topsk <- kmertemp()
+    de_rbpterm <- debounce(input$rbpterm, 500)
     if (nrow(topsk) == 0) {
       return(ggplot() +
         ggtitle("no genes loaded"))
     }
     if (input$kmlab == "RBP/mir") {
       topsk <- topsk %>%
-        mutate(sig = factor(ifelse(minuslog10 >= -log10(0.05), "sig", "insig"))) %>%
+        mutate(sig = factor(ifelse(minuslog10 >= -log10(sig_cut), "sig", "insig"))) %>%
         mutate(text2 = ifelse((sig == "sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), "")) %>%
         mutate(text1 = str_c(kmer, RBP, sep = "\n"))
     } else {
       topsk <- topsk %>%
-        mutate(sig = factor(ifelse(minuslog10 >= -log10(0.05), "sig", "insig"))) %>%
+        mutate(sig = factor(ifelse(minuslog10 >= -log10(sig_cut), "sig", "insig"), levels = c("sig", insig))) %>%
         mutate(text2 = ifelse((sig == "sig" & row_number() <= 15), kmer, "")) %>%
         mutate(text1 = kmer)
     }
@@ -2178,7 +2224,7 @@ server <- function(input, output, session) {
       geom_point(aes(color = sig), size = 0.5) +
       scale_color_manual(values = c("#B3B3B3", "#FC8D62")) + # RColorBrewer::brewer.pal(8, "Set2")
       geom_point(data = topsk %>%
-        filter(str_detect(RBP, input$rbpterm)), color = "black", size = 0.5) +
+        filter(str_detect(str_to_upper(RBP), str_to_upper(de_rbpterm()))), color = "black", size = 0.5) +
       ggrepel::geom_text_repel(box.padding = 0.05, size = 3, aes(label = text2)) +
       xlab("log2enrichment") +
       labs(color = "")
@@ -2227,13 +2273,13 @@ server <- function(input, output, session) {
       `Set B` = gene_list[[input$setb]],
       `Set C` = gene_list[[input$setc]]
     )
-    load_vec <- c(input$seta, input$setb, input$setc) == "_load_list"
+    load_vec <- c(input$seta, input$setb, input$setc) == "_Gene_list"
     if (sum(load_vec) > 0) {
       for (element in names(temp)[load_vec]) {
         temp[[element]] <- historytablist
       }
     }
-    load_vec <- c(input$seta, input$setb, input$setc) == "_cart_list"
+    load_vec <- c(input$seta, input$setb, input$setc) == "_Cart_list"
     if (sum(load_vec) > 0) {
       for (element in names(temp)[load_vec]) {
         temp[[element]] <- carttablist
@@ -2347,7 +2393,8 @@ server <- function(input, output, session) {
     aa <- event_data("plotly_click", source = "vennPlot")
     if (!is.null(aa$pointNumber)) {
       gene_string <- rv$venntext[aa$pointNumber + 1]
-      gene_vec <- str_split(gene_string, ",")[[1]]
+      gene_vec <- tryCatch(str_split(gene_string, ",")[[1]],
+                           error = function(e) {""})
       carttablist <<- gene_vec
       rv$listn2 <- length(carttablist)
       updateTabsetPanel(session,
@@ -2404,9 +2451,9 @@ server <- function(input, output, session) {
 
   # find function on new input
   observeEvent(input$geneID != "", {
-    if (rv$run2 == 1 & input$geneID != "" & !is.null(input$geneID) & input$tabMain == "plot") {
+    if (rv$run2 == 1 & input$geneID != "" & !is.null(input$geneID) & input$tabMain == "Gene_query") {
       rv$run2 <- 1
-      click("Find")
+      shinyjs::click("Find")
     }
   })
 
@@ -2455,7 +2502,7 @@ server <- function(input, output, session) {
   })
 
   output$listn2 <- renderUI({
-    HTML(str_c("<strong><h5> # in cart: ", rv$listn2, "</h5></strong>"))
+    HTML(str_c("<strong><h5> # in Cart: ", rv$listn2, "</h5></strong>"))
   })
 
   output$saveList <- downloadHandler("cart.txt", content = function(file) {
@@ -2642,7 +2689,7 @@ server <- function(input, output, session) {
   })
 
   saveFiltered <- downloadHandler("filtré.csv", content = function(file) {
-    s <- input$tbl_rows_all
+    s <- input$genes_rows_all
     write_csv((orftbl() %>%
       select(
         unique_gene_symbol,
@@ -2653,16 +2700,16 @@ server <- function(input, output, session) {
   })
 
   onclick("loadtab", {
-    s <- input$tbl_rows_all
+    s <- input$genes_rows_all
     historytablist <- orftbl()[s, ] %>% pull(unique_gene_symbol)
     rv$line_refresh <- rv$line_refresh + 1
   })
 
-  observeEvent(input$tbl_rows_selected, {
+  observeEvent(input$genes_rows_selected, {
     rv$run2 <- 1
     updateSelectizeInput(session,
       inputId = "geneID",
-      selected = orftbl()[input$tbl_rows_selected, "unique_gene_symbol"],
+      selected = orftbl()[input$genes_rows_selected, "unique_gene_symbol"],
       choices = autocomplete_list,
       server = T
     )
@@ -2857,10 +2904,12 @@ server <- function(input, output, session) {
 
   # graying out buttons, warnings/hints
   observe({
-    if (input$tabMain == "plot") {
+    if (input$tabMain == "Gene_query") {
       enable("savePlot")
+      enable("savePlot2")
       disable("saveTable")
       output$savePlot <- savePlot
+      output$savePlot2 <- savePlot
       if (rv$tabinit_plot == 0) {
         showNotification("tabs, modules, and columns of tables can be dragged and rearranged",
           type = "message"
@@ -2869,6 +2918,7 @@ server <- function(input, output, session) {
       }
     } else if (input$tabMain == "table_data") {
       disable("savePlot")
+      disable("savePlot2")
       enable("saveTable")
       output$saveTable <- saveFiltered
       if (rv$tabinit_data == 0) {
@@ -2879,31 +2929,40 @@ server <- function(input, output, session) {
       }
     } else if (input$tabMain == "table_AS") {
       disable("savePlot")
+      disable("savePlot2")
       enable("saveTable")
       output$saveTable <- saveFilteredAS
     } else if (input$tabMain == "line_plot") {
       enable("savePlot")
+      enable("savePlot2")
       disable("saveTable")
       output$savePlot <- savePlot5
+      output$savePlot2 <- savePlot5
     } else if (input$tabMain == "enrichment_plot") {
       enable("savePlot")
+      enable("savePlot2")
       enable("saveTable")
       output$savePlot <- savePlot2
+      output$savePlot2 <- savePlot2
       output$saveTable <- saveEnrich
       if (rv$tabinit_enrich == 0) {
-        showNotification("add corresponding genes to cart by clicking on GO term bar",
+        showNotification("add corresponding genes to Cart by clicking on GO term bar",
           type = "message"
         )
         rv$tabinit_enrich <<- 1
       }
     } else if (input$tabMain == "heat_plot") {
       enable("savePlot")
+      enable("savePlot2")
       disable("saveTable")
       output$savePlot <- savePlot3
+      output$savePlot2 <- savePlot3
     } else if (input$tabMain == "kmer_analysis") {
       enable("savePlot")
+      enable("savePlot2")
       enable("saveTable")
       output$savePlot <- savePlot4
+      output$savePlot2 <- savePlot4
       output$saveTable <- saveK
       if (rv$tabinit_kmer == 0) {
         showNotification("Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed",
@@ -2913,16 +2972,19 @@ server <- function(input, output, session) {
       }
     } else if (input$tabMain == "venn") {
       enable("savePlot")
+      enable("savePlot2")
       disable("saveTable")
       output$savePlot <- savePlot6
+      output$savePlot2 <- savePlot6
       if (rv$tabinit_venn == 0) {
-        showNotification("click on venn numbers to load associated genes into cart",
+        showNotification("click on venn numbers to load associated genes into Cart",
           type = "message"
         )
         rv$tabinit_venn <<- 1
       }
     } else if (input$tabMain == "about") {
       disable("savePlot")
+      disable("savePlot2")
       disable("saveTable")
     }
   })
@@ -3007,6 +3069,19 @@ server <- function(input, output, session) {
       "overlayOpacity" = -1
     ))
   })
+  
+  observeEvent((rv$init == 1 & rv$starttutorial == 0), {
+    if (start_tutorial) {
+      introjs(session, options = list(
+        "nextLabel" = "next",
+        "prevLabel" = "prev",
+        "skipLabel" = "skip",
+        "overlayOpacity" = -1
+      ))
+    }
+    rv$starttutorial <- 1
+  })
+  
 }
 
 # Run the application
