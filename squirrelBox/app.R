@@ -1,3 +1,4 @@
+library(shiny)
 library(dplyr)
 library(tibble)
 library(purrr)
@@ -14,7 +15,6 @@ library(valr)
 library(transite)
 library(plotly)
 library(crosstalk)
-library(shiny)
 library(shinyjs)
 library(shinythemes)
 library(shinycustomloader)
@@ -22,6 +22,7 @@ library(shinyjqui)
 library(shinyWidgets)
 library(rintrojs)
 library(shinyBS)
+library(bsplus)
 
 shinyOptions(cache = diskCache("./app-cache", max_size = 100 * 1024^2))
 options(readr.num_columns = 0)
@@ -49,7 +50,7 @@ plot_height <- 6
 set_shinytheme <- "paper"
 track_name <- "hub_1512849_KG_HiC"
 track_url <- "https://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
-gmt_file <- "c5.bp.v7.0.symbols.gmt" # add MF back in
+gmt_file <- "c5.all.v7.0.symbols.gmt"
 gmt_short <- "GO_"
 sig_cut <- 0.001
 ncore <- parallel::detectCores() - 1
@@ -107,7 +108,8 @@ if (file.exists(paste0(annotpath, "/alt.csv"))) {
     maj_tips <- maj_df[[1]]
   }
 }
-  maj_cols <- c(
+
+maj_cols <- c(
     "region",
     "comp_pair",
     "significant_90",
@@ -116,7 +118,7 @@ if (file.exists(paste0(annotpath, "/alt.csv"))) {
     "A5SS",
     "A3SS",
     "ES"
-  )
+)
 
 ### sample settings, define state colors and order, region order
 state_cols <- c(
@@ -470,6 +472,7 @@ fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
     )
     return(c(hits = stringofhits, pval = pval))
   }, simplify = FALSE)
+  
   res <- data.frame(res) %>% data.table::transpose()
   names(res) <- c("hits", "pval")
   res$pathway <- names(gmtlist)
@@ -609,8 +612,7 @@ $(function() {
     }
   );
 });
-
- '
+'
 
 # Define UI for application that draws the boxplot
 ui <- fluidPage(
@@ -640,6 +642,7 @@ ui <- fluidPage(
   )),
   useShinyjs(),
   introjsUI(),
+  use_bs_tooltip(),
   tags$style("
   .introjs-helperLayer {
   background: transparent;
@@ -678,6 +681,9 @@ ui <- fluidPage(
     margin-right: 1px;
 }"),
   tags$head(tags$script(HTML(jscode))),
+  tags$script(src = "shinyBS_mod.js"),
+  #tags$head(tags$script(HTML(jscode2))),
+  
   tags$head(tags$style(
     type = "text/css",
     ".shiny-output-error { visibility: hidden; }",
@@ -700,28 +706,31 @@ ui <- fluidPage(
     top = 20
   ),
   fixedPanel(
-    style = "z-index:1001;",
+    style = "z-index:100;",
     introBox(
-      tipify(
       dropdownButton(
         circle = TRUE, icon = icon("gear"), status = "options",
-        size = "sm", margin = "20px", inline = TRUE, up = TRUE,
+        size = "sm", margin = "20px", inline = TRUE, up = TRUE, # tooltip = tooltipOptions(title = "system-wide options"),
         br(),
         actionButton("tutorial", "show me around"),
         br(),
-        div(id = "doLockdiv", checkboxInput("doLock", "lock main panel order", value = F, width = NULL)),
+        #with_tippy(
+          div(id = "doLockdiv", 
+                       checkboxInput("doLock", "lock main panel order", value = T, width = NULL)),
+        #           tooltip = "by default panels can be dragged and rearranged"),
         div(id = "doPromptoffdiv", checkboxInput("doPromptoff", "no prompts or hints", value = F, width = NULL)),
         div(id = "doBrdiv", checkboxInput("doBr", "plot brain data", value = T, width = NULL)),
         div(id = "doTisdiv", checkboxInput("doTis", "plot non-brain data", value = F, width = NULL))
-      ), "options", options = list(sanitize = F)),
-      data.step = 16,
+      ), data.step = 16,
       data.intro = "additional options, including this tutorial"),
-    actionButton("back_to_top", label = "to_top"),
-    bsButton("showpanel", "sidebar", type = "toggle", value = FALSE),
+    #with_tippy(
+      actionButton("back_to_top", label = "to_top"), 
+    #           tooltip = "reset to top of page"),
+   # with_tippy(
+      bsButton("showpanel", "sidebar", type = "toggle", value = FALSE), 
+    #           tooltip = "toggle on/off sidebar display"),
     right = 10,
-    bottom = 10,
-    bsTooltip("back_to_top", "reset to top of page", placement = "top"),
-    bsTooltip("showpanel", "toggle sidebar display", placement = "top")
+    bottom = 10
   ),
   sidebarLayout(
     sidebarPanel(
@@ -747,7 +756,6 @@ ui <- fluidPage(
           )),
           data.step = 1, 
           data.intro = "query by gene id or symbol for plotting and tabled info on main tab"),
-        bsTooltip("Find", "gene id/symbols accepted"),
         div(
           id = "sidediv",
           tabsetPanel(
@@ -779,13 +787,12 @@ ui <- fluidPage(
                 data.intro = "other useful links for the query gene"),
               br(.noWS = "outside"),
               introBox(
-                div(downloadButton("savePlot", label = "save plot", class = "download_this"),
+                div(downloadButton("savePlot", label = "save plot", class = "download_this")%>%
+                      bs_embed_tooltip(title = "I'm a tooltip"),
                 downloadButton(outputId = "saveTable", label = "save table", class = "download_this")),
                 data.step = 5,
                 data.intro = "save plots and/or tables on right side tab to file"),
-              br(.noWS = "outside"),
-              bsTooltip("savePlot", "save plot as pdf"),
-              bsTooltip("saveTable", "save filtered/result table as csv"),
+              br(.noWS = "outside")
             ),
             tabPanel(
               span("options", title = "options specific to each main tab"),
@@ -800,19 +807,7 @@ ui <- fluidPage(
               checkboxInput("doMod", "find module", value = T, width = NULL),
               checkboxInput("doKegg", "GO terms", value = T, width = NULL),
               # div(id = "doNormdiv", checkboxInput("doNorm", "line plot norm to SA", value = F, width = NULL)),
-              checkboxInput("doTooltips", "show hover tips", value = T, width = NULL),
-              bsTooltip("doPlotlydiv", "toggles main and kmer plot",
-                options = list(container = "body"), placement = "right"
-              ),
-              bsTooltip("doPadjdiv", str_c("label groups by p <= ", sig_cut),
-                options = list(container = "body"), placement = "right"
-              ),
-              bsTooltip("doNamediv", "label points by sample", options = list(container = "body"), placement = "right"),
-              bsTooltip("doName2div", "show toggleable legend", options = list(container = "body"), placement = "right"),
-              bsTooltip("doEigendiv", "assigned per region"),
-              bsTooltip("doNormdiv", "otherwise centered by mean", options = list(container = "body"), placement = "right"),
-              bsTooltip("doSummarydiv", "summarize instead of individual lines", options = list(container = "body"), placement = "right"),
-              bsTooltip("doLockdiv", "by default panels can be dragged and rearranged")
+              checkboxInput("doTooltips", "show hover tips", value = T, width = NULL)
             )
           ),
           tabsetPanel(
@@ -832,9 +827,7 @@ ui <- fluidPage(
                 disabled(actionButton("Prev1", "Prev", icon = icon("angle-up"))),
                 disabled(actionButton("Next1", "Next", icon = icon("angle-down")))
               ),
-              bsTooltip("filediv", "expects gene symbols as first column, or comma separated"),
-              bsTooltip("Prev1", "query previous gene on loaded list"),
-              bsTooltip("Next1", "query next gene on loaded list"),
+              
               DT::dataTableOutput("tbllist"),
               style = "height:300px; overflow-y: scroll;"
             ),
@@ -852,8 +845,7 @@ ui <- fluidPage(
                 outputId = "saveList",
                 label = "export"
               ),
-              bsTooltip("Add", "add current query gene to cart"),
-              bsTooltip("Load", "send to loaded list in side panel"),
+              
               DT::dataTableOutput("tbllist2"),
               style = "height:300px; overflow-y: scroll;"
             ),
@@ -966,9 +958,7 @@ ui <- fluidPage(
               width = NULL
             )
           ),
-          bsTooltip("doCollapsediv", "only show longest orf transcript for each gene"),
           actionButton("loadtab", "load"),
-          bsTooltip("loadtab", "send to loaded list in side panel"),
           DT::dataTableOutput("genes")
         ),
         tabPanel(
@@ -988,9 +978,7 @@ ui <- fluidPage(
               width = NULL
             )
           ),
-          bsTooltip("doJoindiv", "bring in gene info as last columns"),
           actionButton("loadtab2", "load"),
-          bsTooltip("loadtab2", "send to loaded list in side panel"),
           DT::dataTableOutput("alt")
         ),
         tabPanel(
@@ -1117,22 +1105,7 @@ ui <- fluidPage(
             checkboxInput("doPlotly2", "interactive plot", value = F, width = NULL),
             style = "width:200px",
           ),
-          uiOutput("kmerPlotUI") %>% withLoader(loader = "pacman"),
-          bsTooltip(
-            "kmerdiv",
-            "Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed"
-          ),
-          bsTooltip(
-            "kmlabdiv",
-            "label points with annotations"
-          ),
-          bsTooltip(
-            "rbptermdiv",
-            "highlights annotation in black"
-          ),
-          bsTooltip("doPlotly2div", "toggles main and kmer plot",
-            options = list(container = "body")
-          ),
+          uiOutput("kmerPlotUI") %>% withLoader(loader = "pacman")
         ),
         tabPanel(
           introBox(
@@ -1186,8 +1159,6 @@ ui <- fluidPage(
             actionButton("Cart_all", "Cart_all"),
             style = "display: inline-block"
           ),
-          bsTooltip("doUpperdiv", "coerce all gene symbols to upper case"),
-          bsTooltip("loadalldiv", "add all genes from these sets into `cart` side panel"),
           plotlyOutput("vennPlot") %>% withLoader()
         ),
         tabPanel(
@@ -1205,7 +1176,36 @@ ui <- fluidPage(
           uiOutput("contact"),
           column(width = 4, DT::dataTableOutput("explain")),
           column(width = 1),
-          column(width = 4, DT::dataTableOutput("explain2"))
+          column(width = 4, DT::dataTableOutput("explain2"),
+                 
+          bsTooltip("savePlot", "save plot as pdf"),
+          bsTooltip("saveTable", "save filtered/result table as csv"),
+          bsTooltip("Find", "gene id/symbols accepted"),
+          bsTooltip("doPlotlydiv", "toggles main and kmer plot",
+                    options = list(container = "body"), placement = "right"),
+          bsTooltip("doPadjdiv", str_c("label groups by p <= ", sig_cut),
+                    options = list(container = "body"), placement = "right"),
+          bsTooltip("doNamediv", "label points by sample", options = list(container = "body"), placement = "right"),
+          bsTooltip("doName2div", "show toggleable legend", options = list(container = "body"), placement = "right"),
+          bsTooltip("doEigendiv", "assigned per region"),
+          bsTooltip("doNormdiv", "otherwise centered by mean", options = list(container = "body"), placement = "right"),
+          bsTooltip("doSummarydiv", "summarize instead of individual lines", options = list(container = "body"), placement = "right"),
+          bsTooltip("filediv", "expects gene symbols as first column, or comma separated"),
+          bsTooltip("Prev1", "query previous gene on loaded list"),
+          bsTooltip("Next1", "query next gene on loaded list"),
+          bsTooltip("Add", "add current query gene to cart"),
+          bsTooltip("Load", "send to loaded list in side panel"),
+          bsTooltip("doCollapsediv", "only show longest orf transcript for each gene"),
+          bsTooltip("loadtab", "send to loaded list in side panel"),
+          bsTooltip("doJoindiv", "bring in gene info as last columns"),
+          bsTooltip("loadtab2", "send to loaded list in side panel"),
+          bsTooltip("kmerdiv", "Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed"),
+          bsTooltip("kmlabdiv", "label points with annotations"),
+          bsTooltip("rbptermdiv", "highlights annotation in black"),
+          bsTooltip("doPlotly2div", "toggles main and kmer plot"),
+          bsTooltip("doUpperdiv", "coerce all gene symbols to upper case"),
+          bsTooltip("loadalldiv", "add all genes from these sets into `cart` side panel")
+          )
         )
       )
     )
@@ -1864,8 +1864,8 @@ server <- function(input, output, session) {
   # plotly interative parts of line plot
   observeEvent(linetemp(), {
     rv$line <- rv$line + 1
-    d <<- SharedData$new(linetemp, ~unique_gene_symbol, as.character(rv$line))
-    d$clearSelection()
+    shared_d <<- SharedData$new(linetemp, ~unique_gene_symbol, as.character(rv$line))
+    shared_d$clearSelection()
   })
 
   # actually draw line plot
@@ -1895,7 +1895,7 @@ server <- function(input, output, session) {
         geom_line(aes(color = unique_gene_symbol)) +
         geom_errorbar(aes(ymin = log2_counts - sem, ymax = log2_counts + sem), width =.05, size = 0.5)
     } else {
-      g <- ggplot(d, aes(state, log2_counts,
+      g <- ggplot(shared_d, aes(state, log2_counts,
                          group = unique_gene_symbol,
                          text = unique_gene_symbol
       )) +
@@ -2042,13 +2042,13 @@ server <- function(input, output, session) {
     }
     genevec <- unique_to_clean(historytablist, namedvec) %>% str_to_upper()
     tops <- fisher(genevec, gmtlist, length_detected_genes)
-    tops <- tops %>% dplyr::slice(1:max(min(which(tops$padj > 0.01)), 15))
     tops$pathway <- reorder(tops$pathway, tops$minuslog10)
     tops
   })
 
   richPlot1 <- reactive({
     tops <- richtemp()
+    tops <- tops %>% dplyr::slice(1:max(min(which(tops$padj > sig_cut)), 15))
     if (nrow(tops) == 0) {
       return(ggplot() +
         ggtitle("no genes loaded"))
@@ -2069,7 +2069,7 @@ server <- function(input, output, session) {
         legend.position = "none"
       ) +
       scale_y_continuous(expand = c(0, 0)) +
-      geom_hline(yintercept = -log10(0.05))
+      geom_hline(yintercept = -log10(sig_cut))
   })
 
   output$richPlot <- renderPlotly({
@@ -2163,12 +2163,12 @@ server <- function(input, output, session) {
     }
     if (input$kmlab == "RBP/mir") {
       topsk <- topsk %>%
-        mutate(sig = factor(ifelse(minuslog10 >= -log10(0.05), "sig", "insig"))) %>%
+        mutate(sig = factor(ifelse(minuslog10 >= -log10(sig_cut), "sig", "insig"))) %>%
         mutate(text2 = ifelse((sig == "sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), "")) %>%
         mutate(text1 = str_c(kmer, RBP, sep = "\n"))
     } else {
       topsk <- topsk %>%
-        mutate(sig = factor(ifelse(minuslog10 >= -log10(0.05), "sig", "insig"))) %>%
+        mutate(sig = factor(ifelse(minuslog10 >= -log10(sig_cut), "sig", "insig"))) %>%
         mutate(text2 = ifelse((sig == "sig" & row_number() <= 15), kmer, "")) %>%
         mutate(text1 = kmer)
     }
@@ -2651,7 +2651,7 @@ server <- function(input, output, session) {
   })
 
   saveFiltered <- downloadHandler("filtré.csv", content = function(file) {
-    s <- input$tbl_rows_all
+    s <- input$genes_rows_all
     write_csv((orftbl() %>%
       select(
         unique_gene_symbol,
@@ -2662,16 +2662,16 @@ server <- function(input, output, session) {
   })
 
   onclick("loadtab", {
-    s <- input$tbl_rows_all
+    s <- input$genes_rows_all
     historytablist <- orftbl()[s, ] %>% pull(unique_gene_symbol)
     rv$line_refresh <- rv$line_refresh + 1
   })
 
-  observeEvent(input$tbl_rows_selected, {
+  observeEvent(input$genes_rows_selected, {
     rv$run2 <- 1
     updateSelectizeInput(session,
       inputId = "geneID",
-      selected = orftbl()[input$tbl_rows_selected, "unique_gene_symbol"],
+      selected = orftbl()[input$genes_rows_selected, "unique_gene_symbol"],
       choices = autocomplete_list,
       server = T
     )
@@ -3017,17 +3017,18 @@ server <- function(input, output, session) {
     ))
   })
   
-  observeEvent((rv$init == 1 & rv$starttutorial == 0), {
-    if (start_tutorial) {
-      introjs(session, options = list(
-        "nextLabel" = "next",
-        "prevLabel" = "prev",
-        "skipLabel" = "skip",
-        "overlayOpacity" = -1
-      ))
-    }
-    rv$starttutorial <- 1
-  })
+  # observeEvent((rv$init == 1 & rv$starttutorial == 0), {
+  #   if (start_tutorial) {
+  #     introjs(session, options = list(
+  #       "nextLabel" = "next",
+  #       "prevLabel" = "prev",
+  #       "skipLabel" = "skip",
+  #       "overlayOpacity" = -1
+  #     ))
+  #   }
+  #   rv$starttutorial <- 1
+  # })
+  
 }
 
 # Run the application
