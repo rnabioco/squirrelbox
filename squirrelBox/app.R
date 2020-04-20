@@ -946,7 +946,16 @@ ui <- fluidPage(
               ),
               div(
                 style = "display: inline-block;vertical-align:top;",
-                uiOutput("boxPlotUI") %>% withLoader(proxy.height = paste0(plot_height * 100 / 2, "px"))
+                uiOutput("boxPlotUI") %>% withLoader()
+                # conditionalPanel(
+                #   condition = 'input.doPlotly == true',
+                #   plotlyOutput('boxPlot_ly')
+                # ),
+                # 
+                # conditionalPanel(
+                #   condition = 'input.doPlotly == false',
+                #   plotOutput('boxPlot_g')
+                # )
               )
             ),
             bsCollapse(
@@ -1252,7 +1261,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span(icon("question", class = NULL, lib = "font-awesome"),
+            span(icon("info", class = NULL, lib = "font-awesome"),
               "About",
               title = "View version and author info",
             ),
@@ -1504,6 +1513,14 @@ server <- function(input, output, session) {
     g
   })
 
+ #  output$boxPlot_ly <- renderPlotly({
+ #    boxPlot1()}# , height = function(){100*plot_height}, width = function(){100*plot_width}
+ # )
+ #  output$boxPlot_g <- renderPlot({
+ #    boxPlot1()}, height = function(){100*plot_height/2}, width = function(){100*plot_width}
+ # )
+  
+  
   # boxplot size
   boxPlotr <- reactive({
     g <- boxPlot1()
