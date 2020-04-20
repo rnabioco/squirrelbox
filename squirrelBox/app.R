@@ -57,6 +57,7 @@ gmt_short <- "GO_"
 sig_cut <- 0.001
 ncore <- parallel::detectCores() - 1
 start_tutorial <- TRUE
+verbose_bench <- TRUE
 
 ### choose and order columns
 table_cols <- c(
@@ -172,6 +173,11 @@ region_short <- c(
   "adr",
   "kid",
   "liv"
+)
+region_short_main<- c(
+  "fb",
+  "hy",
+  "med"
 )
 region_one <- c(
   "f",
@@ -402,21 +408,34 @@ sig_sym <- data.frame(
 )
 
 calls_sig <- function(padj, sig_sym) {
+  t1 <- Sys.time()
   temp <- cbind(padj, sig_sym)
   temp <- temp %>%
     rownames_to_column("comp") %>%
     mutate(call1 = ifelse(padj <= sig_cut, 1, 0))
+  
+  if (verbose_bench) {
+    print(paste0("calls_sig: ", Sys.time() - t1))
+  }
   temp
 }
 
 find_groups_igraph <- function(df) {
+  t1 <- Sys.time()
+  
   df <- df %>% select(-region)
   g <- graph_from_data_frame(df, directed = FALSE)
   cg <- max_cliques(g)
-  lapply(cg, names)
+  res <- lapply(cg, names)
+  
+  if (verbose_bench) {
+    print(paste0("find_groups_igraph: ", Sys.time() - t1))
+  }
+  res
 }
 
 sort_groups <- function(groups, states, state_order) {
+  t1 <- Sys.time()
   all_groups <- states
   leftout <- list(setdiff(all_groups, unlist(groups)))
   leftout <- as.list(unlist(leftout))
@@ -439,6 +458,10 @@ sort_groups <- function(groups, states, state_order) {
     group_by(state) %>%
     summarize(letter = str_c(letter, collapse = "")) %>%
     ungroup()
+  
+  if (verbose_bench) {
+    print(paste0("sort_groups: ", Sys.time() - t1))
+  }
   full3
 }
 
@@ -448,7 +471,7 @@ groups_to_letters_igraph <- function(df) {
   g <- lapply(reg, function(x) {
     g <- df2 %>% filter(region == x)
     g2 <- find_groups_igraph(g)
-    states <- unique(c(df2$state1, df2$state2))
+    states <- unique(c(df$state1, df$state2))
     g3 <- sort_groups(g2, states, state_order)
     g3$region <- x
     return(g3)
@@ -1406,6 +1429,8 @@ server <- function(input, output, session) {
   # boxplot1
   boxPlot1 <- reactive({
     plot_temp <- rv$plot_temp
+     
+    t1 <- Sys.time()
     if (nrow(plot_temp) == 0) {
       return(ggplot())
     }
@@ -1471,13 +1496,16 @@ server <- function(input, output, session) {
     }
 
     if (input$doPadj == T & nrow(rv$pval) != 0 & input$doPlotly == F) {
-      temp2 <- calls_sig(padj, sig_sym)
+      t2 <- Sys.time()
+      
+      padj <- padj[str_detect(rownames(padj), paste(region_short_main, collapse = "|")), ,drop = FALSE]
+      sig_sym <- sig_sym[str_detect(rownames(sig_sym), paste(region_short_main, collapse = "|")), ,drop = FALSE]
+      temp2 <<- calls_sig(padj, sig_sym)
       temp2 <- temp2 %>%
         replace_na(list(call1 = list(0))) %>%
         separate(comp, into = c("region", "state1", NA, "state2"), extra = "drop") %>%
         select(-padj, -call) %>%
-        mutate(call1 = as.numeric(call1)) %>%
-        mutate(region = as.character(region))
+        mutate(call1 = as.numeric(call1))
       temp2$region <- region_order[factor(temp2$region, level = region_short) %>% as.numeric()]
       temp3 <- groups_to_letters_igraph(temp2) %>%
         mutate(region = factor(region, level = region_order))
@@ -1499,6 +1527,9 @@ server <- function(input, output, session) {
           left_join(temp3 %>% select(region, state, letter), by = c("state", "region")) %>%
           replace_na(list(letter = list("")))
 
+        if (verbose_bench) {
+          print(paste0("boxPlot1 agg step: ", Sys.time() - t2))
+        }
         g <- g +
           geom_text(data = agg3, aes(
             text = letter,
@@ -1510,6 +1541,9 @@ server <- function(input, output, session) {
       }
     }
 
+    if (verbose_bench) {
+      print(paste0("boxPlot1 step: ", Sys.time() - t1))
+    }
     g
   })
 
@@ -1599,7 +1633,12 @@ server <- function(input, output, session) {
   # filter data
   outputtab <- reactive({
     inid <- inid()
-    temp_orfs <- orfs %>% filter((gene_id == inid) | (unique_gene_symbol == inid))
+    
+    t1 <- Sys.time()
+
+    rv$plot_temp <<- comb_fil_factor(combined2, combined3, inid)
+    
+    temp_orfs <- orfs %>% filter(unique_gene_symbol == rv$plot_temp$unique_gene_symbol[1])
     if (nrow(temp_orfs) > 0) {
       if (nrow(temp_orfs) == 0) {
         rv$blast <<- ""
@@ -1615,8 +1654,6 @@ server <- function(input, output, session) {
       rv$pval <<- data.frame()
       rv$temp_orfs <<- data.frame()
     }
-
-    rv$plot_temp <<- comb_fil_factor(combined2, combined3, inid)
 
     filtered <- rv$plot_temp %>%
       select(any_of(table_cols)) %>%
@@ -1655,6 +1692,9 @@ server <- function(input, output, session) {
       rv$mod_df <<- mod1
     }
 
+    if (verbose_bench) {
+      print(paste0("outputtab step: ", Sys.time() - t1))
+    }
     out
   })
 
