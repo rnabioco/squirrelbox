@@ -77,7 +77,7 @@ orf_cols_join <- c(
   "min_sig",
   "domains",
   "br_expr",
-  "nonbr_expr",
+  #"nonbr_expr",
   "transcript_id",
   "majiq_directed"
 )
@@ -143,18 +143,13 @@ state_order <- c(
   "IBA",
   "Ent",
   "LT",
-  "EAr",
   "Ar",
-  "LAr",
   "SpD"
 )
 region_order <- c(
   "Forebrain",
   "Hypothalamus",
-  "Medulla",
-  "Adrenal",
-  "Kidney",
-  "Liver"
+  "Medulla"
 )
 region_main <- c(
   "Forebrain",
@@ -169,10 +164,7 @@ region_main2 <- c(
 region_short <- c(
   "fb",
   "hy",
-  "med",
-  "adr",
-  "kid",
-  "liv"
+  "med"
 )
 region_short_main<- c(
   "fb",
@@ -182,10 +174,7 @@ region_short_main<- c(
 region_one <- c(
   "f",
   "h",
-  "m",
-  "a",
-  "k",
-  "l"
+  "m"
 )
 
 # read database
@@ -344,11 +333,11 @@ br_expr <- combined2 %>%
   filter(region %in% region_main) %>%
   pull(gene_id) %>%
   unique()
-
-nonbr_expr <- combined2 %>%
-  filter(region %in% region_main2) %>%
-  pull(gene_id) %>%
-  unique()
+# 
+# nonbr_expr <- combined2 %>%
+#   filter(region %in% region_main2) %>%
+#   pull(gene_id) %>%
+#   unique()
 
 # load orf predictions
 orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
@@ -364,8 +353,7 @@ orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
   mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fb_LRT_padj, na.rm = T)) %>%
   mutate(domains = factor(ifelse(gene_id %in% domains$gene_id, 1, 0))) %>%
   mutate(
-    br_expr = factor(ifelse(gene_id %in% br_expr, 1, 0)),
-    nonbr_expr = factor(ifelse(gene_id %in% nonbr_expr, 1, 0))
+    br_expr = factor(ifelse(gene_id %in% br_expr, 1, 0))#, nonbr_expr = factor(ifelse(gene_id %in% nonbr_expr, 1, 0))
   ) %>%
   mutate(majiq_directed = factor(ifelse(is.na(majiq), 0, 1)))
 
@@ -954,7 +942,7 @@ ui <- fluidPage(
                     circle = FALSE, status = "options", icon = icon("gear"), width = "200px", size = "sm",
                     tooltip = tooltipOptions(title = "plotting options"), margin = "20px",
                     br(),
-                    div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL) %>%
+                    div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = T, width = NULL) %>%
                       bs_embed_tooltip("display interactive plot with additional info on hover", placement = "right")),
                     div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL) %>%
                       bs_embed_tooltip(str_c("label groups by p <= ", sig_cut), placement = "right")),
@@ -971,12 +959,12 @@ ui <- fluidPage(
                 uiOutput("boxPlotUI") %>% withLoader()
                 # conditionalPanel(
                 #   condition = 'input.doPlotly == true',
-                #   plotlyOutput('boxPlot_ly')
+                #   plotlyOutput('boxPlot_ly') %>% withLoader()
                 # ),
                 # 
                 # conditionalPanel(
                 #   condition = 'input.doPlotly == false',
-                #   plotOutput('boxPlot_g')
+                #   plotOutput('boxPlot_g') %>% withLoader()
                 # )
               )
             ),
@@ -1207,7 +1195,7 @@ ui <- fluidPage(
           ),
           div(
             id = "doPlotly2div",
-            checkboxInput("doPlotly2", "interactive plot", value = F, width = NULL) %>%
+            checkboxInput("doPlotly2", "interactive plot", value = T, width = NULL) %>%
               bs_embed_tooltip("display interactive plot with additional info on hover", placement = "right"),
             style = "width:200px",
           ),
@@ -1349,6 +1337,8 @@ server <- function(input, output, session) {
   hide("doTooltips")
   hide("utrlen")
   hide("utr")
+  hide("doBr")
+  hide("doTis")
 
   # empty history list to start
   historytab <- c()
@@ -1546,12 +1536,12 @@ server <- function(input, output, session) {
     g
   })
 
- #  output$boxPlot_ly <- renderPlotly({
- #    boxPlot1()}# , height = function(){100*plot_height}, width = function(){100*plot_width}
- # )
- #  output$boxPlot_g <- renderPlot({
- #    boxPlot1()}, height = function(){100*plot_height/2}, width = function(){100*plot_width}
- # )
+  output$boxPlot_ly <- renderPlotly({
+    boxPlot1()}# , height = function(){100*plot_height}, width = function(){100*plot_width}
+ )
+  output$boxPlot_g <- renderPlot({
+    boxPlot1()}, height = function(){100*plot_height/2}, width = function(){100*plot_width}
+ )
   
   
   # boxplot size
