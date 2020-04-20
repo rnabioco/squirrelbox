@@ -437,8 +437,7 @@ find_groups_igraph <- function(df) {
 sort_groups <- function(groups, states, state_order) {
   t1 <- Sys.time()
   all_groups <- states
-  leftout <- list(setdiff(all_groups, unlist(groups)))
-  leftout <- as.list(unlist(leftout))
+  leftout <- as.list(setdiff(all_groups, unlist(groups)))
   full <- c(groups, leftout)
   full4 <- sapply(full, function(x) factor(x)[order(factor(x, levels = state_order))])
   if (class(full4) != "matrix") {
@@ -456,8 +455,8 @@ sort_groups <- function(groups, states, state_order) {
     pivot_longer(-letter, names_to = "NA", values_to = "state") %>%
     filter(!(is.na(state))) %>%
     group_by(state) %>%
-    summarize(letter = str_c(letter, collapse = "")) %>%
-    ungroup()
+    summarize(letter = str_c(letter, collapse = ""))# %>%
+    #ungroup()
   
   if (verbose_bench) {
     print(paste0("sort_groups: ", Sys.time() - t1))
