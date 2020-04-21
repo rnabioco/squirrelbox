@@ -245,12 +245,12 @@ comb_fil_factor <- function(combined2, combined3, inid) {
   t1 <- Sys.time()
   
   combined3 <- combined3 %>% filter(unique_gene_symbol %in% inid)
-  if (nrow(combined3) == 3) {
+  if (nrow(combined3) == 0) {
     combined3 <- combined3 %>% filter(gene_id %in% inid)
   }
   
   combined2 <- combined2 %>%
-    filter(gene_id == combined3$gene_id[1]) %>%
+    filter(gene_id %in% (combined3$gene_id %>% unique())) %>%
     mutate(sample = (str_remove(sample, "[A-Z]+")))
   combined <- combined3 %>% inner_join(combined2, by = "gene_id")
   res <- combined %>% mutate(
@@ -428,7 +428,7 @@ sort_groups <- function(groups, states, state_order) {
   t1 <- Sys.time()
   all_groups <- states
   leftout <- as.list(setdiff(all_groups, unlist(groups)))
-  full <<- c(groups, leftout)
+  full <- c(groups, leftout)
   # full4 <- sapply(full, function(x) factor(x)[order(factor(x, levels = state_order))])
   full4 <- sapply(full, function(x) x[order(match(x, state_order))])
   if (class(full4) != "matrix") {
@@ -2238,6 +2238,9 @@ server <- function(input, output, session) {
   # kmer analysis
   kmertemp <- reactive({
     rv$line_refresh
+    
+    t1 <- Sys.time()
+    
     set.seed(1)
     if (length(historytablist) == 0) {
       return(data.frame())
@@ -2258,12 +2261,17 @@ server <- function(input, output, session) {
         lenchoice <- -lenchoice
       }
       precal <- paste0(input$km, "mers_", utrchoice)
-      topsk <- comp_kmer(
+      topsk <<- comp_kmer(
         gene_vec = genevec,
         bac = seqs_precal[[precal]],
         col = utrchoice,
         k = as.numeric(input$km)
       )
+      
+      if (verbose_bench) {
+        print(paste0("comp_kmer step: ", Sys.time() - t1))
+      }
+      
       if (nrow(topsk) == 0 | is.null(topsk)) {
         return(data.frame())
       }
@@ -2279,12 +2287,16 @@ server <- function(input, output, session) {
     }
     topsk <- topsk %>%
       mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment))
-    topsk %>% replace_na(list(RBP = ""))
+    res <- topsk %>% replace_na(list(RBP = ""))
+    res
   })
 
   kmerPlot1 <- reactive({
-    topsk <- kmertemp()
-    de_rbpterm <- debounce(input$rbpterm, 500)
+    topsk <- isolate(kmertemp())
+    t1 <- Sys.time()
+    
+    #de_rbpterm <- debounce(input$rbpterm, 500)
+    de_rbpterm <- input$rbpterm
     if (nrow(topsk) == 0) {
       return(ggplot() +
         ggtitle("no genes loaded"))
@@ -2303,8 +2315,12 @@ server <- function(input, output, session) {
     if (input$kmlab == "none") {
       topsk <- topsk %>% mutate(text2 = "")
     }
+    
+    if (verbose_bench) {
+      print(paste0("kmerplot1 step1: ", Sys.time() - t1))
+    }
 
-    ggplot(topsk, aes(
+    g <- ggplot(topsk, aes(
       x = enrichment,
       y = minuslog10,
       text = text1,
@@ -2314,10 +2330,16 @@ server <- function(input, output, session) {
       geom_point(aes(color = sig), size = 0.5) +
       scale_color_manual(values = c("#B3B3B3", "#FC8D62")) + # RColorBrewer::brewer.pal(8, "Set2")
       geom_point(data = topsk %>%
-        filter(str_detect(str_to_upper(RBP), str_to_upper(de_rbpterm()))), color = "black", size = 0.5) +
+        filter(str_detect(str_to_upper(RBP), str_to_upper(de_rbpterm))), color = "black", size = 0.5) +
       ggrepel::geom_text_repel(box.padding = 0.05, size = 3, aes(label = text2)) +
       xlab("log2enrichment") +
       labs(color = "")
+    
+    if (verbose_bench) {
+      print(paste0("kmerplot1 step2: ", Sys.time() - t1))
+    }
+    
+    g
   })
 
   kmerPlotr <- reactive({
