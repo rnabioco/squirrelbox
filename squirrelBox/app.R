@@ -30,6 +30,8 @@ options(stringsAsFactors = FALSE)
 options(spinner.type = 6)
 theme_set(theme_cowplot())
 # options(shiny.reactlog = TRUE)
+# options(repos = BiocManager::repositories())
+
 
 ### folders
 rpath <- "R"
@@ -741,8 +743,8 @@ ui <- fluidPage(
   ),
   fixedPanel(
     style = "z-index:100;",
-    actionButton("back_to_top", label = "to_top") %>% bs_embed_tooltip("scroll back to the top of the page"),
-    bsButton("showpanel", "sidebar", type = "toggle", value = FALSE) %>% bs_embed_tooltip("turn sidebar on/off"),
+    actionButton("back_to_top", label = "to_top", icon = icon("angle-double-up")) %>% bs_embed_tooltip("scroll back to the top of the page"),
+    bsButton("showpanel", "sidebar", type = "toggle", value = FALSE, icon = icon("bars")) %>% bs_embed_tooltip("turn sidebar on/off"),
     right = 10,
     bottom = 10
   ),
@@ -1018,7 +1020,7 @@ ui <- fluidPage(
         tabPanel(
           introBox(
             span(icon("table", class = NULL, lib = "font-awesome"),
-              "Transcript_gene",
+              "Transcript/Gene",
               title = "Table of expression and other info of all genes/transcripts"
             ),
             data.step = 6,
@@ -1043,7 +1045,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span("Majiq_alt",
+            span(icon("list", class = NULL, lib = "font-awesome"), "Majiq_alt",
               title = "Table of majiq output for alternative splicing events"
             ),
             data.step = 7,
@@ -1068,7 +1070,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span("Line_plot",
+            span(icon("chart-line", class = NULL, lib = "font-awesome"), "Line_plot",
               title = "Plot expression of loaded gene list"
             ),
             data.step = 11,
@@ -1097,7 +1099,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span("Heatmap",
+            span(icon("th", class = NULL, lib = "font-awesome"), "Heatmap",
               title = "Plot Z-Score of loaded gene list as heat map"
             ),
             data.step = 12,
@@ -1151,7 +1153,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span("GO_enrichment",
+            span(icon("chart-bar", class = NULL, lib = "font-awesome"), "GO_terms",
               title = "GO term enrichment for loaded gene list (slow)"
             ),
             data.step = 13,
@@ -1165,7 +1167,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span("Kmer",
+            span(icon("kickstarter-k", class = NULL, lib = "font-awesome"), "Kmer",
               title = "Kmer enrichment analysis and annotation for loaded Genelist (slow)"
             ),
             data.step = 14,
@@ -1220,7 +1222,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span("Genes_venn",
+            span(icon("circle-notch", class = NULL, lib = "font-awesome"), "Genes_venn",
               title = "visualize gene overlap between regions by venn diagram, and retrieve lists"
             ),
             data.step = 15,
@@ -2967,7 +2969,7 @@ server <- function(input, output, session) {
     clean <- a(versionN,
       href = url
     )
-    tagList(tags$h6("squirrelBox version: ", clean))
+    tagList(tags$h6(icon("github-square"), "squirrelBox version: ", clean))
   })
 
   output$explain <- DT::renderDataTable({
