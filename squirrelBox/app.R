@@ -59,7 +59,7 @@ gmt_short <- "GO_"
 sig_cut <- 0.001
 ncore <- parallel::detectCores() - 1
 start_tutorial <- TRUE
-verbose_bench <- TRUE
+verbose_bench <- FALSE
 
 ### choose and order columns
 table_cols <- c(
@@ -859,7 +859,7 @@ ui <- fluidPage(
               introBox(
                 span(icon("file-alt", class = NULL, lib = "font-awesome"), "Genelist", title = "load list of genes for analysis from file or interactive table"),
                 data.step = 8,
-                data.intro = "Gene lists can be loaded from external file, or passed from the tables/cart.<br><br>
+                data.intro = "Genelist can be loaded from external file, or passed from the tables/cart.<br><br>
                 The other multi-gene analysis tabs, Lineplot/Heatmap/GO/Kmer, all use genes from this list.",
                 data.position = "top"
               ),
@@ -1071,7 +1071,7 @@ ui <- fluidPage(
         tabPanel(
           introBox(
             span(icon("chart-line", class = NULL, lib = "font-awesome"), "Line_plot",
-              title = "Plot expression of loaded gene list"
+              title = "Plot expression of loaded Genelist"
             ),
             data.step = 11,
             data.intro = "Visualize loaded Genelist as line plot, also supports summarized line.",
@@ -1100,7 +1100,7 @@ ui <- fluidPage(
         tabPanel(
           introBox(
             span(icon("th", class = NULL, lib = "font-awesome"), "Heatmap",
-              title = "Plot Z-Score of loaded gene list as heat map"
+              title = "Plot Z-Score of loaded Genelist as heat map"
             ),
             data.step = 12,
             data.intro = "Similar to the lineplot, visualize loaded Genelist as heatmap.",
@@ -1154,7 +1154,7 @@ ui <- fluidPage(
         tabPanel(
           introBox(
             span(icon("chart-bar", class = NULL, lib = "font-awesome"), "GO_terms",
-              title = "GO term enrichment for loaded gene list (slow)"
+              title = "GO term enrichment for loaded Genelist (slow)"
             ),
             data.step = 13,
             data.intro = "GO term enrichment of loaded Genelist by fisher exact test.<br><br>
@@ -2295,7 +2295,7 @@ server <- function(input, output, session) {
   })
 
   kmerPlot1 <- reactive({
-    topsk <- isolate(kmertemp())
+    topsk <- kmertemp()
     t1 <- Sys.time()
     
     #de_rbpterm <- debounce(input$rbpterm, 500)
@@ -2304,19 +2304,19 @@ server <- function(input, output, session) {
       return(ggplot() +
         ggtitle("no genes loaded"))
     }
+    topsk <- topsk %>%
+      mutate(sig = factor(ifelse(minuslog10 >= -log10(sig_cut), "sig", "insig"), 
+                          levels = c("sig", "insig")))
     if (input$kmlab == "RBP/mir") {
       topsk <- topsk %>%
-        mutate(sig = factor(ifelse(minuslog10 >= -log10(sig_cut), "sig", "insig"))) %>%
         mutate(text2 = ifelse((sig == "sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), "")) %>%
         mutate(text1 = str_c(kmer, RBP, sep = "\n"))
+    } else if (input$kmlab == "none") {
+      topsk <- topsk %>% mutate(text2 = "", text1 = "")
     } else {
       topsk <- topsk %>%
-        mutate(sig = factor(ifelse(minuslog10 >= -log10(sig_cut), "sig", "insig"), levels = c("sig", insig))) %>%
         mutate(text2 = ifelse((sig == "sig" & row_number() <= 15), kmer, "")) %>%
         mutate(text1 = kmer)
-    }
-    if (input$kmlab == "none") {
-      topsk <- topsk %>% mutate(text2 = "")
     }
     
     if (verbose_bench) {
@@ -2485,7 +2485,7 @@ server <- function(input, output, session) {
       )
     } else {
       ggplot() +
-        ggtitle("no gene lists loaded")
+        ggtitle("no Genelist loaded")
     }
   })
 
