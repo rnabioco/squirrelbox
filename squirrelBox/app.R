@@ -41,7 +41,6 @@ listpath <- "data/lists"
 source(paste0(rpath, "/ggvenn.R"))
 source(paste0(rpath, "/debounce.R"))
 
-
 ### general data settings
 versionN <- 0.98
 geoN <- "G1234"
@@ -243,14 +242,18 @@ eigen_gg[["Unassigned"]] <- ggplot(df_plot, aes(state, value, group = 1)) +
 
 # query function
 comb_fil_factor <- function(combined2, combined3, inid) {
-  combined3 <- combined3 %>%
-    filter(gene_id %in% inid | unique_gene_symbol %in% inid)
+  t1 <- Sys.time()
+  
+  combined3 <- combined3 %>% filter(unique_gene_symbol %in% inid)
+  if (nrow(combined3) == 3) {
+    combined3 <- combined3 %>% filter(gene_id %in% inid)
+  }
+  
   combined2 <- combined2 %>%
-    filter(gene_id %in% c(inid, combined3$gene_id %>%
-      unique())) %>%
+    filter(gene_id == combined3$gene_id[1]) %>%
     mutate(sample = (str_remove(sample, "[A-Z]+")))
   combined <- combined3 %>% inner_join(combined2, by = "gene_id")
-  combined %>% mutate(
+  res <- combined %>% mutate(
     state = factor(state,
       levels = state_order
     ),
@@ -258,6 +261,11 @@ comb_fil_factor <- function(combined2, combined3, inid) {
       levels = region_order
     )
   )
+  
+  if (verbose_bench) {
+    print(paste0("comb_fil_factor step: ", Sys.time() - t1))
+  }
+  res
 }
 
 # lists of genes
@@ -409,16 +417,10 @@ calls_sig <- function(padj, sig_sym) {
 }
 
 find_groups_igraph <- function(df) {
-  t1 <- Sys.time()
-  
   df <- df %>% select(-region)
   g <- graph_from_data_frame(df, directed = FALSE)
   cg <- max_cliques(g)
   res <- lapply(cg, names)
-  
-  if (verbose_bench) {
-    print(paste0("find_groups_igraph: ", Sys.time() - t1))
-  }
   res
 }
 
@@ -426,8 +428,9 @@ sort_groups <- function(groups, states, state_order) {
   t1 <- Sys.time()
   all_groups <- states
   leftout <- as.list(setdiff(all_groups, unlist(groups)))
-  full <- c(groups, leftout)
-  full4 <- sapply(full, function(x) factor(x)[order(factor(x, levels = state_order))])
+  full <<- c(groups, leftout)
+  # full4 <- sapply(full, function(x) factor(x)[order(factor(x, levels = state_order))])
+  full4 <- sapply(full, function(x) x[order(match(x, state_order))])
   if (class(full4) != "matrix") {
     full4 <- sapply(full4, "length<-", max(lengths(full4)))
   }
@@ -438,13 +441,18 @@ sort_groups <- function(groups, states, state_order) {
   full2 <- full2 %>%
     mutate_all(factor, levels = state_order) %>%
     arrange(V1)
+  
+  if (verbose_bench) {
+    print(paste0("sort_groups_pre: ", Sys.time() - t1))
+  }
+  
   full3 <- full2 %>%
     mutate(letter = letters[1:n()]) %>%
-    pivot_longer(-letter, names_to = "NA", values_to = "state") %>%
-    filter(!(is.na(state))) %>%
+    #pivot_longer(-letter, names_to = "NA", values_to = "state") %>%
+    #filter(!(is.na(state))) %>%
+    gather(-letter, value = "state", key = "NA", na.rm = T) %>% 
     group_by(state) %>%
-    summarize(letter = str_c(letter, collapse = ""))# %>%
-    #ungroup()
+    summarize(letter = str_c(letter, collapse = ""))
   
   if (verbose_bench) {
     print(paste0("sort_groups: ", Sys.time() - t1))
@@ -455,10 +463,10 @@ sort_groups <- function(groups, states, state_order) {
 groups_to_letters_igraph <- function(df) {
   reg <- df$region %>% unique()
   df2 <- df %>% filter(call1 == 0)
+  states <- unique(c(df$state1, df$state2))
   g <- lapply(reg, function(x) {
     g <- df2 %>% filter(region == x)
     g2 <- find_groups_igraph(g)
-    states <- unique(c(df$state1, df$state2))
     g3 <- sort_groups(g2, states, state_order)
     g3$region <- x
     return(g3)
@@ -942,7 +950,7 @@ ui <- fluidPage(
                     circle = FALSE, status = "options", icon = icon("gear"), width = "200px", size = "sm",
                     tooltip = tooltipOptions(title = "plotting options"), margin = "20px",
                     br(),
-                    div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = T, width = NULL) %>%
+                    div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL) %>%
                       bs_embed_tooltip("display interactive plot with additional info on hover", placement = "right")),
                     div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL) %>%
                       bs_embed_tooltip(str_c("label groups by p <= ", sig_cut), placement = "right")),
@@ -969,7 +977,7 @@ ui <- fluidPage(
               )
             ),
             bsCollapse(
-              id = "tabs", multiple = TRUE, open = "cluster_assignments",
+              id = "tabs", multiple = TRUE, open = NULL, #open = "cluster_assignments",
               bsCollapsePanel(
                 uiOutput("EigenPlot") %>% withLoader(),
                 title = "cluster_assignments",
@@ -977,14 +985,14 @@ ui <- fluidPage(
               )
             ),
             bsCollapse(
-              id = "tabs2", multiple = TRUE, open = "called_orfs",
+              id = "tabs2", multiple = TRUE, open = NULL, #open = "called_orfs",
               bsCollapsePanel(DT::dataTableOutput("orfinfo") %>% withLoader(),
                 title = "called_orfs",
                 style = "primary"
               )
             ),
             bsCollapse(
-              id = "tabs3", multiple = TRUE, open = "majiq_alternative_splicing",
+              id = "tabs3", multiple = TRUE, open = NULL, #open = "majiq_alternative_splicing",
               bsCollapsePanel(
                 DT::dataTableOutput("majinfo") %>% withLoader(),
                 title = "majiq_alternative_splicing",
@@ -992,14 +1000,14 @@ ui <- fluidPage(
               )
             ),
             bsCollapse(
-              id = "tabs4", multiple = TRUE, open = "UCSC browser plot",
+              id = "tabs4", multiple = TRUE, open = NULL, #open = "UCSC browser plot",
               bsCollapsePanel(htmlOutput("ucscPlot") %>% withLoader(),
                 title = "UCSC browser plot",
                 style = "success"
               )
             ),
             bsCollapse(
-              id = "tabs5", multiple = TRUE, open = "go_terms/domains",
+              id = "tabs5", multiple = TRUE, open = NULL, #open = "go_terms/domains",
               bsCollapsePanel(DT::dataTableOutput("gotab") %>% withLoader(),
                 title = "go_terms/domains",
                 style = "info"
@@ -1485,20 +1493,25 @@ server <- function(input, output, session) {
     }
 
     if (input$doPadj == T & nrow(rv$pval) != 0 & input$doPlotly == F) {
-      t2 <- Sys.time()
       
+      t2 <- Sys.time()
       padj <- padj[str_detect(rownames(padj), paste(region_short_main, collapse = "|")), ,drop = FALSE]
       sig_sym <- sig_sym[str_detect(rownames(sig_sym), paste(region_short_main, collapse = "|")), ,drop = FALSE]
-      temp2 <<- calls_sig(padj, sig_sym)
+      temp2 <- calls_sig(padj, sig_sym)
       temp2 <- temp2 %>%
         replace_na(list(call1 = list(0))) %>%
         separate(comp, into = c("region", "state1", NA, "state2"), extra = "drop") %>%
         select(-padj, -call) %>%
         mutate(call1 = as.numeric(call1))
       temp2$region <- region_order[factor(temp2$region, level = region_short) %>% as.numeric()]
+      # tttt <<- temp2
       temp3 <- groups_to_letters_igraph(temp2) %>%
         mutate(region = factor(region, level = region_order))
 
+      if (verbose_bench) {
+        print(paste0("boxPlot1 agg step2: ", Sys.time() - t2))
+      }
+      
       if (!(is.na(plot_temp$log2_counts) %>% all())) {
         agg <- aggregate(log2_counts ~ state + region, plot_temp, max)
         agg_min <- aggregate(log2_counts ~ state + region, plot_temp, min)
@@ -1516,9 +1529,6 @@ server <- function(input, output, session) {
           left_join(temp3 %>% select(region, state, letter), by = c("state", "region")) %>%
           replace_na(list(letter = list("")))
 
-        if (verbose_bench) {
-          print(paste0("boxPlot1 agg step: ", Sys.time() - t2))
-        }
         g <- g +
           geom_text(data = agg3, aes(
             text = letter,
@@ -1625,7 +1635,7 @@ server <- function(input, output, session) {
     
     t1 <- Sys.time()
 
-    rv$plot_temp <<- comb_fil_factor(combined2, combined3, inid)
+    rv$plot_temp <- comb_fil_factor(combined2, combined3, inid)
     
     temp_orfs <- orfs %>% filter(unique_gene_symbol == rv$plot_temp$unique_gene_symbol[1])
     if (nrow(temp_orfs) > 0) {
@@ -1645,8 +1655,7 @@ server <- function(input, output, session) {
     }
 
     filtered <- rv$plot_temp %>%
-      select(any_of(table_cols)) %>%
-      unique()
+      select(any_of(table_cols)) %>% unique()
 
     if (nrow(filtered) == 0) {
       rv$blast <<- ""
@@ -1670,8 +1679,7 @@ server <- function(input, output, session) {
       historytab <<- tempvec
     }
 
-    out <- cbind(filtered, filtered2)
-    out <- out[, -which(duplicated(colnames(out)))]
+    out <- merge(filtered, filtered2)
     # clusters
     mod1 <- mod %>%
       filter(gene %in% out$unique_gene_symbol)

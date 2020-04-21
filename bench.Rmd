@@ -1,0 +1,68 @@
+```{r}
+library(profvis)
+p <- profvis(shiny::runApp("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/app.R"))
+# shiny::runApp("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/app.R")
+```
+
+```{r}
+# gather is still faster than pivot
+
+microbenchmark::microbenchmark(
+  letter = full2 %>% mutate(letter = letters[1:n()]),
+  gather = gather(full3, -letter, value = "state", key = "NA"),
+  pivot = pivot_longer(full3, -letter, names_to = "NA", values_to = "state"),
+  full = full2 %>%
+    mutate(letter = letters[1:n()]) %>%
+    pivot_longer(-letter, names_to = "NA", values_to = "state") %>%
+    #gather(-letter, value = "state", key = "NA") %>% 
+    filter(!(is.na(state))) %>%
+    group_by(state) %>%
+    summarize(letter = str_c(letter, collapse = "")),
+  fullp = full2 %>%
+    mutate(letter = letters[1:n()]) %>%
+    #pivot_longer(-letter, names_to = "NA", values_to = "state") %>%
+    gather(-letter, value = "state", key = "NA") %>% 
+    filter(!(is.na(state))) %>%
+    group_by(state) %>%
+    summarize(letter = str_c(letter, collapse = "")),
+  fullrm = full2 %>%
+    mutate(letter = letters[1:n()]) %>%
+    #pivot_longer(-letter, names_to = "NA", values_to = "state") %>%
+    gather(-letter, value = "state", key = "NA", na.rm = T) %>% 
+    group_by(state) %>%
+    summarize(letter = str_c(letter, collapse = "")),
+  fullpaste = full2 %>%
+    mutate(letter = letters[1:n()]) %>%
+    #pivot_longer(-letter, names_to = "NA", values_to = "state") %>%
+    gather(-letter, value = "state", key = "NA", na.rm = T) %>% 
+    group_by(state) %>%
+    summarize(letter = paste0(letter)))
+```
+
+```{r}
+microbenchmark::microbenchmark(
+  reg = tttt$region %>% unique() ,
+  fil = tttt %>% filter(call1 == 0),
+  g1 = {lapply(reg, function(x) {
+    g <- df2 %>% filter(region == x)
+    g2 <- find_groups_igraph(g)
+  })},
+  g2 = {lapply(reg, function(x) {
+    g <- df2 %>% filter(region == x)
+    g2 <- find_groups_igraph(g)
+    g3 <- sort_groups(g2, states, state_order)
+    g3$region <- x
+  })},
+  rbind = do.call(rbind, g),
+  times = 2
+)
+```
+
+```{r}
+microbenchmark::microbenchmark(
+  sort =  sapply(full, function(x) factor(x)[order(factor(x, levels = state_order))]),
+  sort2 = sapply(full, function(x) factor(x)[order(match(x, state_order))]),
+  sort3 = sapply(full, function(x) x[order(match(x, state_order))])
+)
+```
+
