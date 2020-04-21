@@ -30,6 +30,8 @@ options(stringsAsFactors = FALSE)
 options(spinner.type = 6)
 theme_set(theme_cowplot())
 # options(shiny.reactlog = TRUE)
+# options(repos = BiocManager::repositories())
+
 
 ### folders
 rpath <- "R"
@@ -44,6 +46,7 @@ source(paste0(rpath, "/debounce.R"))
 ### general data settings
 versionN <- 0.98
 geoN <- "G1234"
+bsgenomeL <- "BSgenome.Itridecemlineatus.whatever"
 pageN <- 10
 warningN <- 100
 plot_width <- 8
@@ -56,7 +59,7 @@ gmt_short <- "GO_"
 sig_cut <- 0.001
 ncore <- parallel::detectCores() - 1
 start_tutorial <- TRUE
-verbose_bench <- TRUE
+verbose_bench <- FALSE
 
 ### choose and order columns
 table_cols <- c(
@@ -442,10 +445,6 @@ sort_groups <- function(groups, states, state_order) {
     mutate_all(factor, levels = state_order) %>%
     arrange(V1)
   
-  if (verbose_bench) {
-    print(paste0("sort_groups_pre: ", Sys.time() - t1))
-  }
-  
   full3 <- full2 %>%
     mutate(letter = letters[1:n()]) %>%
     #pivot_longer(-letter, names_to = "NA", values_to = "state") %>%
@@ -729,7 +728,10 @@ ui <- fluidPage(
   fixedPanel(
     style = "z-index:100;",
     right = 10,
-    top = 20,
+    top = 23,
+    tags$head(
+      tags$style(HTML('#tutorial{background-color:gold}'))
+    ),
     introBox(
       actionButton("tutorial", "", icon = icon("question")) %>%
         bs_embed_tooltip("Take a tour through the app!", placement = "bottom"),
@@ -741,8 +743,8 @@ ui <- fluidPage(
   ),
   fixedPanel(
     style = "z-index:100;",
-    actionButton("back_to_top", label = "to_top") %>% bs_embed_tooltip("scroll back to the top of the page"),
-    bsButton("showpanel", "sidebar", type = "toggle", value = FALSE) %>% bs_embed_tooltip("turn sidebar on/off"),
+    actionButton("back_to_top", label = "to Top", icon = icon("angle-double-up")) %>% bs_embed_tooltip("scroll back to the top of the page"),
+    bsButton("showpanel", "Sidebar", type = "toggle", value = FALSE, icon = icon("bars")) %>% bs_embed_tooltip("turn sidebar on/off"),
     right = 10,
     bottom = 10
   ),
@@ -813,7 +815,7 @@ ui <- fluidPage(
                 ),
                 column(
                   width = 4,
-                  actionButton("Add", "add to Cart") %>% bs_embed_tooltip("add current query gene to cart", placement = "bottom")
+                  actionButton("Add", "Add to Cart") %>% bs_embed_tooltip("add current query gene to cart", placement = "bottom")
                 )
               ),
               br(.noWS = "outside"),
@@ -857,7 +859,7 @@ ui <- fluidPage(
               introBox(
                 span(icon("file-alt", class = NULL, lib = "font-awesome"), "Genelist", title = "load list of genes for analysis from file or interactive table"),
                 data.step = 8,
-                data.intro = "Gene lists can be loaded from external file, or passed from the tables/cart.<br><br>
+                data.intro = "Genelist can be loaded from external file, or passed from the tables/cart.<br><br>
                 The other multi-gene analysis tabs, Lineplot/Heatmap/GO/Kmer, all use genes from this list.",
                 data.position = "top"
               ),
@@ -1018,7 +1020,7 @@ ui <- fluidPage(
         tabPanel(
           introBox(
             span(icon("table", class = NULL, lib = "font-awesome"),
-              "Transcript_gene",
+              "Transcript/Gene",
               title = "Table of expression and other info of all genes/transcripts"
             ),
             data.step = 6,
@@ -1043,7 +1045,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span("Majiq_alt",
+            span(icon("list", class = NULL, lib = "font-awesome"), "Majiq_alt",
               title = "Table of majiq output for alternative splicing events"
             ),
             data.step = 7,
@@ -1068,8 +1070,8 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span("Line_plot",
-              title = "Plot expression of loaded gene list"
+            span(icon("chart-line", class = NULL, lib = "font-awesome"), "Line_plot",
+              title = "Plot expression of loaded Genelist"
             ),
             data.step = 11,
             data.intro = "Visualize loaded Genelist as line plot, also supports summarized line.",
@@ -1097,8 +1099,8 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span("Heatmap",
-              title = "Plot Z-Score of loaded gene list as heat map"
+            span(icon("th", class = NULL, lib = "font-awesome"), "Heatmap",
+              title = "Plot Z-Score of loaded Genelist as heat map"
             ),
             data.step = 12,
             data.intro = "Similar to the lineplot, visualize loaded Genelist as heatmap.",
@@ -1151,8 +1153,8 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span("GO_enrichment",
-              title = "GO term enrichment for loaded gene list (slow)"
+            span(icon("chart-bar", class = NULL, lib = "font-awesome"), "GO_terms",
+              title = "GO term enrichment for loaded Genelist (slow)"
             ),
             data.step = 13,
             data.intro = "GO term enrichment of loaded Genelist by fisher exact test.<br><br>
@@ -1165,7 +1167,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span("Kmer",
+            span(icon("kickstarter-k", class = NULL, lib = "font-awesome"), "Kmer",
               title = "Kmer enrichment analysis and annotation for loaded Genelist (slow)"
             ),
             data.step = 14,
@@ -1220,7 +1222,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span("Genes_venn",
+            span(icon("circle-notch", class = NULL, lib = "font-awesome"), "Genes_venn",
               title = "visualize gene overlap between regions by venn diagram, and retrieve lists"
             ),
             data.step = 15,
@@ -1292,6 +1294,7 @@ ui <- fluidPage(
           uiOutput("intro"),
           uiOutput("track"),
           uiOutput("rawdata"),
+          uiOutput("bsgenome"),
           uiOutput("GOversion"),
           uiOutput("version"),
           uiOutput("GitHub"),
@@ -2292,7 +2295,7 @@ server <- function(input, output, session) {
   })
 
   kmerPlot1 <- reactive({
-    topsk <- isolate(kmertemp())
+    topsk <- kmertemp()
     t1 <- Sys.time()
     
     #de_rbpterm <- debounce(input$rbpterm, 500)
@@ -2301,19 +2304,19 @@ server <- function(input, output, session) {
       return(ggplot() +
         ggtitle("no genes loaded"))
     }
+    topsk <- topsk %>%
+      mutate(sig = factor(ifelse(minuslog10 >= -log10(sig_cut), "sig", "insig"), 
+                          levels = c("sig", "insig")))
     if (input$kmlab == "RBP/mir") {
       topsk <- topsk %>%
-        mutate(sig = factor(ifelse(minuslog10 >= -log10(sig_cut), "sig", "insig"))) %>%
         mutate(text2 = ifelse((sig == "sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), "")) %>%
         mutate(text1 = str_c(kmer, RBP, sep = "\n"))
+    } else if (input$kmlab == "none") {
+      topsk <- topsk %>% mutate(text2 = "", text1 = "")
     } else {
       topsk <- topsk %>%
-        mutate(sig = factor(ifelse(minuslog10 >= -log10(sig_cut), "sig", "insig"), levels = c("sig", insig))) %>%
         mutate(text2 = ifelse((sig == "sig" & row_number() <= 15), kmer, "")) %>%
         mutate(text1 = kmer)
-    }
-    if (input$kmlab == "none") {
-      topsk <- topsk %>% mutate(text2 = "")
     }
     
     if (verbose_bench) {
@@ -2333,7 +2336,9 @@ server <- function(input, output, session) {
         filter(str_detect(str_to_upper(RBP), str_to_upper(de_rbpterm))), color = "black", size = 0.5) +
       ggrepel::geom_text_repel(box.padding = 0.05, size = 3, aes(label = text2)) +
       xlab("log2enrichment") +
-      labs(color = "")
+      labs(color = "") +
+      scale_y_continuous(expand = c(0, 0)) +
+      geom_hline(yintercept = -log10(sig_cut))
     
     if (verbose_bench) {
       print(paste0("kmerplot1 step2: ", Sys.time() - t1))
@@ -2480,7 +2485,7 @@ server <- function(input, output, session) {
       )
     } else {
       ggplot() +
-        ggtitle("no gene lists loaded")
+        ggtitle("no Genelist loaded")
     }
   })
 
@@ -2953,6 +2958,16 @@ server <- function(input, output, session) {
     tagList(tags$h6("Raw data is deposited on GEO, ", clean))
   })
 
+  output$bsgenome <- renderUI({
+    url <- str_c(
+      "https://bioconductor.org/packages/release/data/annotation/html/", bsgenomeL
+    )
+    clean <- a(bsgenomeL,
+               href = url
+    )
+    tagList(tags$h6("Full genome sequences are deposited to ___ and stored in Biostring/BSgenome format, ", clean))
+  })
+  
   output$GOversion <- renderUI({
     url <- "https://www.gsea-msigdb.org/gsea/msigdb/collections.jsp"
     clean <- a(gmt_file,
@@ -2967,7 +2982,7 @@ server <- function(input, output, session) {
     clean <- a(versionN,
       href = url
     )
-    tagList(tags$h6("squirrelBox version: ", clean))
+    tagList(tags$h6(icon("github-square"), "squirrelBox version: ", clean))
   })
 
   output$explain <- DT::renderDataTable({
