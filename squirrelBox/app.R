@@ -46,6 +46,7 @@ source(paste0(rpath, "/debounce.R"))
 ### general data settings
 versionN <- 0.98
 geoN <- "G1234"
+bsgenomeL <- "BSgenome.Itridecemlineatus.whatever"
 pageN <- 10
 warningN <- 100
 plot_width <- 8
@@ -444,10 +445,6 @@ sort_groups <- function(groups, states, state_order) {
     mutate_all(factor, levels = state_order) %>%
     arrange(V1)
   
-  if (verbose_bench) {
-    print(paste0("sort_groups_pre: ", Sys.time() - t1))
-  }
-  
   full3 <- full2 %>%
     mutate(letter = letters[1:n()]) %>%
     #pivot_longer(-letter, names_to = "NA", values_to = "state") %>%
@@ -731,7 +728,10 @@ ui <- fluidPage(
   fixedPanel(
     style = "z-index:100;",
     right = 10,
-    top = 20,
+    top = 23,
+    tags$head(
+      tags$style(HTML('#tutorial{background-color:gold}'))
+    ),
     introBox(
       actionButton("tutorial", "", icon = icon("question")) %>%
         bs_embed_tooltip("Take a tour through the app!", placement = "bottom"),
@@ -743,8 +743,8 @@ ui <- fluidPage(
   ),
   fixedPanel(
     style = "z-index:100;",
-    actionButton("back_to_top", label = "to_top", icon = icon("angle-double-up")) %>% bs_embed_tooltip("scroll back to the top of the page"),
-    bsButton("showpanel", "sidebar", type = "toggle", value = FALSE, icon = icon("bars")) %>% bs_embed_tooltip("turn sidebar on/off"),
+    actionButton("back_to_top", label = "to Top", icon = icon("angle-double-up")) %>% bs_embed_tooltip("scroll back to the top of the page"),
+    bsButton("showpanel", "Sidebar", type = "toggle", value = FALSE, icon = icon("bars")) %>% bs_embed_tooltip("turn sidebar on/off"),
     right = 10,
     bottom = 10
   ),
@@ -815,7 +815,7 @@ ui <- fluidPage(
                 ),
                 column(
                   width = 4,
-                  actionButton("Add", "add to Cart") %>% bs_embed_tooltip("add current query gene to cart", placement = "bottom")
+                  actionButton("Add", "Add to Cart") %>% bs_embed_tooltip("add current query gene to cart", placement = "bottom")
                 )
               ),
               br(.noWS = "outside"),
@@ -1294,6 +1294,7 @@ ui <- fluidPage(
           uiOutput("intro"),
           uiOutput("track"),
           uiOutput("rawdata"),
+          uiOutput("bsgenome"),
           uiOutput("GOversion"),
           uiOutput("version"),
           uiOutput("GitHub"),
@@ -2335,7 +2336,9 @@ server <- function(input, output, session) {
         filter(str_detect(str_to_upper(RBP), str_to_upper(de_rbpterm))), color = "black", size = 0.5) +
       ggrepel::geom_text_repel(box.padding = 0.05, size = 3, aes(label = text2)) +
       xlab("log2enrichment") +
-      labs(color = "")
+      labs(color = "") +
+      scale_y_continuous(expand = c(0, 0)) +
+      geom_hline(yintercept = -log10(sig_cut))
     
     if (verbose_bench) {
       print(paste0("kmerplot1 step2: ", Sys.time() - t1))
@@ -2955,6 +2958,16 @@ server <- function(input, output, session) {
     tagList(tags$h6("Raw data is deposited on GEO, ", clean))
   })
 
+  output$bsgenome <- renderUI({
+    url <- str_c(
+      "https://bioconductor.org/packages/release/data/annotation/html/", bsgenomeL
+    )
+    clean <- a(bsgenomeL,
+               href = url
+    )
+    tagList(tags$h6("Full genome sequences are deposited to ___ and stored in Biostring/BSgenome format, ", clean))
+  })
+  
   output$GOversion <- renderUI({
     url <- "https://www.gsea-msigdb.org/gsea/msigdb/collections.jsp"
     clean <- a(gmt_file,
