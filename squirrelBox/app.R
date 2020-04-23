@@ -399,12 +399,12 @@ sig_sym <- data.frame(
   row.names = sig_cols
 )
 
-calls_sig <- function(padj, sig_sym) {
+calls_sig <- function(padj, sig_sym, pval) {
   t1 <- Sys.time()
   temp <- cbind(padj, sig_sym)
   temp <- temp %>%
     rownames_to_column("comp") %>%
-    mutate(call1 = ifelse(padj <= sig_cut, 1, 0))
+    mutate(call1 = ifelse(padj <= pval, 1, 0))
   
   if (verbose_bench) {
     print(paste0("calls_sig: ", Sys.time() - t1))
@@ -413,7 +413,7 @@ calls_sig <- function(padj, sig_sym) {
 }
 
 find_groups_igraph <- function(df) {
-  df <- df %>% select(-region)
+  df <- df[, !(names(df) == "region"), drop = F]
   g <- graph_from_data_frame(df, directed = FALSE)
   cg <- max_cliques(g)
   res <- lapply(cg, names)
@@ -425,24 +425,28 @@ sort_groups <- function(groups, states, state_order) {
   all_groups <- states
   leftout <- as.list(setdiff(all_groups, unlist(groups)))
   full <- c(groups, leftout)
-  # full4 <- sapply(full, function(x) factor(x)[order(factor(x, levels = state_order))])
-  full4 <- sapply(full, function(x) x[order(match(x, state_order))])
-  if (class(full4) != "matrix") {
-    full4 <- sapply(full4, "length<-", max(lengths(full4)))
+  if ((length(full)) == length(states)) {
+    full4 <- as.matrix(full) %>% t()
+  } else {
+    full4 <- sapply(full, function(x) x[order(match(x, state_order))])
+    if (class(full4) != "matrix") {
+      full4 <- sapply(full4, "length<-", max(lengths(full4)))
+    }
   }
   full2 <- full4 %>%
     t() %>%
     as.data.frame()
   colnames(full2) <- str_c("V", 1:ncol(full2))
   full2 <- full2 %>%
-    mutate_all(factor, levels = state_order) %>%
-    arrange(V1)
+    mutate_all(factor, levels = state_order)
+  ffff <<- full2
+  full2 <- full2[order(full2$V1, method = "radix"),,drop = F]
   
   full3 <- full2 %>%
     mutate(letter = letters[1:n()]) %>%
-    #pivot_longer(-letter, names_to = "NA", values_to = "state") %>%
-    #filter(!(is.na(state))) %>%
-    gather(-letter, value = "state", key = "NA", na.rm = T) %>% 
+    gather(-letter, value = "state", key = "NA", na.rm = T)
+    
+  full3 <- full3[order(full3$letter, method = "radix"),, drop = F] %>% 
     group_by(state) %>%
     summarize(letter = str_c(letter, collapse = ""))
   
@@ -458,7 +462,7 @@ groups_to_letters_igraph <- function(df) {
   states <- unique(c(df$state1, df$state2))
   g <- lapply(reg, function(x) {
     g <- df2 %>% filter(region == x)
-    g2 <- find_groups_igraph(g)
+    g2 <<- find_groups_igraph(g)
     g3 <- sort_groups(g2, states, state_order)
     g3$region <- x
     return(g3)
@@ -597,7 +601,7 @@ comp_kmer <- function(df = seqs,
     p.adjust.method = "fdr"
   )
   res$kmer <- str_replace_all(names(enq_res), "T", "U")
-  res %>% arrange(adj.p.value)
+  res[order(res$adj.p.value, method = "radix"),,drop = F]
 }
 
 fivemers <- read_csv(paste0(annotpath, "/RBP_5mer.csv"))
@@ -797,6 +801,7 @@ ui <- fluidPage(
                 data.intro = "Other external links for the query gene.",
                 data.position = "right"
               ),
+              br(.noWS = "outside"),
               fluidRow(
                 column(
                   width = 4,
@@ -826,7 +831,33 @@ ui <- fluidPage(
               div(id = "doTisdiv", checkboxInput("doTis", "plot non-brain data", value = F, width = NULL)),
               div(
                 id = "doLockdiv",
-                checkboxInput("doLock", "lock main panel order", value = F, width = NULL)
+                checkboxInput("doLock", "lock main panel order", value = T, width = NULL) %>% 
+                  bs_embed_tooltip("if unlocked, tabs, sections, and table columns can be dragged and reordered",
+                                   placement = "right")
+              ),
+              tags$table(
+                tags$head(
+                  tags$style(HTML('#pval{margin-top: 0px; margin-bottom: -10px; font-size:12px;}'))
+                ),
+                tags$head(
+                  tags$style(HTML('#plotw{margin-top: 0px; margin-bottom: -10px; font-size:12px;}'))
+                ),
+                tags$head(
+                  tags$style(HTML('#ploth{margin-top: 0px; margin-bottom: -10px; font-size:12px;}'))
+                ),
+                tags$tr(width = "100%",
+                        tags$td(width = "50%", div(style = "font-size:12px;", "p-value cutoff")),
+                        tags$td(width = "50%", textInput("pval", NULL, value = sig_cut) %>%
+                                  bs_embed_tooltip("p-value cut off used for all plotting/analyses", placement = "right"))),
+                tags$tr(width = "100%",
+                        tags$td(width = "50%", tags$div(style = "font-size:12px;", "plot height")),
+                        tags$td(width = "50%", textInput("ploth", NULL, value = plot_height, width = "100px") %>%
+                                  bs_embed_tooltip("plot dimensions for app (px) and saved pdf (in)", placement = "right"))),
+                tags$tr(width = "100%",
+                        tags$td(width = "50%", tags$div(style = "font-size:12px;", "plot width")),
+                        tags$td(width = "50%", textInput("plotw", NULL, value = plot_width, width = "100px") %>%
+                                  bs_embed_tooltip("plot dimensions for app (px) and saved pdf (in)", placement = "right"))),
+                
               ),
               fluidRow(
                 column(
@@ -890,7 +921,7 @@ ui <- fluidPage(
                   downloadButton(
                     outputId = "saveList",
                     label = "CART"
-                  ) %>% bs_embed_tooltip("save genes in cart as .txt", placement = "bottom"),
+                  ) %>% bs_embed_tooltip("save genes in cart as .txt", placement = "bottom")
                 ),
                 column(
                   width = 1
@@ -948,7 +979,7 @@ ui <- fluidPage(
                     div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL) %>%
                       bs_embed_tooltip("display interactive plot with additional info on hover", placement = "right")),
                     div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL) %>%
-                      bs_embed_tooltip(str_c("label groups by p <= ", sig_cut), placement = "right")),
+                      bs_embed_tooltip("label groups by nonsignficance", placement = "right")),
                     div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL) %>%
                       bs_embed_tooltip("label points by sample", placement = "right"))
                   ),
@@ -1484,12 +1515,13 @@ server <- function(input, output, session) {
       t2 <- Sys.time()
       padj <- padj[str_detect(rownames(padj), paste(region_short_main, collapse = "|")), ,drop = FALSE]
       sig_sym <- sig_sym[str_detect(rownames(sig_sym), paste(region_short_main, collapse = "|")), ,drop = FALSE]
-      temp2 <- calls_sig(padj, sig_sym)
+      temp2 <- calls_sig(padj, sig_sym, as.numeric(input$pval))
       temp2 <- temp2 %>%
         replace_na(list(call1 = list(0))) %>%
         separate(comp, into = c("region", "state1", NA, "state2"), extra = "drop") %>%
-        select(-padj, -call) %>%
         mutate(call1 = as.numeric(call1))
+      temp2 <- temp2[, !(names(temp2) %in% c("padj", "call")), drop = F]
+        
       temp2$region <- region_order[factor(temp2$region, level = region_short) %>% as.numeric()]
       temp3 <- groups_to_letters_igraph(temp2) %>%
         mutate(region = factor(region, level = region_order))
@@ -1512,7 +1544,7 @@ server <- function(input, output, session) {
           ) %>%
           ungroup()
         agg3 <- agg2 %>%
-          left_join(temp3 %>% select(region, state, letter), by = c("state", "region")) %>%
+          left_join(temp3[, c("region", "state", "letter"), drop = F], by = c("state", "region")) %>%
           replace_na(list(letter = list("")))
 
         g <- g +
@@ -1533,10 +1565,10 @@ server <- function(input, output, session) {
   })
 
  #  output$boxPlot_ly <- renderPlotly({
- #    boxPlot1()}# , height = function(){100*plot_height}, width = function(){100*plot_width}
+ #    boxPlot1()}# , height = function(){100*as.numeric(input$ploth)}, width = function(){100*as.numeric(input$plotw)}
  # )
  #  output$boxPlot_g <- renderPlot({
- #    boxPlot1()}, height = function(){100*plot_height/2}, width = function(){100*plot_width}
+ #    boxPlot1()}, height = function(){100*as.numeric(input$ploth)/2}, width = function(){100*as.numeric(input$plotw)}
  # )
  #  
   
@@ -1545,9 +1577,9 @@ server <- function(input, output, session) {
     g <- boxPlot1()
     output$boxPlot <- renderPlot(g)
     if (input$doTis + input$doBr == 2) {
-      plotOutput("boxPlot", width = plot_width * 100, height = plot_height * 100)
+      plotOutput("boxPlot", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100)
     } else {
-      plotOutput("boxPlot", width = plot_width * 100, height = plot_height * 100 / 2)
+      plotOutput("boxPlot", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100 / 2)
     }
   })
 
@@ -1557,9 +1589,9 @@ server <- function(input, output, session) {
     output$boxPlot2 <- renderPlotly(ggplotly(g + facet_wrap(~region), tooltip = "text") %>%
       layout(hovermode = "closest"))
     if (input$doTis + input$doBr == 2) {
-      plotlyOutput("boxPlot2", width = plot_width * 100, height = plot_height * 100)
+      plotlyOutput("boxPlot2", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100)
     } else {
-      plotlyOutput("boxPlot2", width = plot_width * 100, height = plot_height * 100 / 2)
+      plotlyOutput("boxPlot2", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100 / 2)
     }
   })
 
@@ -1579,7 +1611,7 @@ server <- function(input, output, session) {
     if (input$doEigen != T) {
       plotOutput("boxPlot3", height = 1)
     } else {
-      plotOutput("boxPlot3", width = plot_width * 100, height = plot_height * 100 / 2)
+      plotOutput("boxPlot3", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100 / 2)
     }
   })
 
@@ -1612,7 +1644,7 @@ server <- function(input, output, session) {
         }
       )
     },
-    sizePolicy = sizeGrowthRatio(width = plot_width * 100, height = plot_height * 100 / 2, growthRate = 1.2)
+    sizePolicy = sizeGrowthRatio(width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100 / 2, growthRate = 1.2)
   )
 
   # filter data
@@ -1651,8 +1683,8 @@ server <- function(input, output, session) {
     }
 
     filtered2 <- bed %>%
-      filter(gene_id == filtered$gene_id[1]) %>%
-      select(c("chrom", "start", "end", "gene_id"))
+      filter(gene_id == filtered$gene_id[1])
+    filtered2 <- filtered2[, c("chrom", "start", "end", "gene_id"), drop = F]
     if (nrow(filtered2) > 1) {
       filtered2 <- cbind(bed_merge(filtered2), filtered2[1, "gene_id"])
     }
@@ -1919,11 +1951,11 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       if (input$doTis + input$doBr == 2) {
-        w <- plot_width
-        h <- plot_height
+        w <- as.numeric(input$plotw)
+        h <- as.numeric(input$ploth)
       } else {
-        w <- plot_width
-        h <- plot_height / 2
+        w <- as.numeric(input$plotw)
+        h <- as.numeric(input$ploth) / 2
       }
       ggplot2::ggsave(file, plot = boxPlot1(), device = "pdf", width = w, height = h)
     }
@@ -2025,13 +2057,13 @@ server <- function(input, output, session) {
     fac <- input$doTis + input$doBr
     if ((rv$toolarge == 0) | (rv$toolarge == 1 & rv$go == 2) | input$doSummary) {
       if (input$doName2 == T) {
-        ggplotly(g, tooltip = "text", height = plot_height * 100 * fac / 2, width = plot_width * 100) %>%
+        ggplotly(g, tooltip = "text", height = as.numeric(input$ploth) * 100 * fac / 2, width = as.numeric(input$plotw) * 100) %>%
           layout(
             autosize = FALSE,
             showlegend = TRUE
           )
       } else {
-        ggplotly(g, tooltip = "text", height = plot_height * 100 * fac / 2, width = plot_width * 100)
+        ggplotly(g, tooltip = "text", height = as.numeric(input$ploth) * 100 * fac / 2, width = as.numeric(input$plotw) * 100)
       }
     } else {
       if (rv$go <= 0) {
@@ -2046,7 +2078,7 @@ server <- function(input, output, session) {
     filename = "lineplot.pdf",
     content = function(file) {
       fac <- input$doTis + input$doBr
-      ggplot2::ggsave(file, plot = linePlot1(), device = "pdf", width = plot_width, height = plot_height / 2 * fac)
+      ggplot2::ggsave(file, plot = linePlot1(), device = "pdf", width = as.numeric(input$plotw), height = as.numeric(input$ploth) / 2 * fac)
     }
   )
 
@@ -2121,9 +2153,9 @@ server <- function(input, output, session) {
   heatPlotr <- reactive({
     output$heatPlot2 <- renderPlot(heatPlot())
     if (input$doTis + input$doBr == 2) {
-      plotOutput("heatPlot2", width = plot_width * 100, height = plot_height * 100 * 2)
+      plotOutput("heatPlot2", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100 * 2)
     } else {
-      plotOutput("heatPlot2", width = plot_width * 100, height = plot_height * 100)
+      plotOutput("heatPlot2", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100)
     }
   })
 
@@ -2139,7 +2171,7 @@ server <- function(input, output, session) {
       if (input$doAutoresize) {
         pdf(file, width = (h@matrix %>% dim())[2], height = (h@matrix %>% dim())[1])
       } else {
-        pdf(file, width = plot_width, height = plot_height)
+        pdf(file, width = as.numeric(input$plotw), height = as.numeric(input$ploth))
       }
       print(h)
       dev.off()
@@ -2164,7 +2196,7 @@ server <- function(input, output, session) {
       return(ggplot() +
         ggtitle("no genes loaded"))
     }
-    tops <<- tops %>% dplyr::slice(1:max(min(which(tops$padj > sig_cut)), 15))
+    tops <<- tops %>% dplyr::slice(1:max(min(which(tops$padj > as.numeric(input$pval))), 15))
 
     ggplot(
       tops %>% dplyr::slice(1:15),
@@ -2182,12 +2214,12 @@ server <- function(input, output, session) {
         legend.position = "none"
       ) +
       scale_y_continuous(expand = c(0, 0)) +
-      geom_hline(yintercept = -log10(sig_cut))
+      geom_hline(yintercept = -log10(as.numeric(input$pval)))
   })
 
   output$richPlot <- renderPlotly({
     p <- ggplotly(richPlot1(),
-      source = "richPlot", tooltip = "text", height = plot_height * 100, width = plot_width * 100
+      source = "richPlot", tooltip = "text", height = as.numeric(input$ploth) * 100, width = as.numeric(input$plotw) * 100
     ) %>%
       layout(autosize = F) %>%
       highlight()
@@ -2197,7 +2229,7 @@ server <- function(input, output, session) {
   savePlot2 <- downloadHandler(
     filename = "enriched.pdf",
     content = function(file) {
-      ggplot2::ggsave(file, plot = richPlot1(), device = "pdf", width = plot_width, height = plot_height)
+      ggplot2::ggsave(file, plot = richPlot1(), device = "pdf", width = as.numeric(input$plotw), height = as.numeric(input$ploth))
     }
   )
 
@@ -2287,7 +2319,7 @@ server <- function(input, output, session) {
         ggtitle("no genes loaded"))
     }
     topsk <- topsk %>%
-      mutate(sig = factor(ifelse(minuslog10 >= -log10(sig_cut), "sig", "insig"), 
+      mutate(sig = factor(ifelse(minuslog10 >= -log10(as.numeric(input$pval)), "sig", "insig"), 
                           levels = c("sig", "insig")))
     if (input$kmlab == "RBP/mir") {
       topsk <- topsk %>%
@@ -2313,14 +2345,14 @@ server <- function(input, output, session) {
       label = text2
     )) +
       geom_point(aes(color = sig), size = 0.5) +
-      scale_color_manual(values = c("#B3B3B3", "#FC8D62")) + # RColorBrewer::brewer.pal(8, "Set2")
+      scale_color_manual(values = c("#FC8D62", "#B3B3B3")) +
       geom_point(data = topsk %>%
-        filter(str_detect(str_to_upper(RBP), str_to_upper(de_rbpterm)), color = "black", size = 0.5) +
+        filter(str_detect(str_to_upper(RBP), str_to_upper(de_rbpterm))), color = "black", size = 0.5) +
       ggrepel::geom_text_repel(box.padding = 0.05, size = 3, aes(label = text2)) +
       xlab("log2enrichment") +
       labs(color = "") +
       scale_y_continuous(expand = c(0, 0)) +
-      geom_hline(yintercept = -log10(sig_cut))
+      geom_hline(yintercept = -log10(as.numeric(input$pval)))
     
     if (verbose_bench) {
       print(paste0("kmerplot1 step2: ", Sys.time() - t1))
@@ -2331,18 +2363,18 @@ server <- function(input, output, session) {
 
   kmerPlotr <- reactive({
     output$kmerPlot <- renderPlot(kmerPlot1())
-    plotOutput("kmerPlot", width = plot_width * 100, height = plot_height * 100)
+    plotOutput("kmerPlot", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100)
   })
 
   kmerPlotlyr <- reactive({
     g <- kmerPlot1()
     g2 <- suppressWarnings(ggplotly(g,
       source = "kmerPlotly",
-      tooltip = "text", height = plot_height * 100, width = plot_width * 100
+      tooltip = "text", height = as.numeric(input$ploth) * 100, width = as.numeric(input$plotw) * 100
     )) %>%
       layout(autosize = F)
     output$kmerPlot2 <- renderPlotly(g2)
-    plotlyOutput("kmerPlot2", width = plot_width * 100, height = plot_height * 100)
+    plotlyOutput("kmerPlot2", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100)
   })
 
   output$kmerPlotUI <- renderUI({
@@ -2356,7 +2388,7 @@ server <- function(input, output, session) {
   savePlot4 <- downloadHandler(
     filename = "kmers.pdf",
     content = function(file) {
-      ggplot2::ggsave(file, plot = kmerPlot1(), device = "pdf", width = plot_width, height = plot_height)
+      ggplot2::ggsave(file, plot = kmerPlot1(), device = "pdf", width = as.numeric(input$plotw), height = as.numeric(input$ploth))
     }
   )
 
@@ -2474,7 +2506,7 @@ server <- function(input, output, session) {
   output$vennPlot <- renderPlotly({
     p <- ggplotly(vennPlot1(),
       source = "vennPlot",
-      tooltip = "text2", height = plot_height * 100, width = plot_width * 100
+      tooltip = "text2", height = as.numeric(input$ploth) * 100, width = as.numeric(input$plotw) * 100
     ) %>%
       layout(autosize = F, showlegend = FALSE) %>%
       highlight()
@@ -2484,7 +2516,7 @@ server <- function(input, output, session) {
   savePlot6 <- downloadHandler(
     filename = "venn.pdf",
     content = function(file) {
-      ggplot2::ggsave(file, plot = vennPlot1(), device = "pdf", width = plot_width, height = plot_height)
+      ggplot2::ggsave(file, plot = vennPlot1(), device = "pdf", width = as.numeric(input$plotw), height = as.numeric(input$ploth))
     }
   )
 
