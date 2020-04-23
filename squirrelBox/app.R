@@ -41,7 +41,6 @@ listpath <- "data/lists"
 
 ### source R
 source(paste0(rpath, "/ggvenn.R"))
-source(paste0(rpath, "/debounce.R"))
 
 ### general data settings
 versionN <- 0.98
@@ -59,7 +58,7 @@ gmt_short <- "GO_"
 sig_cut <- 0.001
 ncore <- parallel::detectCores() - 1
 start_tutorial <- TRUE
-verbose_bench <- FALSE
+verbose_bench <- TRUE
 
 ### choose and order columns
 table_cols <- c(
@@ -79,7 +78,6 @@ orf_cols_join <- c(
   "min_sig",
   "domains",
   "br_expr",
-  #"nonbr_expr",
   "transcript_id",
   "majiq_directed"
 )
@@ -344,11 +342,6 @@ br_expr <- combined2 %>%
   filter(region %in% region_main) %>%
   pull(gene_id) %>%
   unique()
-# 
-# nonbr_expr <- combined2 %>%
-#   filter(region %in% region_main2) %>%
-#   pull(gene_id) %>%
-#   unique()
 
 # load orf predictions
 orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
@@ -364,7 +357,7 @@ orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
   mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fb_LRT_padj, na.rm = T)) %>%
   mutate(domains = factor(ifelse(gene_id %in% domains$gene_id, 1, 0))) %>%
   mutate(
-    br_expr = factor(ifelse(gene_id %in% br_expr, 1, 0))#, nonbr_expr = factor(ifelse(gene_id %in% nonbr_expr, 1, 0))
+    br_expr = factor(ifelse(gene_id %in% br_expr, 1, 0))
   ) %>%
   mutate(majiq_directed = factor(ifelse(is.na(majiq), 0, 1)))
 
@@ -1210,15 +1203,6 @@ ui <- fluidPage(
             style = "width:200px",
           ),
           uiOutput("kmerPlotUI") %>% withLoader(loader = "pacman", proxy.height = paste0(plot_height * 100 / 2, "px"))
-          # conditionalPanel(
-          #   condition = 'input.doPlotly2 == true',
-          #   plotOutput('kmerPlot')
-          # ),
-          #
-          # conditionalPanel(
-          #   condition = 'input.interactive == false',
-          #   plotlyOutput('kmerPlot2')
-          # )
         ),
         tabPanel(
           introBox(
@@ -1507,7 +1491,6 @@ server <- function(input, output, session) {
         select(-padj, -call) %>%
         mutate(call1 = as.numeric(call1))
       temp2$region <- region_order[factor(temp2$region, level = region_short) %>% as.numeric()]
-      # tttt <<- temp2
       temp3 <- groups_to_letters_igraph(temp2) %>%
         mutate(region = factor(region, level = region_order))
 
@@ -1549,13 +1532,13 @@ server <- function(input, output, session) {
     g
   })
 
-  output$boxPlot_ly <- renderPlotly({
-    boxPlot1()}# , height = function(){100*plot_height}, width = function(){100*plot_width}
- )
-  output$boxPlot_g <- renderPlot({
-    boxPlot1()}, height = function(){100*plot_height/2}, width = function(){100*plot_width}
- )
-  
+ #  output$boxPlot_ly <- renderPlotly({
+ #    boxPlot1()}# , height = function(){100*plot_height}, width = function(){100*plot_width}
+ # )
+ #  output$boxPlot_g <- renderPlot({
+ #    boxPlot1()}, height = function(){100*plot_height/2}, width = function(){100*plot_width}
+ # )
+ #  
   
   # boxplot size
   boxPlotr <- reactive({
@@ -2298,7 +2281,6 @@ server <- function(input, output, session) {
     topsk <- kmertemp()
     t1 <- Sys.time()
     
-    #de_rbpterm <- debounce(input$rbpterm, 500)
     de_rbpterm <- input$rbpterm
     if (nrow(topsk) == 0) {
       return(ggplot() +
@@ -2333,7 +2315,7 @@ server <- function(input, output, session) {
       geom_point(aes(color = sig), size = 0.5) +
       scale_color_manual(values = c("#B3B3B3", "#FC8D62")) + # RColorBrewer::brewer.pal(8, "Set2")
       geom_point(data = topsk %>%
-        filter(str_detect(str_to_upper(RBP), str_to_upper(de_rbpterm))), color = "black", size = 0.5) +
+        filter(str_detect(str_to_upper(RBP), str_to_upper(de_rbpterm)), color = "black", size = 0.5) +
       ggrepel::geom_text_repel(box.padding = 0.05, size = 3, aes(label = text2)) +
       xlab("log2enrichment") +
       labs(color = "") +
