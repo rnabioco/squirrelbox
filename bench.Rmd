@@ -1,7 +1,7 @@
 ```{r}
 library(profvis)
-p <- profvis(shiny::runApp("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/app.R"))
-# shiny::runApp("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/app.R")
+p <- profvis(shiny::runApp("/Users/rf/newselect201905/sq_gen/sq_gen/squirrelBox/"))
+p
 ```
 
 ```{r}
@@ -63,6 +63,130 @@ microbenchmark::microbenchmark(
   sort =  sapply(full, function(x) factor(x)[order(factor(x, levels = state_order))]),
   sort2 = sapply(full, function(x) factor(x)[order(match(x, state_order))]),
   sort3 = sapply(full, function(x) x[order(match(x, state_order))])
+)
+```
+
+```{r}
+sort_groups <- function(groups, states, state_order) {
+  t1 <- Sys.time()
+  all_groups <- states
+  leftout <- as.list(setdiff(all_groups, unlist(groups)))
+  full <<- c(groups, leftout)
+  if ((length(full)) == length(states)) {
+    full4 <- as.matrix(full) %>% t()
+  } else {
+    full4 <- sapply(full, function(x) x[order(match(x, state_order))])
+    if (class(full4) != "matrix") {
+      full4 <- sapply(full4, "length<-", max(lengths(full4)))
+    }
+  }
+  full2 <- full4 %>%
+    t() %>%
+    as.data.frame()
+  colnames(full2) <- str_c("V", 1:ncol(full2))
+  full2 <- full2 %>%
+    mutate_all(factor, levels = state_order) %>%
+    arrange(V1)
+  
+  full3 <- full2 %>%
+    mutate(letter = letters[1:n()]) %>%
+    gather(-letter, value = "state", key = "NA", na.rm = T)# %>% 
+    
+  full3 <- full3[sort(full3$letter, index.return = T, method = "radix")$ix,] %>% 
+    #arrange(letter) %>%
+    group_by(state) %>%
+    summarize(letter = str_c(letter, collapse = ""))
+  
+  if (verbose_bench) {
+    print(paste0("sort_groups: ", Sys.time() - t1))
+  }
+  full3
+}
+
+sort_groups2 <- function(groups, states, state_order) {
+  t1 <- Sys.time()
+  all_groups <- states
+  leftout <- as.list(setdiff(all_groups, unlist(groups)))
+  full <<- c(groups, leftout)
+  if ((length(full)) == length(states)) {
+    full4 <- as.matrix(full) %>% t()
+  } else {
+    full4 <- sapply(full, function(x) x[order(match(x, state_order))])
+    if (class(full4) != "matrix") {
+      full4 <- sapply(full4, "length<-", max(lengths(full4)))
+    }
+  }
+  full2 <- full4 %>%
+    t() %>%
+    as.data.frame()
+  colnames(full2) <- str_c("V", 1:ncol(full2))
+  full2 <- full2 %>%
+    mutate_all(factor, levels = state_order) %>%
+    arrange(V1)
+  
+  full3 <- full2 %>%
+    mutate(letter = letters[1:n()]) %>%
+    gather(-letter, value = "state", key = "NA", na.rm = T)# %>% 
+    
+  full3 <- full3 %>% 
+    arrange(letter) %>%
+    group_by(state) %>%
+    summarize(letter = str_c(letter, collapse = ""))
+  
+  if (verbose_bench) {
+    print(paste0("sort_groups: ", Sys.time() - t1))
+  }
+  full3
+}
+
+sort_groups3 <- function(groups, states, state_order) {
+  t1 <- Sys.time()
+  all_groups <- states
+  leftout <- as.list(setdiff(all_groups, unlist(groups)))
+  full <<- c(groups, leftout)
+  if ((length(full)) == length(states)) {
+    full4 <- as.matrix(full) %>% t()
+  } else {
+    full4 <- sapply(full, function(x) x[order(match(x, state_order))])
+    if (class(full4) != "matrix") {
+      full4 <- sapply(full4, "length<-", max(lengths(full4)))
+    }
+  }
+  full2 <- full4 %>%
+    t() %>%
+    as.data.frame()
+  colnames(full2) <- str_c("V", 1:ncol(full2))
+  full2 <- full2 %>%
+    mutate_all(factor, levels = state_order) %>%
+    arrange(V1)
+  
+  full3 <- full2 %>%
+    mutate(letter = letters[1:n()]) %>%
+    gather(-letter, value = "state", key = "NA", na.rm = T)# %>% 
+    
+  full3 <- full3[order(full3$letter, method = "radix"),] %>% 
+    #arrange(letter) %>%
+    group_by(state) %>%
+    summarize(letter = str_c(letter, collapse = ""))
+  
+  if (verbose_bench) {
+    print(paste0("sort_groups: ", Sys.time() - t1))
+  }
+  full3
+}
+
+microbenchmark::microbenchmark(
+  sort = sort_groups(g2, state_order, state_order),
+  sort2 = sort_groups2(g2, state_order, state_order),
+  sort3 = sort_groups3(g2, state_order, state_order)
+)
+microbenchmark::microbenchmark(
+  sel = ffff %>% select(-V1),
+  sel2 = ffff %>% select(-V1, -V2),
+  selalt = ffff[,!(names(ffff) == "V1")],
+  selalt2 = ffff[,!(names(ffff) %in% c("V1", "V2"))],
+  c = combined3 %>% select(-c(gene_symbol, clean_gene_symbol, original_gene_name)),
+  calt = combined3[, !(names(combined3) %in% c("gene_symbol", "clean_gene_symbol", "original_gene_name"))]
 )
 ```
 
