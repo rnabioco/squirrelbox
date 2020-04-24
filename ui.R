@@ -31,6 +31,7 @@ ui <- fluidPage(
       .header {
         position:fixed;
         z-index:100;
+        width: calc(100% - 70px);
       }
   "),
   tags$head(tags$style(
@@ -103,14 +104,14 @@ ui <- fluidPage(
   titlePanel(div(
     class = "header", img(src = "logo.png", style = "width : 4%;"),
     "13-lined ground squirrel gene-level RNA-seq expression",
-    style = "font-size:23px"
+    style = "font-size:23px; background:white;text-decoration: underline; background-clip: inherit;"
   )),
   fixedPanel(
     style = "z-index:100;",
     right = 10,
-    top = 23,
+    top = 22,
     tags$head(
-      tags$style(HTML('#tutorial{background-color:gold}'))
+      tags$style(HTML('#tutorial{background-color:gold;z-index:100;}'))
     ),
     introBox(
       actionButton("tutorial", "", icon = icon("question")) %>%
@@ -196,7 +197,7 @@ ui <- fluidPage(
                 ),
                 column(
                   width = 4,
-                  actionButton("Add", "Add to Cart") %>% bs_embed_tooltip("add current query gene to cart", placement = "bottom")
+                  actionButton("Add", "to Cart") %>% bs_embed_tooltip("add current query gene to cart", placement = "bottom")
                 )
               ),
               br(.noWS = "outside"),
@@ -235,11 +236,11 @@ ui <- fluidPage(
                 tags$tr(width = "100%",
                         tags$td(width = "50%", tags$div(style = "font-size:12px;", "plot height")),
                         tags$td(width = "50%", textInput("ploth", NULL, value = plot_height, width = "100px") %>%
-                                  bs_embed_tooltip("plot dimensions for app (px) and saved pdf (in)", placement = "right"))),
+                                  bs_embed_tooltip("plot height for app (px) and saved pdf (in), halved for box and line plots", placement = "right"))),
                 tags$tr(width = "100%",
                         tags$td(width = "50%", tags$div(style = "font-size:12px;", "plot width")),
                         tags$td(width = "50%", textInput("plotw", NULL, value = plot_width, width = "100px") %>%
-                                  bs_embed_tooltip("plot dimensions for app (px) and saved pdf (in)", placement = "right"))),
+                                  bs_embed_tooltip("plot width for app (px) and saved pdf (in)", placement = "right"))),
                 
               ),
               fluidRow(
