@@ -860,7 +860,14 @@ server <- function(input, output, session) {
       return(data.frame())
     }
     genevec <- unique_to_clean(historytablist, namedvec) %>% str_to_upper()
-    tops <- fisher(genevec, gmtlist, length_detected_genes)
+    if (input$background == "brain highly expressed") {
+      gmtlist1 <- gmtlist_br
+    } else if (input$background == "all squirrel genes") {
+      gmtlist1 <- gmtlist_sq
+    } else if (input$background == "all human genes") {
+      gmtlist1 <- gmtlist_human
+    } 
+    tops <- fisher(genevec, gmtlist1[[input$gocat]], gmtlist1[["n"]])
     tops$pathway <- reorder(tops$pathway, tops$minuslog10)
     tops
   })

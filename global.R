@@ -53,7 +53,7 @@ plot_height <- 6
 set_shinytheme <- "paper"
 track_name <- "hub_1512849_KG_HiC"
 track_url <- "https://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
-gmt_file <- "c5.all.v7.0.symbols.gmt"
+gmt_file <- "c5.all.v7.1.symbols.gmt"
 gmt_short <- "GO_"
 sig_cut <- 0.001
 ncore <- parallel::detectCores() - 1
@@ -291,7 +291,7 @@ namedvec <- combined3$clean_gene_symbol
 names(namedvec) <- combined3$unique_gene_symbol
 
 unique_to_clean <- function(genevec, namedvec) {
-  namedvec[genevec] %>% na.omit()
+  namedvec[genevec] %>% na.omit() %>% unique()
 }
 
 # read go terms and TFs
@@ -325,16 +325,51 @@ gmt_to_list <- function(path,
 
 gmt <- gmt_to_list(paste0(annotpath, "/", gmt_file), rm = gmt_short)
 
-if (file.exists(paste0(annotpath, "/", gmt_file, ".rds"))) {
-  gmtlist <- readRDS(paste0(annotpath, "/", gmt_file, ".rds"))
-} else {
-  gmtlist <- gmt_to_list(paste0(annotpath, "/", gmt_file), rm = gmt_short, per = FALSE)
-  gmtlist <- sapply(gmtlist, function(x) {
-    intersect(x, str_to_upper(bed$clean_gene_symbol %>% unique()))
+construct_gmtlist <- function(gmt_file, genes, n) {
+  temp <- list()
+  temp[["n"]] <- n
+  
+  temp[["Biological Process"]] <- gmt_to_list(paste0(annotpath, "/", str_replace(gmt_file, "all", "bp")), rm = gmt_short, per = FALSE)
+  temp[["Biological Process"]] <- sapply(temp[["Biological Process"]], function(x) {
+    intersect(x, genes)
   })
-  gmtlist <- gmtlist[sapply(gmtlist, length) >= 5]
-  saveRDS(gmtlist, paste0(annotpath, "/", gmt_file, ".rds"))
+  temp[["Biological Process"]] <- temp[["Biological Process"]][sapply(temp[["Biological Process"]], length) >= 5]
+  
+  temp[["Cellular Component"]] <- gmt_to_list(paste0(annotpath, "/", str_replace(gmt_file, "all", "cc")), rm = gmt_short, per = FALSE)
+  temp[["Cellular Component"]] <- sapply(temp[["Cellular Component"]], function(x) {
+    intersect(x, genes)
+  })
+  temp[["Cellular Component"]] <- temp[["Cellular Component"]][sapply(temp[["Cellular Component"]], length) >= 5]
+  
+  temp[["Molecular Function"]] <- gmt_to_list(paste0(annotpath, "/", str_replace(gmt_file, "all", "mf")), rm = gmt_short, per = FALSE)
+  temp[["Molecular Function"]] <- sapply(temp[["Molecular Function"]], function(x) {
+    intersect(x, genes)
+  })
+  temp[["Molecular Function"]] <- temp[["Molecular Function"]][sapply(temp[["Molecular Function"]], length) >= 5]
+  
+  temp
 }
+
+
+if (file.exists(paste0(annotpath, "/", gmt_file, "_br.rds"))) {
+  gmtlist_br <- readRDS(paste0(annotpath, "/", gmt_file, "_br.rds"))
+} else {
+  gmtlist_br <- construct_gmtlist(gmt_file,
+                                  str_to_upper(combined3$clean_gene_symbol %>% unique()),
+                                  length(combined3$clean_gene_symbol %>% unique()))
+  saveRDS(gmtlist_br, paste0(annotpath, "/", gmt_file, "_br.rds"))
+}
+
+if (file.exists(paste0(annotpath, "/", gmt_file, ".rds"))) {
+  gmtlist_sq <- readRDS(paste0(annotpath, "/", gmt_file, ".rds"))
+} else {
+  gmtlist_sq <- construct_gmtlist(gmt_file, 
+                                  str_to_upper(bed$clean_gene_symbol %>% unique()),
+                                  length(bed$clean_gene_symbol %>% unique()))
+  saveRDS(gmtlist_sq, paste0(annotpath, "/", gmt_file, ".rds"))
+}
+
+gmtlist_human <- construct_gmtlist(gmt_file, gmt$genes %>% unique(), 60662)
 
 domains <- read_csv(paste0(datapath, "/novel_domains.csv"), col_types = "cc")
 
@@ -470,9 +505,13 @@ groups_to_letters_igraph <- function(df) {
   do.call(rbind, g)
 }
 
-fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
-  genevec <- intersect(genevec, unlist(gmtlist) %>% unique())
+fisher <- function(genevec, gmtlist, length_detected_genes = NA, top = Inf) {
+  gmtlist_vec <- unlist(gmtlist) %>% unique()
+  genevec <- intersect(genevec, gmtlist_vec)
   sampleSize <- length(genevec)
+  if (is.na(length_detected_genes)) {
+    length_detected_genes <- gmtlist_vec %>% length()
+  }
   res <- sapply(gmtlist, function(x) {
     if (length(x) == 0) {
       return(c(stringofhits = "", pval = 1))
@@ -484,7 +523,8 @@ fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
     if (length(stringofhits) == 0) {
       stringofhits <- ""
     }
-    pval <- phyper(hitInSample - 1,
+    pval <- phyper(
+      hitInSample - 1,
       hitInPop,
       failInPop,
       sampleSize,

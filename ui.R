@@ -582,6 +582,17 @@ ui <- fluidPage(
             data.position = "top"
           ),
           value = "enrichment_plot",
+          div(
+            style = "display: inline-block;vertical-align:top;",
+            radioButtons("background", "background", 
+                         c("brain highly expressed", "all squirrel genes", "all human genes"), 
+                         selected = "all human genes", inline = TRUE) %>% 
+              bs_embed_tooltip("genes to use as statistical background", placement = "bottom"),
+            radioButtons("gocat", "GO collection", 
+                         c("Biological Process", "Cellular Component", "Molecular Function"), 
+                         selected = "Biological Process", inline = TRUE) %>% 
+              bs_embed_tooltip("subcollection of GO terms to test against", placement = "bottom")
+          ),
           plotlyOutput("richPlot") %>% withLoader()
         ),
         tabPanel(
