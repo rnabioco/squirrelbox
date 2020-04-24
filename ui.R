@@ -181,7 +181,7 @@ ui <- fluidPage(
                     uiOutput("tab4")
                   )
                 ),
-                data.step = 5,
+                data.step = 6,
                 data.intro = "Other external links for the query gene.",
                 data.position = "right"
               ),
@@ -272,7 +272,7 @@ ui <- fluidPage(
             tabPanel(
               introBox(
                 span(icon("file-alt", class = NULL, lib = "font-awesome"), "Genelist", title = "load list of genes for analysis from file or interactive table"),
-                data.step = 8,
+                data.step = 9,
                 data.intro = "Genelist can be loaded from external file, or passed from the tables/cart.<br><br>
                 The other multi-gene analysis tabs, Lineplot/Heatmap/GO/Kmer, all use genes from this list.",
                 data.position = "top"
@@ -299,7 +299,7 @@ ui <- fluidPage(
               value = "cart",
               introBox(
                 span(icon("shopping-cart", class = NULL, lib = "font-awesome"), "Cart", title = "cart list of genes to save and export"),
-                data.step = 9,
+                data.step = 10,
                 data.intro = "A cart list stores query genes that were added (see button above), which can be exported to .txt file, or moved to the loaded Genelist.<br><br>
                 Interactive clicking on the GO_enrich and Venn plots also put the corresponding genes into the cart.",
                 data.position = "top"
@@ -327,7 +327,7 @@ ui <- fluidPage(
             tabPanel(
               introBox(
                 span(icon("history", class = NULL, lib = "font-awesome"), "History", title = "history list of query genes"),
-                data.step = 10,
+                data.step = 11,
                 data.intro = "A list of genes previously queried is also documented for review.",
                 data.position = "right"
               ),
@@ -392,13 +392,18 @@ ui <- fluidPage(
                 # )
               )
             ),
-            bsCollapse(
-              id = "tabs", multiple = TRUE, open = NULL, # open = "cluster_assignments",
-              bsCollapsePanel(
-                uiOutput("EigenPlot") %>% withLoader(),
-                title = "cluster_assignments",
-                style = "danger"
-              )
+            introBox(
+              bsCollapse(
+                id = "tabs", multiple = TRUE, open = NULL, # open = "cluster_assignments",
+                bsCollapsePanel(
+                  uiOutput("EigenPlot") %>% withLoader(),
+                  title = "cluster_assignments",
+                  style = "danger"
+                )
+              ),
+              data.step = 5,
+              data.intro = "additional info panels for the query gene is by default folded, click to reveal", 
+              data.position = "top"
             ),
             bsCollapse(
               id = "tabs2", multiple = TRUE, open = NULL, # open = "called_orfs",
@@ -437,7 +442,7 @@ ui <- fluidPage(
               "Transcript/Gene",
               title = "Table of expression and other info of all genes/transcripts"
             ),
-            data.step = 6,
+            data.step = 7,
             data.intro = "Here we summarize the genes in this study.<br><br>
             The table can be filtered, exported as .csv, and passed to Genelist for additional on-the-fly analyses.<br><br>
             Hover over column names for additional descriptions.",
@@ -462,7 +467,7 @@ ui <- fluidPage(
             span(icon("list", class = NULL, lib = "font-awesome"), "Majiq_alt",
               title = "Table of majiq output for alternative splicing events"
             ),
-            data.step = 7,
+            data.step = 8,
             data.intro = "Similarly, splicing analysis via MAJIQ is presented as a table.<br><br>
             The table can be filtered, exported as .csv, and passed to Genelist for additional on-the-fly analyses.<br><br>
             Hover over column names for additional descriptions.",
@@ -487,7 +492,7 @@ ui <- fluidPage(
             span(icon("chart-line", class = NULL, lib = "font-awesome"), "Line_plot",
               title = "Plot expression of loaded Genelist"
             ),
-            data.step = 11,
+            data.step = 12,
             data.intro = "Visualize loaded Genelist as line plot, also supports summarized line.",
             data.position = "top"
           ),
@@ -516,7 +521,7 @@ ui <- fluidPage(
             span(icon("th", class = NULL, lib = "font-awesome"), "Heatmap",
               title = "Plot Z-Score of loaded Genelist as heat map"
             ),
-            data.step = 12,
+            data.step = 13,
             data.intro = "Similar to the lineplot, visualize loaded Genelist as heatmap.",
             data.position = "top"
           ),
@@ -570,7 +575,7 @@ ui <- fluidPage(
             span(icon("chart-bar", class = NULL, lib = "font-awesome"), "GO_terms",
               title = "GO term enrichment for loaded Genelist (slow)"
             ),
-            data.step = 13,
+            data.step = 14,
             data.intro = "GO term enrichment of loaded Genelist by fisher exact test.<br><br>
             Top 15 results are plotted, while full table can be exported.<br><br>
             Clicking on bar loads the corresponding genes into Cart.",
@@ -584,7 +589,7 @@ ui <- fluidPage(
             span(icon("kickstarter-k", class = NULL, lib = "font-awesome"), "Kmer",
               title = "Kmer enrichment analysis and annotation for loaded Genelist (slow)"
             ),
-            data.step = 14,
+            data.step = 15,
             data.intro = "Kmer analysis of loaded Genelist, with option to annotate known RBP motifs or mir seeds.<br><br>
             Note that this process may take ~30 seconds.",
             data.position = "top"
@@ -630,7 +635,7 @@ ui <- fluidPage(
             span(icon("circle-notch", class = NULL, lib = "font-awesome"), "Genes_venn",
               title = "visualize gene overlap between regions by venn diagram, and retrieve lists"
             ),
-            data.step = 15,
+            data.step = 16,
             data.intro = "Use venn diagram to visualize documented and loaded Genelist/Cart.<br><br>
             Clicking on numbers moves genes of that category to Cart",
             data.position = "top"
@@ -690,7 +695,7 @@ ui <- fluidPage(
               "About",
               title = "View version and author info",
             ),
-            data.step = 16,
+            data.step = 17,
             data.intro = "Additional information on the study and authors.<br><br>
             Hope squirrelBox will be informative for your data explorations.",
             data.position = "top"
