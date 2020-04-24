@@ -166,7 +166,7 @@ region_short <- c(
   "hy",
   "med"
 )
-region_short_main<- c(
+region_short_main <- c(
   "fb",
   "hy",
   "med"
@@ -188,27 +188,27 @@ if (file.exists(paste0(datapath, "/combined2.feather"))) {
 
 # read annotation file to find ucsc track
 bed <- suppressWarnings(read_tsv(paste0(annotpath, "/final_tx_annotations_20200201.tsv.gz"),
-                                 col_names = c(
-                                   "chrom",
-                                   "start",
-                                   "end",
-                                   "transcript_id",
-                                   "score",
-                                   "strand",
-                                   NA,
-                                   NA,
-                                   NA,
-                                   NA,
-                                   NA,
-                                   NA,
-                                   "gene_id",
-                                   "unique_gene_symbol",
-                                   NA,
-                                   "clean_gene_symbol",
-                                   NA,
-                                   NA,
-                                   "majiq_directed"
-                                 ), skip = 1
+  col_names = c(
+    "chrom",
+    "start",
+    "end",
+    "transcript_id",
+    "score",
+    "strand",
+    NA,
+    NA,
+    NA,
+    NA,
+    NA,
+    NA,
+    "gene_id",
+    "unique_gene_symbol",
+    NA,
+    "clean_gene_symbol",
+    NA,
+    NA,
+    "majiq_directed"
+  ), skip = 1
 )) %>%
   select(-contains("X")) %>%
   mutate(majiq_directed = factor(ifelse(is.na(majiq_directed), 0, 1)))
@@ -244,25 +244,25 @@ eigen_gg[["Unassigned"]] <- ggplot(df_plot, aes(state, value, group = 1)) +
 # query function
 comb_fil_factor <- function(combined2, combined3, inid) {
   t1 <- Sys.time()
-  
+
   combined3 <- combined3 %>% filter(unique_gene_symbol %in% inid)
   if (nrow(combined3) == 0) {
     combined3 <- combined3 %>% filter(gene_id %in% inid)
   }
-  
+
   combined2 <- combined2 %>%
     filter(gene_id %in% (combined3$gene_id %>% unique())) %>%
     mutate(sample = (str_remove(sample, "[A-Z]+")))
   combined <- combined3 %>% inner_join(combined2, by = "gene_id")
   res <- combined %>% mutate(
     state = factor(state,
-                   levels = state_order
+      levels = state_order
     ),
     region = factor(region,
-                    levels = region_order
+      levels = region_order
     )
   )
-  
+
   if (verbose_bench) {
     print(paste0("comb_fil_factor step: ", Sys.time() - t1))
   }
@@ -301,12 +301,12 @@ gmt_to_list <- function(path,
                         rm = "REACTOME_",
                         per = TRUE) {
   df <- readr::read_csv(path,
-                        col_names = F, col_types = cols()
+    col_names = F, col_types = cols()
   )
   df <- tidyr::separate(df,
-                        X1,
-                        sep = sep,
-                        into = c("path", "genes")
+    X1,
+    sep = sep,
+    into = c("path", "genes")
   ) %>% dplyr::mutate(path = stringr::str_remove(path, rm))
   if (per) {
     df <- df %>% mutate(
@@ -346,12 +346,12 @@ br_expr <- combined2 %>%
 # load orf predictions
 orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
   select(gene_id,
-         orf_len = len,
-         exons,
-         rna_len = transcript,
-         orf,
-         unique_gene_symbol,
-         everything()
+    orf_len = len,
+    exons,
+    rna_len = transcript,
+    orf,
+    unique_gene_symbol,
+    everything()
   ) %>%
   mutate(novel = factor(ifelse(str_detect(gene_id, "^G"), 1, 0))) %>%
   mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fb_LRT_padj, na.rm = T)) %>%
@@ -384,8 +384,8 @@ length_detected_genes <- orfs %>%
 # padj functions
 find_padj <- function(region, state, tbl) {
   temp <- str_c(tbl[str_sub(tbl, 1, 1) == str_to_lower(str_sub(region, 1, 1)) &
-                      str_detect(tbl, state)],
-                collapse = "<br>"
+    str_detect(tbl, state)],
+  collapse = "<br>"
   )
   if (length(temp) == 0) {
     temp <- "NA"
@@ -405,7 +405,7 @@ calls_sig <- function(padj, sig_sym, pval) {
   temp <- temp %>%
     rownames_to_column("comp") %>%
     mutate(call1 = ifelse(padj <= pval, 1, 0))
-  
+
   if (verbose_bench) {
     print(paste0("calls_sig: ", Sys.time() - t1))
   }
@@ -440,16 +440,16 @@ sort_groups <- function(groups, states, state_order) {
   full2 <- full2 %>%
     mutate_all(factor, levels = state_order)
   ffff <<- full2
-  full2 <- full2[order(full2$V1, method = "radix"),,drop = F]
-  
+  full2 <- full2[order(full2$V1, method = "radix"), , drop = F]
+
   full3 <- full2 %>%
     mutate(letter = letters[1:n()]) %>%
     gather(-letter, value = "state", key = "NA", na.rm = T)
-  
-  full3 <- full3[order(full3$letter, method = "radix"),, drop = F] %>% 
+
+  full3 <- full3[order(full3$letter, method = "radix"), , drop = F] %>%
     group_by(state) %>%
     summarize(letter = str_c(letter, collapse = ""))
-  
+
   if (verbose_bench) {
     print(paste0("sort_groups: ", Sys.time() - t1))
   }
@@ -485,14 +485,14 @@ fisher <- function(genevec, gmtlist, length_detected_genes, top = Inf) {
       stringofhits <- ""
     }
     pval <- phyper(hitInSample - 1,
-                   hitInPop,
-                   failInPop,
-                   sampleSize,
-                   lower.tail = FALSE
+      hitInPop,
+      failInPop,
+      sampleSize,
+      lower.tail = FALSE
     )
     return(c(hits = stringofhits, pval = pval))
   }, simplify = FALSE)
-  
+
   res <- data.frame(res) %>% data.table::transpose()
   names(res) <- c("hits", "pval")
   res$pathway <- names(gmtlist)
@@ -584,7 +584,7 @@ comp_kmer <- function(df = seqs,
   }
   enq <- enq[str_length(enq) >= cutoff]
   enq_res <- generateKmers(enq, k)
-  
+
   if (recal_bac) {
     bac <- df %>%
       filter(!(str_to_upper(unique_gene_symbol) %in% str_to_upper(gene_vec))) %>%
@@ -593,15 +593,15 @@ comp_kmer <- function(df = seqs,
     bac <- bac[str_length(bac) >= cutoff]
     bac <- generateKmers(bac, k)
   }
-  
+
   res <- computeKmerEnrichment(enq_res,
-                               bac,
-                               permutation = FALSE,
-                               chisq.p.value.threshold = 0,
-                               p.adjust.method = "fdr"
+    bac,
+    permutation = FALSE,
+    chisq.p.value.threshold = 0,
+    p.adjust.method = "fdr"
   )
   res$kmer <- str_replace_all(names(enq_res), "T", "U")
-  res[order(res$adj.p.value, method = "radix"),,drop = F]
+  res[order(res$adj.p.value, method = "radix"), , drop = F]
 }
 
 fivemers <- read_csv(paste0(annotpath, "/RBP_5mer.csv"))

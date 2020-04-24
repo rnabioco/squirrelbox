@@ -166,7 +166,7 @@ region_short <- c(
   "hy",
   "med"
 )
-region_short_main<- c(
+region_short_main <- c(
   "fb",
   "hy",
   "med"
@@ -244,12 +244,12 @@ eigen_gg[["Unassigned"]] <- ggplot(df_plot, aes(state, value, group = 1)) +
 # query function
 comb_fil_factor <- function(combined2, combined3, inid) {
   t1 <- Sys.time()
-  
+
   combined3 <- combined3 %>% filter(unique_gene_symbol %in% inid)
   if (nrow(combined3) == 0) {
     combined3 <- combined3 %>% filter(gene_id %in% inid)
   }
-  
+
   combined2 <- combined2 %>%
     filter(gene_id %in% (combined3$gene_id %>% unique())) %>%
     mutate(sample = (str_remove(sample, "[A-Z]+")))
@@ -262,7 +262,7 @@ comb_fil_factor <- function(combined2, combined3, inid) {
       levels = region_order
     )
   )
-  
+
   if (verbose_bench) {
     print(paste0("comb_fil_factor step: ", Sys.time() - t1))
   }
@@ -405,7 +405,7 @@ calls_sig <- function(padj, sig_sym, pval) {
   temp <- temp %>%
     rownames_to_column("comp") %>%
     mutate(call1 = ifelse(padj <= pval, 1, 0))
-  
+
   if (verbose_bench) {
     print(paste0("calls_sig: ", Sys.time() - t1))
   }
@@ -440,16 +440,16 @@ sort_groups <- function(groups, states, state_order) {
   full2 <- full2 %>%
     mutate_all(factor, levels = state_order)
   ffff <<- full2
-  full2 <- full2[order(full2$V1, method = "radix"),,drop = F]
-  
+  full2 <- full2[order(full2$V1, method = "radix"), , drop = F]
+
   full3 <- full2 %>%
     mutate(letter = letters[1:n()]) %>%
     gather(-letter, value = "state", key = "NA", na.rm = T)
-    
-  full3 <- full3[order(full3$letter, method = "radix"),, drop = F] %>% 
+
+  full3 <- full3[order(full3$letter, method = "radix"), , drop = F] %>%
     group_by(state) %>%
     summarize(letter = str_c(letter, collapse = ""))
-  
+
   if (verbose_bench) {
     print(paste0("sort_groups: ", Sys.time() - t1))
   }
@@ -601,7 +601,7 @@ comp_kmer <- function(df = seqs,
     p.adjust.method = "fdr"
   )
   res$kmer <- str_replace_all(names(enq_res), "T", "U")
-  res[order(res$adj.p.value, method = "radix"),,drop = F]
+  res[order(res$adj.p.value, method = "radix"), , drop = F]
 }
 
 fivemers <- read_csv(paste0(annotpath, "/RBP_5mer.csv"))
@@ -727,7 +727,7 @@ ui <- fluidPage(
     right = 10,
     top = 23,
     tags$head(
-      tags$style(HTML('#tutorial{background-color:gold}'))
+      tags$style(HTML("#tutorial{background-color:gold}"))
     ),
     introBox(
       actionButton("tutorial", "", icon = icon("question")) %>%
@@ -831,33 +831,39 @@ ui <- fluidPage(
               div(id = "doTisdiv", checkboxInput("doTis", "plot non-brain data", value = F, width = NULL)),
               div(
                 id = "doLockdiv",
-                checkboxInput("doLock", "lock main panel order", value = T, width = NULL) %>% 
+                checkboxInput("doLock", "lock main panel order", value = T, width = NULL) %>%
                   bs_embed_tooltip("if unlocked, tabs, sections, and table columns can be dragged and reordered",
-                                   placement = "right")
+                    placement = "right"
+                  )
               ),
               tags$table(
                 tags$head(
-                  tags$style(HTML('#pval{margin-top: 0px; margin-bottom: -10px; font-size:12px;}'))
+                  tags$style(HTML("#pval{margin-top: 0px; margin-bottom: -10px; font-size:12px;}"))
                 ),
                 tags$head(
-                  tags$style(HTML('#plotw{margin-top: 0px; margin-bottom: -10px; font-size:12px;}'))
+                  tags$style(HTML("#plotw{margin-top: 0px; margin-bottom: -10px; font-size:12px;}"))
                 ),
                 tags$head(
-                  tags$style(HTML('#ploth{margin-top: 0px; margin-bottom: -10px; font-size:12px;}'))
+                  tags$style(HTML("#ploth{margin-top: 0px; margin-bottom: -10px; font-size:12px;}"))
                 ),
-                tags$tr(width = "100%",
-                        tags$td(width = "50%", div(style = "font-size:12px;", "p-value cutoff")),
-                        tags$td(width = "50%", textInput("pval", NULL, value = sig_cut) %>%
-                                  bs_embed_tooltip("p-value cut off used for all plotting/analyses", placement = "right"))),
-                tags$tr(width = "100%",
-                        tags$td(width = "50%", tags$div(style = "font-size:12px;", "plot height")),
-                        tags$td(width = "50%", textInput("ploth", NULL, value = plot_height, width = "100px") %>%
-                                  bs_embed_tooltip("plot dimensions for app (px) and saved pdf (in)", placement = "right"))),
-                tags$tr(width = "100%",
-                        tags$td(width = "50%", tags$div(style = "font-size:12px;", "plot width")),
-                        tags$td(width = "50%", textInput("plotw", NULL, value = plot_width, width = "100px") %>%
-                                  bs_embed_tooltip("plot dimensions for app (px) and saved pdf (in)", placement = "right"))),
-                
+                tags$tr(
+                  width = "100%",
+                  tags$td(width = "50%", div(style = "font-size:12px;", "p-value cutoff")),
+                  tags$td(width = "50%", textInput("pval", NULL, value = sig_cut) %>%
+                    bs_embed_tooltip("p-value cut off used for all plotting/analyses", placement = "right"))
+                ),
+                tags$tr(
+                  width = "100%",
+                  tags$td(width = "50%", tags$div(style = "font-size:12px;", "plot height")),
+                  tags$td(width = "50%", textInput("ploth", NULL, value = plot_height, width = "100px") %>%
+                    bs_embed_tooltip("plot dimensions for app (px) and saved pdf (in)", placement = "right"))
+                ),
+                tags$tr(
+                  width = "100%",
+                  tags$td(width = "50%", tags$div(style = "font-size:12px;", "plot width")),
+                  tags$td(width = "50%", textInput("plotw", NULL, value = plot_width, width = "100px") %>%
+                    bs_embed_tooltip("plot dimensions for app (px) and saved pdf (in)", placement = "right"))
+                ),
               ),
               fluidRow(
                 column(
@@ -995,7 +1001,7 @@ ui <- fluidPage(
                 #   condition = 'input.doPlotly == true',
                 #   plotlyOutput('boxPlot_ly') %>% withLoader()
                 # ),
-                # 
+                #
                 # conditionalPanel(
                 #   condition = 'input.doPlotly == false',
                 #   plotOutput('boxPlot_g') %>% withLoader()
@@ -1003,7 +1009,7 @@ ui <- fluidPage(
               )
             ),
             bsCollapse(
-              id = "tabs", multiple = TRUE, open = NULL, #open = "cluster_assignments",
+              id = "tabs", multiple = TRUE, open = NULL, # open = "cluster_assignments",
               bsCollapsePanel(
                 uiOutput("EigenPlot") %>% withLoader(),
                 title = "cluster_assignments",
@@ -1011,14 +1017,14 @@ ui <- fluidPage(
               )
             ),
             bsCollapse(
-              id = "tabs2", multiple = TRUE, open = NULL, #open = "called_orfs",
+              id = "tabs2", multiple = TRUE, open = NULL, # open = "called_orfs",
               bsCollapsePanel(DT::dataTableOutput("orfinfo") %>% withLoader(),
                 title = "called_orfs",
                 style = "primary"
               )
             ),
             bsCollapse(
-              id = "tabs3", multiple = TRUE, open = NULL, #open = "majiq_alternative_splicing",
+              id = "tabs3", multiple = TRUE, open = NULL, # open = "majiq_alternative_splicing",
               bsCollapsePanel(
                 DT::dataTableOutput("majinfo") %>% withLoader(),
                 title = "majiq_alternative_splicing",
@@ -1026,14 +1032,14 @@ ui <- fluidPage(
               )
             ),
             bsCollapse(
-              id = "tabs4", multiple = TRUE, open = NULL, #open = "UCSC browser plot",
+              id = "tabs4", multiple = TRUE, open = NULL, # open = "UCSC browser plot",
               bsCollapsePanel(htmlOutput("ucscPlot") %>% withLoader(),
                 title = "UCSC browser plot",
                 style = "success"
               )
             ),
             bsCollapse(
-              id = "tabs5", multiple = TRUE, open = NULL, #open = "go_terms/domains",
+              id = "tabs5", multiple = TRUE, open = NULL, # open = "go_terms/domains",
               bsCollapsePanel(DT::dataTableOutput("gotab") %>% withLoader(),
                 title = "go_terms/domains",
                 style = "info"
@@ -1444,7 +1450,7 @@ server <- function(input, output, session) {
   # boxplot1
   boxPlot1 <- reactive({
     plot_temp <- rv$plot_temp
-     
+
     t1 <- Sys.time()
     if (nrow(plot_temp) == 0) {
       return(ggplot())
@@ -1511,17 +1517,16 @@ server <- function(input, output, session) {
     }
 
     if (input$doPadj == T & nrow(rv$pval) != 0 & input$doPlotly == F) {
-      
       t2 <- Sys.time()
-      padj <- padj[str_detect(rownames(padj), paste(region_short_main, collapse = "|")), ,drop = FALSE]
-      sig_sym <- sig_sym[str_detect(rownames(sig_sym), paste(region_short_main, collapse = "|")), ,drop = FALSE]
+      padj <- padj[str_detect(rownames(padj), paste(region_short_main, collapse = "|")), , drop = FALSE]
+      sig_sym <- sig_sym[str_detect(rownames(sig_sym), paste(region_short_main, collapse = "|")), , drop = FALSE]
       temp2 <- calls_sig(padj, sig_sym, as.numeric(input$pval))
       temp2 <- temp2 %>%
         replace_na(list(call1 = list(0))) %>%
         separate(comp, into = c("region", "state1", NA, "state2"), extra = "drop") %>%
         mutate(call1 = as.numeric(call1))
       temp2 <- temp2[, !(names(temp2) %in% c("padj", "call")), drop = F]
-        
+
       temp2$region <- region_order[factor(temp2$region, level = region_short) %>% as.numeric()]
       temp3 <- groups_to_letters_igraph(temp2) %>%
         mutate(region = factor(region, level = region_order))
@@ -1529,7 +1534,7 @@ server <- function(input, output, session) {
       if (verbose_bench) {
         print(paste0("boxPlot1 agg step2: ", Sys.time() - t2))
       }
-      
+
       if (!(is.na(plot_temp$log2_counts) %>% all())) {
         agg <- aggregate(log2_counts ~ state + region, plot_temp, max)
         agg_min <- aggregate(log2_counts ~ state + region, plot_temp, min)
@@ -1564,14 +1569,14 @@ server <- function(input, output, session) {
     g
   })
 
- #  output$boxPlot_ly <- renderPlotly({
- #    boxPlot1()}# , height = function(){100*as.numeric(input$ploth)}, width = function(){100*as.numeric(input$plotw)}
- # )
- #  output$boxPlot_g <- renderPlot({
- #    boxPlot1()}, height = function(){100*as.numeric(input$ploth)/2}, width = function(){100*as.numeric(input$plotw)}
- # )
- #  
-  
+  #  output$boxPlot_ly <- renderPlotly({
+  #    boxPlot1()}# , height = function(){100*as.numeric(input$ploth)}, width = function(){100*as.numeric(input$plotw)}
+  # )
+  #  output$boxPlot_g <- renderPlot({
+  #    boxPlot1()}, height = function(){100*as.numeric(input$ploth)/2}, width = function(){100*as.numeric(input$plotw)}
+  # )
+  #
+
   # boxplot size
   boxPlotr <- reactive({
     g <- boxPlot1()
@@ -1650,11 +1655,11 @@ server <- function(input, output, session) {
   # filter data
   outputtab <- reactive({
     inid <- inid()
-    
+
     t1 <- Sys.time()
 
     rv$plot_temp <- comb_fil_factor(combined2, combined3, inid)
-    
+
     temp_orfs <- orfs %>% filter(unique_gene_symbol == rv$plot_temp$unique_gene_symbol[1])
     if (nrow(temp_orfs) > 0) {
       if (nrow(temp_orfs) == 0) {
@@ -1673,7 +1678,8 @@ server <- function(input, output, session) {
     }
 
     filtered <- rv$plot_temp %>%
-      select(any_of(table_cols)) %>% unique()
+      select(any_of(table_cols)) %>%
+      unique()
 
     if (nrow(filtered) == 0) {
       rv$blast <<- ""
@@ -2256,9 +2262,9 @@ server <- function(input, output, session) {
   # kmer analysis
   kmertemp <- reactive({
     rv$line_refresh
-    
+
     t1 <- Sys.time()
-    
+
     set.seed(1)
     if (length(historytablist) == 0) {
       return(data.frame())
@@ -2285,11 +2291,11 @@ server <- function(input, output, session) {
         col = utrchoice,
         k = as.numeric(input$km)
       )
-      
+
       if (verbose_bench) {
         print(paste0("comp_kmer step: ", Sys.time() - t1))
       }
-      
+
       if (nrow(topsk) == 0 | is.null(topsk)) {
         return(data.frame())
       }
@@ -2312,15 +2318,16 @@ server <- function(input, output, session) {
   kmerPlot1 <- reactive({
     topsk <- kmertemp()
     t1 <- Sys.time()
-    
+
     de_rbpterm <- input$rbpterm
     if (nrow(topsk) == 0) {
       return(ggplot() +
         ggtitle("no genes loaded"))
     }
     topsk <- topsk %>%
-      mutate(sig = factor(ifelse(minuslog10 >= -log10(as.numeric(input$pval)), "sig", "insig"), 
-                          levels = c("sig", "insig")))
+      mutate(sig = factor(ifelse(minuslog10 >= -log10(as.numeric(input$pval)), "sig", "insig"),
+        levels = c("sig", "insig")
+      ))
     if (input$kmlab == "RBP/mir") {
       topsk <- topsk %>%
         mutate(text2 = ifelse((sig == "sig" & row_number() <= 15), str_c(kmer, RBP, sep = "\n"), "")) %>%
@@ -2332,7 +2339,7 @@ server <- function(input, output, session) {
         mutate(text2 = ifelse((sig == "sig" & row_number() <= 15), kmer, "")) %>%
         mutate(text1 = kmer)
     }
-    
+
     if (verbose_bench) {
       print(paste0("kmerplot1 step1: ", Sys.time() - t1))
     }
@@ -2353,11 +2360,11 @@ server <- function(input, output, session) {
       labs(color = "") +
       scale_y_continuous(expand = c(0, 0)) +
       geom_hline(yintercept = -log10(as.numeric(input$pval)))
-    
+
     if (verbose_bench) {
       print(paste0("kmerplot1 step2: ", Sys.time() - t1))
     }
-    
+
     g
   })
 
@@ -2977,11 +2984,11 @@ server <- function(input, output, session) {
       "https://bioconductor.org/packages/release/data/annotation/html/", bsgenomeL
     )
     clean <- a(bsgenomeL,
-               href = url
+      href = url
     )
     tagList(tags$h6("Full genome sequences are deposited to ___ and stored in Biostring/BSgenome format, ", clean))
   })
-  
+
   output$GOversion <- renderUI({
     url <- "https://www.gsea-msigdb.org/gsea/msigdb/collections.jsp"
     clean <- a(gmt_file,
