@@ -1,0 +1,21 @@
+unique_gene_symbol,"unique to each gene_id, from ensemble/NCBI or newly assigned"
+cluster_f,gene clusters assigned by expression pattern for forebrain
+cluster_h,gene clusters assigned by expression pattern for hypothalamus
+cluster_m,gene clusters assigned by expression pattern for medulla
+hy_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
+fb_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
+med_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
+adr_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
+liv_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
+kid_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
+gene_id,newly annotated genes start with G
+source,reference denotes carry-over from ensemble/NCBI
+orf_len,aa length of longest orf
+exons,number of exons
+rna_len,length of longest transcript
+transcript_id,"if collapsed, only longest transcript_id listed"
+novel,"for newly annotated genes, gene_id start with G"
+min_sig,minimum adjusted pval across tissues
+domains,whether domains were found for orf
+br_expr,whether expressed above cutoff in at least one brain tissue
+majiq_directed,whether symbol assignment was assisted by majiq splice junctions
