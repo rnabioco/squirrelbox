@@ -1324,6 +1324,12 @@ server <- function(input, output, session) {
     carttablist <- unique(c(historytab[1], carttablist))
     rv$listn2 <- length(carttablist)
   })
+  
+  onclick("Empty", {
+    carttablist <- c()
+    rv$listn2 <- length(carttablist)
+  })
+  
 
   output$listn2 <- renderUI({
     HTML(str_c("<strong><h5> # in Cart: ", rv$listn2, "</h5></strong>"))
@@ -1754,6 +1760,7 @@ server <- function(input, output, session) {
       enable("savePlot")
       enable("savePlot2")
       disable("saveTable")
+      disable("saveTable2")
       output$savePlot <- savePlot
       output$savePlot2 <- savePlot
       # if (rv$tabinit_plot == 0) {
@@ -1766,7 +1773,9 @@ server <- function(input, output, session) {
       disable("savePlot")
       disable("savePlot2")
       enable("saveTable")
+      enable("saveTable2")
       output$saveTable <- saveFiltered
+      output$saveTable2 <- saveFiltered
       # if (rv$tabinit_data == 0) {
       #   showNotification("type `low...high` to input custom range for numeric filtering on column",
       #     type = "message"
@@ -1777,20 +1786,25 @@ server <- function(input, output, session) {
       disable("savePlot")
       disable("savePlot2")
       enable("saveTable")
+      enable("saveTable2")
       output$saveTable <- saveFilteredAS
+      output$saveTable2 <- saveFilteredAS
     } else if (input$tabMain == "line_plot") {
       enable("savePlot")
       enable("savePlot2")
       disable("saveTable")
+      disable("saveTable2")
       output$savePlot <- savePlot5
       output$savePlot2 <- savePlot5
     } else if (input$tabMain == "enrichment_plot") {
       enable("savePlot")
       enable("savePlot2")
       enable("saveTable")
+      enable("saveTable2")
       output$savePlot <- savePlot2
       output$savePlot2 <- savePlot2
       output$saveTable <- saveEnrich
+      output$saveTable2 <- saveEnrich
       # if (rv$tabinit_enrich == 0) {
       #   showNotification("add corresponding genes to Cart by clicking on GO term bar",
       #     type = "message"
@@ -1801,15 +1815,18 @@ server <- function(input, output, session) {
       enable("savePlot")
       enable("savePlot2")
       disable("saveTable")
+      disable("saveTable2")
       output$savePlot <- savePlot3
       output$savePlot2 <- savePlot3
     } else if (input$tabMain == "kmer_analysis") {
       enable("savePlot")
       enable("savePlot2")
       enable("saveTable")
+      enable("saveTable2")
       output$savePlot <- savePlot4
       output$savePlot2 <- savePlot4
       output$saveTable <- saveK
+      output$saveTable2 <- saveK
       # if (rv$tabinit_kmer == 0) {
       #   showNotification("Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed",
       #     type = "message"
@@ -1820,6 +1837,7 @@ server <- function(input, output, session) {
       enable("savePlot")
       enable("savePlot2")
       disable("saveTable")
+      disable("saveTable2")
       output$savePlot <- savePlot6
       # output$savePlot2 <- savePlot6
       # if (rv$tabinit_venn == 0) {
@@ -1832,6 +1850,7 @@ server <- function(input, output, session) {
       disable("savePlot")
       disable("savePlot2")
       disable("saveTable")
+      disable("saveTable2")
     }
   })
 

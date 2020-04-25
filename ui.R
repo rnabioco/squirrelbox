@@ -189,15 +189,16 @@ ui <- fluidPage(
               fluidRow(
                 column(
                   width = 4,
-                  downloadButton("savePlot", label = "PLOT", class = "download_this") %>%
-                    bs_embed_tooltip("save current plot as .pdf", placement = "bottom")
+                  downloadButton(outputId = "saveTable", label = "Table", class = "download_this") %>%
+                    bs_embed_tooltip("save output/filtered table as .csv", placement = "bottom")
                 ),
                 column(
                   width = 1
                 ),
                 column(
                   width = 4,
-                  actionButton("Add", "to Cart") %>% bs_embed_tooltip("add current query gene to cart", placement = "bottom")
+                  downloadButton("savePlot", label = "Plot", class = "download_this") %>%
+                    bs_embed_tooltip("save current plot as .pdf", placement = "bottom")
                 )
               ),
               br(.noWS = "outside"),
@@ -252,16 +253,16 @@ ui <- fluidPage(
               fluidRow(
                 column(
                   width = 4,
-                  downloadButton("savePlot2", label = "PLOT", class = "download_this") %>%
-                    bs_embed_tooltip("save current plot as .pdf", placement = "bottom")
+                  downloadButton(outputId = "saveTable2", label = "Table", class = "download_this") %>%
+                    bs_embed_tooltip("save output/filtered table as .csv", placement = "bottom")
                 ),
                 column(
                   width = 1
                 ),
                 column(
                   width = 4,
-                  downloadButton(outputId = "saveTable", label = "TABLE", class = "download_this") %>%
-                    bs_embed_tooltip("save output/filtered table as .csv", placement = "bottom")
+                  downloadButton("savePlot2", label = "Plot", class = "download_this") %>%
+                    bs_embed_tooltip("save current plot as .pdf", placement = "bottom")
                 )
               ),
               style = "height:150px;"
@@ -307,17 +308,22 @@ ui <- fluidPage(
               uiOutput("listn2"),
               fluidRow(
                 column(
-                  width = 4,
+                  width = 2,
                   downloadButton(
                     outputId = "saveList",
-                    label = "CART"
+                    label = ""
                   ) %>% bs_embed_tooltip("save genes in cart as .txt", placement = "bottom")
                 ),
                 column(
-                  width = 1
+                  width = 2,
+                  actionButton("Add", NULL, icon  = icon("plus-square")) %>% bs_embed_tooltip("add current query gene to cart", placement = "bottom")
                 ),
                 column(
-                  width = 4,
+                  width = 2,
+                  actionButton("Empty", NULL, icon = icon("broom")) %>% bs_embed_tooltip("remove all genes from cart", placement = "bottom")
+                ),
+                column(
+                  width = 3,
                   actionButton("Load", "to Genelist") %>% bs_embed_tooltip("send genes in Cart to loaded Genelist in side panel", placement = "bottom")
                 )
               ),
