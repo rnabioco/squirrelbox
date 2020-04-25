@@ -186,23 +186,28 @@ ui <- fluidPage(
                 data.position = "right"
               ),
               br(.noWS = "outside"),
-              fluidRow(
-                column(
-                  width = 4,
-                  downloadButton(outputId = "saveTable", label = "Table", class = "download_this") %>%
-                    bs_embed_tooltip("save output/filtered table as .csv", placement = "bottom")
+              introBox(
+                fluidRow(
+                  column(
+                    width = 4,
+                    downloadButton(outputId = "saveTable", label = "Table", class = "download_this") %>%
+                      bs_embed_tooltip("save output/filtered table as .csv", placement = "bottom")
+                  ),
+                  column(
+                    width = 1
+                  ),
+                  column(
+                    width = 4,
+                    downloadButton("savePlot", label = "Plot", class = "download_this") %>%
+                      bs_embed_tooltip("save current plot as .pdf", placement = "bottom")
+                  )
                 ),
-                column(
-                  width = 1
-                ),
-                column(
-                  width = 4,
-                  downloadButton("savePlot", label = "Plot", class = "download_this") %>%
-                    bs_embed_tooltip("save current plot as .pdf", placement = "bottom")
-                )
+                data.step = 17,
+                data.intro = "For each different section, results as table and/or plot can be saved to disk.",
+                data.position = "right"
               ),
               br(.noWS = "outside"),
-              style = "height:150px;"
+              # style = "height:150px;"
             ),
             tabPanel(
               span(icon("cogs", class = NULL, lib = "font-awesome"), "Options", title = "options specific to each main tab"),
@@ -711,9 +716,9 @@ ui <- fluidPage(
               "About",
               title = "View version and author info",
             ),
-            data.step = 17,
+            data.step = 18,
             data.intro = "Additional information on the study and authors.<br><br>
-            Hope squirrelBox will be informative for your data explorations.",
+            Hope squirrelBox will be informative for your data explorations!",
             data.position = "top"
           ),
           value = "about",
