@@ -204,7 +204,7 @@ ui <- fluidPage(
               style = "height:150px;"
             ),
             tabPanel(
-              span(icon("cogs", class = NULL, lib = "font-awesome"), "Plot_options", title = "options specific to each main tab"),
+              span(icon("cogs", class = NULL, lib = "font-awesome"), "Options", title = "options specific to each main tab"),
               br(.noWS = "outside"),
               div(id = "doEigendiv", checkboxInput("doEigen", "plot model clusters", value = T, width = NULL)),
               checkboxInput("doUcsc", "pull track", value = T, width = NULL),
@@ -364,7 +364,7 @@ ui <- fluidPage(
                 introBox(
                   dropdownButton(
                     circle = FALSE, status = "options", icon = icon("gear"), width = "200px", size = "sm",
-                    tooltip = tooltipOptions(title = "plotting options"), margin = "20px",
+                    tooltip = tooltipOptions(title = "boxplot options"), margin = "20px",
                     br(),
                     div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL) %>%
                       bs_embed_tooltip("display interactive plot with additional info on hover", placement = "right")),
@@ -379,17 +379,8 @@ ui <- fluidPage(
                 ),
               ),
               div(
-                style = "display: inline-block;vertical-align:top;",
+                style = "vertical-align:top;",
                 uiOutput("boxPlotUI") %>% withLoader()
-                # conditionalPanel(
-                #   condition = 'input.doPlotly == true',
-                #   plotlyOutput('boxPlot_ly') %>% withLoader()
-                # ),
-                #
-                # conditionalPanel(
-                #   condition = 'input.doPlotly == false',
-                #   plotOutput('boxPlot_g') %>% withLoader()
-                # )
               )
             ),
             introBox(
@@ -582,16 +573,23 @@ ui <- fluidPage(
             data.position = "top"
           ),
           value = "enrichment_plot",
-          div(
-            style = "display: inline-block;vertical-align:top;",
-            radioButtons("background", "background", 
-                         c("brain highly expressed", "all squirrel genes", "all human genes"), 
-                         selected = "all human genes", inline = TRUE) %>% 
-              bs_embed_tooltip("genes to use as statistical background", placement = "bottom"),
-            radioButtons("gocat", "GO collection", 
-                         c("Biological Process", "Cellular Component", "Molecular Function"), 
-                         selected = "Biological Process", inline = TRUE) %>% 
-              bs_embed_tooltip("subcollection of GO terms to test against", placement = "bottom")
+          dropdownButton(
+            circle = FALSE, status = "analysis options", icon = icon("gear"), width = "200px", size = "sm",
+            tooltip = tooltipOptions(title = "boxplot options"), margin = "20px",
+            br(),
+            checkboxInput("doPline", "line at p-val threshold", value = TRUE) %>% 
+              bs_embed_tooltip("whether to draw vertical line to indicate target p-val", placement = "right"),
+            div(
+              style = "display: inline-block;vertical-align:top;",
+              radioButtons("background", "background", 
+                           c("brain highly expressed", "all squirrel genes", "all human genes"), 
+                           selected = "all human genes", inline = FALSE) %>% 
+                bs_embed_tooltip("genes to use as statistical background", placement = "top"),
+              radioButtons("gocat", "GO collection", 
+                           c("Biological Process", "Cellular Component", "Molecular Function"), 
+                           selected = "Biological Process", inline = FALSE) %>% 
+                bs_embed_tooltip("subcollection of GO terms to test against", placement = "bottom")
+            )
           ),
           plotlyOutput("richPlot") %>% withLoader()
         ),

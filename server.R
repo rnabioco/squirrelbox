@@ -880,7 +880,7 @@ server <- function(input, output, session) {
     }
     tops <<- tops %>% dplyr::slice(1:max(min(which(tops$padj > as.numeric(input$pval))), 15))
 
-    ggplot(
+    g <- ggplot(
       tops %>% dplyr::slice(1:15),
       aes(x = pathway, y = minuslog10, fill = -minuslog10, text = len)
     ) +
@@ -895,8 +895,12 @@ server <- function(input, output, session) {
         axis.title.x = element_text(size = 10),
         legend.position = "none"
       ) +
-      scale_y_continuous(expand = c(0, 0)) +
-      geom_hline(yintercept = -log10(as.numeric(input$pval)))
+      scale_y_continuous(expand = c(0, 0))
+    
+    if (input$doPline) {
+      g <- g + geom_hline(yintercept = -log10(as.numeric(input$pval)))
+    }
+    g
   })
 
   output$richPlot <- renderPlotly({
