@@ -881,7 +881,8 @@ server <- function(input, output, session) {
     tops <<- tops %>% dplyr::slice(1:max(min(which(tops$padj > as.numeric(input$pval))), 15))
 
     g <- ggplot(
-      tops %>% dplyr::slice(1:15),
+      tops %>% dplyr::slice(1:15) %>% 
+        mutate(pathway = str_to_lower(pathway)),
       aes(x = pathway, y = minuslog10, fill = -minuslog10, text = len)
     ) +
       geom_bar(stat = "identity") +
@@ -889,13 +890,14 @@ server <- function(input, output, session) {
       coord_flip() +
       cowplot::theme_minimal_vgrid() +
       theme(
-        axis.text.y = element_text(size = 4),
+        axis.text.y = element_text(size = 6),
         axis.text.x = element_text(size = 10),
         axis.title.y = element_text(size = 10),
         axis.title.x = element_text(size = 10),
         legend.position = "none"
       ) +
-      scale_y_continuous(expand = c(0, 0))
+      scale_y_continuous(expand = c(0, 0)) + 
+      ylab("-log10(FDR)")
     
     if (input$doPline) {
       g <- g + geom_hline(yintercept = -log10(as.numeric(input$pval)))
@@ -1037,6 +1039,7 @@ server <- function(input, output, session) {
         filter(str_detect(str_to_upper(RBP), str_to_upper(de_rbpterm))), color = "black", size = 0.5) +
       ggrepel::geom_text_repel(box.padding = 0.05, size = 3, aes(label = text2)) +
       xlab("log2enrichment") +
+      ylab("-log10(FDR)") +
       labs(color = "") +
       scale_y_continuous(expand = c(0, 0)) +
       geom_hline(yintercept = -log10(as.numeric(input$pval)))

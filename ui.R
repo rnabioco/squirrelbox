@@ -633,6 +633,7 @@ ui <- fluidPage(
           ),
           div(
             id = "doPlotly2div",
+            style = "display: inline-block;",
             checkboxInput("doPlotly2", "interactive plot", value = T, width = NULL) %>%
               bs_embed_tooltip("display interactive plot with additional info on hover", placement = "right"),
             style = "width:200px",
