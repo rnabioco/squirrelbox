@@ -1233,9 +1233,11 @@ server <- function(input, output, session) {
   # circos
   circostrack <- reactive({
     rv$line_refresh
+    if (length(historytablist) == 0) {
+      return(NA)
+    }
     bed_f <- bed %>% filter((unique_gene_symbol %in% historytablist) | (str_to_upper(unique_gene_symbol) %in% historytablist)) %>% 
       filter(as.numeric(str_remove(chrom, "Itri")) <= 21)
-    bbb <<- bed_f
     
     bed_f <- bed_f %>% group_by(unique_gene_symbol) %>% bed_merge(max_dist = 1000000000) %>% 
       bed_slop(sq_g, both = 1500000)
@@ -1251,7 +1253,11 @@ server <- function(input, output, session) {
   })
   
   circosPlot1 <- reactive({
-    BioCircos(circostrack(), genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")))
+    if (is.na(circostrack())) {
+      BioCircos(genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")))
+    } else {
+      BioCircos(circostrack(), genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")))
+    }
   })
   circosPlotr <- reactive({
     output$circos <- renderBioCircos({

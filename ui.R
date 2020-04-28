@@ -202,7 +202,7 @@ ui <- fluidPage(
                       bs_embed_tooltip("save current plot as .pdf", placement = "bottom")
                   )
                 ),
-                data.step = 17,
+                data.step = 18,
                 data.intro = "For each different section, results as table and/or plot can be saved to disk.",
                 data.position = "right"
               ),
@@ -440,7 +440,7 @@ ui <- fluidPage(
         tabPanel(
           introBox(
             span(icon("table", class = NULL, lib = "font-awesome"),
-              "Transcript/Gene",
+              "Gene_table",
               title = "Table of expression and other info of all genes/transcripts"
             ),
             data.step = 7,
@@ -465,7 +465,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span(icon("list", class = NULL, lib = "font-awesome"), "Majiq_alt",
+            span(icon("list", class = NULL, lib = "font-awesome"), "AS_table",
               title = "Table of majiq output for alternative splicing events"
             ),
             data.step = 8,
@@ -573,7 +573,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span(icon("chart-bar", class = NULL, lib = "font-awesome"), "GO_terms",
+            span(icon("chart-bar", class = NULL, lib = "font-awesome"), "GO",
               title = "GO term enrichment for loaded Genelist (slow)"
             ),
             data.step = 14,
@@ -652,7 +652,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span(icon("circle", class = NULL, lib = "font-awesome"), "Genes_venn",
+            span(icon("circle", class = NULL, lib = "font-awesome"), "Venn",
               title = "visualize gene overlap between regions by venn diagram, and retrieve lists"
             ),
             data.step = 16,
@@ -710,9 +710,15 @@ ui <- fluidPage(
           plotlyOutput("vennPlot") %>% withLoader()
         ),
         tabPanel(
-          span(icon("circle-notch", class = NULL, lib = "font-awesome"),
-               "Genome",
-               title = "Visualize gene list on major chromosomes"
+          introBox(
+            span(icon("circle-notch", class = NULL, lib = "font-awesome"),
+                 "Genome",
+                 title = "Visualize gene list on major chromosomes"
+            ),
+            data.step = 17,
+            data.intro = "Circos-like visualization of genes from Genelist on newly assembled genome.<br><br>
+            Note that thousands of very short contigs are not displayed.<br><br>Saves as html.",
+            data.position = "top"
           ),
           value = "genome",
           uiOutput("circosUI")
@@ -724,7 +730,7 @@ ui <- fluidPage(
               title = "View version and author info",
             ),
             value = "about",
-            data.step = 18,
+            data.step = 19,
             data.intro = "Additional information on the study and authors.<br><br>
             Hope squirrelBox will be informative for your data explorations!",
             data.position = "top"
