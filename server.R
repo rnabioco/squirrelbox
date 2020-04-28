@@ -878,15 +878,16 @@ server <- function(input, output, session) {
       return(ggplot() +
         ggtitle("no genes loaded"))
     }
-    tops <<- tops %>% dplyr::slice(1:max(min(which(tops$padj > as.numeric(input$pval))), 15))
+    tops <- tops %>% dplyr::slice(1:max(min(which(tops$padj > as.numeric(input$pval))), 15)) %>% 
+      mutate(pathway = str_to_lower(pathway))
 
     g <- ggplot(
-      tops %>% dplyr::slice(1:15) %>% 
-        mutate(pathway = str_to_lower(pathway)),
+      tops %>% dplyr::slice(1:15),
       aes(x = pathway, y = minuslog10, fill = -minuslog10, text = len)
     ) +
       geom_bar(stat = "identity") +
       xlab(paste0("enriched : ", str_remove(gmt_short, "_"))) +
+      scale_x_discrete(limits= rev(tops$pathway[1:15])) +
       coord_flip() +
       cowplot::theme_minimal_vgrid() +
       theme(
@@ -1229,6 +1230,49 @@ server <- function(input, output, session) {
     }
   })
 
+  # circos
+  circostrack <- reactive({
+    rv$line_refresh
+    bed_f <- bed %>% filter((unique_gene_symbol %in% historytablist) | (str_to_upper(unique_gene_symbol) %in% historytablist)) %>% 
+      filter(as.numeric(str_remove(chrom, "Itri")) <= 21)
+    bbb <<- bed_f
+    
+    bed_f <- bed_f %>% group_by(unique_gene_symbol) %>% bed_merge(max_dist = 1000000000) %>% 
+      bed_slop(sq_g, both = 1500000)
+    
+    arcs_chromosomes <- str_remove(bed_f$chrom, "Itri") # Chromosomes on which the arcs should be displayed
+    arcs_begin <- bed_f$start
+    arcs_end <- bed_f$end
+    arcs_lab <- bed_f$unique_gene_symbol
+    
+    tracklist = BioCircosArcTrack('myArcTrack', arcs_chromosomes, arcs_begin, arcs_end, labels = arcs_lab,
+                                  minRadius = 0.7, maxRadius = 0.9, colors = "black")
+    tracklist
+  })
+  
+  circosPlot1 <- reactive({
+    BioCircos(circostrack(), genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")))
+  })
+  circosPlotr <- reactive({
+    output$circos <- renderBioCircos({
+      circosPlot1()
+    })
+    BioCircosOutput("circos", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100)
+  })
+  
+  output$circosUI <- renderUI({
+    circosPlotr()
+  })
+  
+  savePlot7 <- downloadHandler(
+    filename = "genome.html",
+    content = function(file) {
+      htmlwidgets::saveWidget(circosPlot1(), file = file)
+    }
+  )
+  
+  # misc
+  
   onclick("Cart_all", {
     gene_vec <- unlist(venntemp()) %>% unique()
     carttablist <- gene_vec
@@ -1851,6 +1895,12 @@ server <- function(input, output, session) {
       disable("savePlot2")
       disable("saveTable")
       disable("saveTable2")
+    } else if (input$tabMain == "genome") {
+      enable("savePlot")
+      enable("savePlot2")
+      disable("saveTable")
+      disable("saveTable2")
+      output$savePlot <- savePlot7
     }
   })
 

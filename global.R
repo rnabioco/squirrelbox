@@ -23,6 +23,7 @@ library(shinyWidgets)
 library(rintrojs)
 library(shinyBS)
 library(bsplus)
+library(BioCircos)
 
 shinyOptions(cache = diskCache("./app-cache", max_size = 100 * 1024^2))
 options(readr.num_columns = 0)
@@ -31,7 +32,6 @@ options(spinner.type = 6)
 theme_set(theme_cowplot())
 # options(shiny.reactlog = TRUE)
 # options(repos = BiocManager::repositories())
-
 
 ### folders
 rpath <- "R"
@@ -654,3 +654,9 @@ gene_list <- sapply(lists_vec, function(x) {
   read_csv(paste0(listpath, "/", x)) %>% pull(1)
 }, simplify = FALSE)
 names(gene_list) <- names(gene_list) %>% str_remove("\\..+")
+
+# chromosome sizes
+sq1 <- as.list(readRDS(paste0(annotpath, "/sq_chr.rds")))[1:21]
+sq_g <- data.frame(chrom = names(sq1),
+                   size = unlist(sq1))
+

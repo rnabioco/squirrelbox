@@ -387,8 +387,7 @@ ui <- fluidPage(
                   data.step = 4,
                   data.intro = "Additional plotting options, for interactivity and labels, can be accessed here.",
                   data.position = "left"
-                ),
-              ),
+                )              ),
               div(
                 style = "vertical-align:top;",
                 uiOutput("boxPlotUI") %>% withLoader()
@@ -653,7 +652,7 @@ ui <- fluidPage(
         ),
         tabPanel(
           introBox(
-            span(icon("circle-notch", class = NULL, lib = "font-awesome"), "Genes_venn",
+            span(icon("circle", class = NULL, lib = "font-awesome"), "Genes_venn",
               title = "visualize gene overlap between regions by venn diagram, and retrieve lists"
             ),
             data.step = 16,
@@ -711,11 +710,20 @@ ui <- fluidPage(
           plotlyOutput("vennPlot") %>% withLoader()
         ),
         tabPanel(
+          span(icon("circle-notch", class = NULL, lib = "font-awesome"),
+               "Genome",
+               title = "Visualize gene list on major chromosomes"
+          ),
+          value = "genome",
+          uiOutput("circosUI")
+        ),
+        tabPanel(
           introBox(
             span(icon("info", class = NULL, lib = "font-awesome"),
               "About",
               title = "View version and author info",
             ),
+            value = "about",
             data.step = 18,
             data.intro = "Additional information on the study and authors.<br><br>
             Hope squirrelBox will be informative for your data explorations!",
