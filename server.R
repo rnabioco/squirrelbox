@@ -12,6 +12,7 @@ server <- function(input, output, session) {
   rv$temp_orfs <- data.frame()
   rv$listn <- 1
   rv$listn2 <- 0
+  rv$listn3 <- ""
   rv$cart <- 0
   rv$xsel <- "NA"
   rv$richsel <- "NA"
@@ -1233,14 +1234,35 @@ server <- function(input, output, session) {
   # circos
   circostrack <- reactive({
     rv$line_refresh
-    if (length(historytablist) == 0) {
+    if (input$guse == "_none") {
+      rv$bed <<- ""
+      rv$listn3 <<- "Displaying 0 genes"
+      return(NA)
+    } else if (input$guse == "_Gene_list") {
+      templist <- historytablist
+    } else if (input$guse == "_Cart_list"){
+      templist <- carttablist
+    } else {
+      templist <- gene_list[[input$guse]]
+    }
+    if (length(templist) == 0) {
+      rv$bed <<- ""
+      rv$listn3 <<- "Displaying 0 genes"
       return(NA)
     }
-    bed_f <- bed %>% filter((unique_gene_symbol %in% historytablist) | (str_to_upper(unique_gene_symbol) %in% historytablist)) %>% 
-      filter(as.numeric(str_remove(chrom, "Itri")) <= 21)
     
-    bed_f <- bed_f %>% group_by(unique_gene_symbol) %>% bed_merge(max_dist = 1000000000) %>% 
-      bed_slop(sq_g, both = 1500000)
+    bed_f <- bed %>% filter((unique_gene_symbol %in% templist) | (str_to_upper(unique_gene_symbol) %in% templist))
+    
+    listn3_1 <- length(templist)
+    listn3_2 <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= 21) %>%
+      pull(unique_gene_symbol) %>% 
+      unique() %>% length()
+    rv$listn3 <<- paste0("Displaying ", listn3_2, " out of ", listn3_1, " genes")
+    
+    bed_f <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= 21)
+    bed_f <- bed_f %>% group_by(unique_gene_symbol) %>% bed_merge(max_dist = 1000000000) 
+    rv$bed <<- bed_f
+    bed_f <- bed_f %>% bed_slop(sq_g, both = 2500000, trim = TRUE)
     
     arcs_chromosomes <- str_remove(bed_f$chrom, "Itri") # Chromosomes on which the arcs should be displayed
     arcs_begin <- bed_f$start
@@ -1248,7 +1270,7 @@ server <- function(input, output, session) {
     arcs_lab <- bed_f$unique_gene_symbol
     
     tracklist = BioCircosArcTrack('myArcTrack', arcs_chromosomes, arcs_begin, arcs_end, labels = arcs_lab,
-                                  minRadius = 0.7, maxRadius = 0.9, colors = "black")
+                                  minRadius = 0.7, maxRadius = 0.9, colors = "black", opacities = 0.4)
     tracklist
   })
   
@@ -1259,6 +1281,7 @@ server <- function(input, output, session) {
       BioCircos(circostrack(), genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")))
     }
   })
+  
   circosPlotr <- reactive({
     output$circos <- renderBioCircos({
       circosPlot1()
@@ -1276,6 +1299,14 @@ server <- function(input, output, session) {
       htmlwidgets::saveWidget(circosPlot1(), file = file)
     }
   )
+  
+  saveFilteredbed <- downloadHandler("filtré.csv", content = function(file) {
+    write_csv(rv$bed, file)
+  })
+  
+  output$listn3 <- renderUI({
+    HTML(str_c("<strong><h5>", rv$listn3, "</h5></strong>"))
+  })
   
   # misc
   
@@ -1904,9 +1935,11 @@ server <- function(input, output, session) {
     } else if (input$tabMain == "genome") {
       enable("savePlot")
       enable("savePlot2")
-      disable("saveTable")
-      disable("saveTable2")
+      enable("saveTable")
+      enable("saveTable2")
       output$savePlot <- savePlot7
+      output$saveTable <- saveFilteredbed
+      output$saveTable2 <- saveFilteredbed
     }
   })
 
