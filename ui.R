@@ -722,7 +722,7 @@ ui <- fluidPage(
           ),
           value = "genome",
           div(
-            style = "display:inline-block;width: 160px;margin-top:5px",
+            style = "display:inline-block;width: 160px;margin-top:6px",
             selectizeInput("guse", NULL,
                            choices = c(
                              "_none", "_Gene_list", "_Cart_list",
@@ -735,6 +735,22 @@ ui <- fluidPage(
             style = "display: inline-block;vertical-align:top;",
             uiOutput("listn3", inline = TRUE) %>%
             bs_embed_tooltip("Short contigs 22 and above are hidden", placement = "top")
+          ),
+          div(style = "height:1px;margin:-10px", ""),
+          div(
+            style = "display:inline-block;width: 160px;margin-top:6px",
+            selectizeInput("guse2", NULL,
+                           choices = c(
+                             "_none", "_Gene_list", "_Cart_list",
+                             names(gene_list)
+                           ),
+                           selected = "_none"
+            ) %>% bs_embed_tooltip("Which genes to show in genome view", placement = "top")
+          ),
+          div(
+            style = "display: inline-block;vertical-align:top;color:green",
+            uiOutput("listn4", inline = TRUE) %>%
+              bs_embed_tooltip("Short contigs 22 and above are hidden", placement = "top")
           ),
           uiOutput("circosUI") %>% withLoader()
         ),

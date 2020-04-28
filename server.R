@@ -13,6 +13,7 @@ server <- function(input, output, session) {
   rv$listn <- 1
   rv$listn2 <- 0
   rv$listn3 <- ""
+  rv$listn4 <- ""
   rv$cart <- 0
   rv$xsel <- "NA"
   rv$richsel <- "NA"
@@ -1274,11 +1275,56 @@ server <- function(input, output, session) {
     tracklist
   })
   
-  circosPlot1 <- reactive({
-    if (is.na(circostrack())) {
-      BioCircos(genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")))
+  circostrack2 <- reactive({
+    rv$line_refresh
+    if (input$guse2 == "_none") {
+      rv$listn4 <<- "Displaying 0 genes"
+      return(NA)
+    } else if (input$guse2 == "_Gene_list") {
+      templist <- historytablist
+    } else if (input$guse2 == "_Cart_list"){
+      templist <- carttablist
     } else {
+      templist <- gene_list[[input$guse2]]
+    }
+    if (length(templist) == 0) {
+      rv$listn4 <<- "Displaying 0 genes"
+      return(NA)
+    }
+    
+    bed_f <- bed %>% filter((unique_gene_symbol %in% templist) | (str_to_upper(unique_gene_symbol) %in% templist))
+    
+    listn4_1 <- length(templist)
+    listn4_2 <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= 21) %>%
+      pull(unique_gene_symbol) %>% 
+      unique() %>% length()
+    rv$listn4 <<- paste0("Displaying ", listn4_2, " out of ", listn4_1, " genes")
+    
+    bed_f <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= 21)
+    bed_f <- bed_f %>% group_by(unique_gene_symbol) %>% bed_merge(max_dist = 1000000000) 
+    rv$bed <<- bed_f
+    bed_f <- bed_f %>% bed_slop(sq_g, both = 2500000, trim = TRUE)
+    
+    arcs_chromosomes <- str_remove(bed_f$chrom, "Itri") # Chromosomes on which the arcs should be displayed
+    arcs_begin <- bed_f$start
+    arcs_end <- bed_f$end
+    arcs_lab <- bed_f$unique_gene_symbol
+    
+    tracklist = BioCircosArcTrack('myArcTrack', arcs_chromosomes, arcs_begin, arcs_end, labels = arcs_lab,
+                                  minRadius = 0.45, maxRadius = 0.65, colors = "green", opacities = 0.4)
+    tracklist
+  })
+  
+  circosPlot1 <- reactive({
+    if (is.na(circostrack()) & is.na(circostrack2())) {
+      BioCircos(genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")))
+    } else if (is.na(circostrack())) {
+      BioCircos(circostrack2(), genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")))
+    } else if (is.na(circostrack2())) {
       BioCircos(circostrack(), genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")))
+    } else {
+      BioCircos(circostrack() + circostrack2(),
+                genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")))
     }
   })
   
@@ -1306,6 +1352,10 @@ server <- function(input, output, session) {
   
   output$listn3 <- renderUI({
     HTML(str_c("<strong><h5>", rv$listn3, "</h5></strong>"))
+  })
+  
+  output$listn4 <- renderUI({
+    HTML(str_c("<strong><h5 style='color:green'>", rv$listn4, "</h5></strong>"))
   })
   
   # misc
@@ -2017,22 +2067,25 @@ server <- function(input, output, session) {
 
   observeEvent(input$tutorial, {
     introjs(session, options = list(
-      "nextLabel" = "next",
-      "prevLabel" = "prev",
+      "nextLabel" = ">",
+      "prevLabel" = "<",
       "skipLabel" = "skip",
       "overlayOpacity" = -1
-    ))
+      ) #,events = list("onexit" = I("alert('abc')"))
+    )
   })
 
-  observeEvent((rv$init == 1 & rv$starttutorial == 0), {
-    if (start_tutorial) {
+  observeEvent(rv$run2, {
+    print("fire")
+    if (start_tutorial & rv$starttutorial == 0) {
+      rv$starttutorial <- 1
       introjs(session, options = list(
-        "nextLabel" = "next",
-        "prevLabel" = "prev",
+        "nextLabel" = ">",
+        "prevLabel" = "<",
         "skipLabel" = "skip",
         "overlayOpacity" = -1
-      ))
+        )
+      ) #events = list("onexit" = I("document.getElementsByClassName('introjs-nextbutton').blur()")))
     }
-    rv$starttutorial <- 1
   })
 }
