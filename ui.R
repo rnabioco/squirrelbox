@@ -659,7 +659,7 @@ ui <- fluidPage(
         tabPanel(
           introBox(
             span(icon("circle", class = NULL, lib = "font-awesome"), "Venn",
-              title = "visualize gene overlap between regions by venn diagram, and retrieve lists"
+              title = "Visualize gene overlap between regions by venn diagram, and retrieve lists"
             ),
             data.step = 16,
             data.intro = "Use venn diagram to visualize documented and loaded Genelist/Cart.<br><br>

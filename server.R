@@ -2090,7 +2090,6 @@ server <- function(input, output, session) {
   })
 
   observeEvent(rv$run2, {
-    print("fire")
     if (start_tutorial & rv$starttutorial == 0) {
       rv$starttutorial <- 1
       introjs(session, options = list(
