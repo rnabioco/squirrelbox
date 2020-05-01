@@ -33,6 +33,9 @@ ui <- fluidPage(
         z-index:100;
         width: calc(100% - 70px);
       }
+      .BioCircosARCTooltip {
+        z-index:10
+      }
   "),
   tags$head(tags$style(
     HTML(
@@ -758,7 +761,10 @@ ui <- fluidPage(
             uiOutput("listn4", inline = TRUE) %>%
               bs_embed_tooltip("short contigs 22 and above are hidden", placement = "top")
           ),
-          uiOutput("circosUI") %>% withLoader()
+          div(
+            style = "z-index:-1;",
+            uiOutput("circosUI") %>% withLoader()
+          )
         ),
         tabPanel(
           introBox(
@@ -769,7 +775,7 @@ ui <- fluidPage(
             value = "about",
             data.step = 19,
             data.intro = "Additional information on the study and authors.<br><br>
-            Hope squirrelBox will be informative for your data explorations!",
+            We hope squirrelBox will be informative for your data explorations!",
             data.position = "top"
           ),
           value = "about",
