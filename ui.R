@@ -118,14 +118,16 @@ ui <- fluidPage(
         bs_embed_tooltip("Take a tour through the app!", placement = "bottom"),
       data.step = 1,
       data.intro = "Welcome to the squirrelBox.<br><br>
-      Please note that most buttons, tabs, and table columns have hover-over tips.",
+      Please note that most buttons, tabs, and table columns have hover-over tips/explanations.",
       data.position = "left"
     )
   ),
   fixedPanel(
     style = "z-index:100;",
-    actionButton("back_to_top", label = "to Top", icon = icon("angle-double-up")) %>% bs_embed_tooltip("scroll back to the top of the page"),
-    bsButton("showpanel", "Sidebar", type = "toggle", value = FALSE, icon = icon("bars")) %>% bs_embed_tooltip("turn sidebar on/off"),
+    actionButton("back_to_top", label = "to Top", icon = icon("angle-double-up")) %>%
+      bs_embed_tooltip("scroll back to the top of the page"),
+    bsButton("showpanel", "Sidebar", type = "toggle", value = FALSE, icon = icon("bars")) %>%
+      bs_embed_tooltip("turn sidebar on/off"),
     right = 10,
     bottom = 10
   ),
@@ -150,7 +152,8 @@ ui <- fluidPage(
             ),
             div(
               style = "display: inline-block;vertical-align:top; width: 10px;",
-              actionButton("Find", "Find", icon = icon("search")) %>% bs_embed_tooltip("gene id/symbols accepted", placement = "right")
+              actionButton("Find", "Find", icon = icon("search")) %>%
+                bs_embed_tooltip("gene id/symbols accepted", placement = "right")
             )
           ),
           data.step = 2,
@@ -203,7 +206,7 @@ ui <- fluidPage(
                   )
                 ),
                 data.step = 18,
-                data.intro = "For each different section, results as table and/or plot can be saved to disk.",
+                data.intro = "For each section, results as table and/or plot can be saved to disk.",
                 data.position = "right"
               ),
               br(.noWS = "outside"),
@@ -280,7 +283,7 @@ ui <- fluidPage(
                 span(icon("file-alt", class = NULL, lib = "font-awesome"), "Genelist", title = "load list of genes for analysis from file or interactive table"),
                 data.step = 9,
                 data.intro = "Genelist can be loaded from external file, or passed from the tables/cart.<br><br>
-                The other multi-gene analysis tabs, Lineplot/Heatmap/GO/Kmer, all use genes from this list.",
+                The other multi-gene analysis tabs, Lineplot/ Heatmap/ GO/ Kmer, all use genes from this list.",
                 data.position = "top"
               ),
               value = "load",
@@ -398,18 +401,18 @@ ui <- fluidPage(
                 id = "tabs", multiple = TRUE, open = NULL, # open = "cluster_assignments",
                 bsCollapsePanel(
                   uiOutput("EigenPlot") %>% withLoader(),
-                  title = "cluster_assignments",
+                  title = "Cluster_assignments",
                   style = "danger"
                 )
               ),
               data.step = 5,
-              data.intro = "additional info panels for the query gene is by default folded, click to reveal", 
+              data.intro = "Additional info panels for the query gene is by default folded, click to reveal.", 
               data.position = "top"
             ),
             bsCollapse(
               id = "tabs2", multiple = TRUE, open = NULL, # open = "called_orfs",
               bsCollapsePanel(DT::dataTableOutput("orfinfo") %>% withLoader(),
-                title = "called_orfs",
+                title = "Called_orfs",
                 style = "primary"
               )
             ),
@@ -417,7 +420,7 @@ ui <- fluidPage(
               id = "tabs3", multiple = TRUE, open = NULL, # open = "majiq_alternative_splicing",
               bsCollapsePanel(
                 DT::dataTableOutput("majinfo") %>% withLoader(),
-                title = "majiq_alternative_splicing",
+                title = "MAJIQ_alternative_splicing",
                 style = "warning"
               )
             ),
@@ -431,7 +434,7 @@ ui <- fluidPage(
             bsCollapse(
               id = "tabs5", multiple = TRUE, open = NULL, # open = "go_terms/domains",
               bsCollapsePanel(DT::dataTableOutput("gotab") %>% withLoader(),
-                title = "go_terms/domains",
+                title = "GO_terms/domains",
                 style = "info"
               )
             )
@@ -577,7 +580,7 @@ ui <- fluidPage(
               title = "GO term enrichment for loaded Genelist (slow)"
             ),
             data.step = 14,
-            data.intro = "GO term enrichment of loaded Genelist by fisher exact test.<br><br>
+            data.intro = "GO term enrichment of loaded Genelist by Fisher's exact test.<br><br>
             Top 15 results are plotted, while full table can be exported.<br><br>
             Clicking on bar loads the corresponding genes into Cart.",
             data.position = "top"
@@ -610,7 +613,7 @@ ui <- fluidPage(
             ),
             data.step = 15,
             data.intro = "Kmer analysis of loaded Genelist, with option to annotate known RBP motifs or mir seeds.<br><br>
-            Note that this process may take ~30 seconds.",
+            Note that this process may take ~30 seconds due to statistical calculations.",
             data.position = "top"
           ),
           value = "kmer_analysis",
@@ -622,14 +625,17 @@ ui <- fluidPage(
           div(
             id = "kmerdiv",
             style = "display: inline-block;vertical-align:top; width:175px;",
-            radioButtons("km", "kmer length", c("5", "6", "7"), selected = "6", inline = TRUE)
+            radioButtons("km", "kmer length", c("5", "6", "7"), selected = "6", inline = TRUE) %>%
+              bs_embed_tooltip("longer kmer requires longer calculation time.",
+                               placement = "bottom")
           ),
           div(
             id = "kmlabdiv",
             style = "display: inline-block;vertical-align:top; width:250px;",
             tags$style(HTML(".radio-inline {margin-right: 10px;}")),
             radioButtons("kmlab", "annotate kmer", c("RBP/mir", "seq", "none"), selected = "RBP/mir", inline = TRUE) %>%
-              bs_embed_tooltip("Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed")
+              bs_embed_tooltip("annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed",
+                               placement = "bottom")
           ),
           div(
             style = "display: inline-block;vertical-align:top;",
@@ -717,7 +723,7 @@ ui <- fluidPage(
             ),
             data.step = 17,
             data.intro = "Circos-like visualization of genes from Genelist on newly assembled genome.<br><br>
-            Note that thousands of very short contigs are not displayed.<br><br>Saves as html.",
+            Note that thousands of very short contigs are not displayed in the plot.<br><br>Saves as .html.",
             data.position = "top"
           ),
           value = "genome",
@@ -729,12 +735,12 @@ ui <- fluidPage(
                              names(gene_list)
                            ),
                            selected = "_Gene_list"
-            ) %>% bs_embed_tooltip("Which genes to show in genome view", placement = "top")
+            ) %>% bs_embed_tooltip("which genes to show in genome view", placement = "top")
           ),
           div(
             style = "display: inline-block;vertical-align:top;",
             uiOutput("listn3", inline = TRUE) %>%
-            bs_embed_tooltip("Short contigs 22 and above are hidden", placement = "top")
+            bs_embed_tooltip("short contigs 22 and above are hidden", placement = "top")
           ),
           div(style = "height:1px;margin:-10px", ""),
           div(
@@ -745,12 +751,12 @@ ui <- fluidPage(
                              names(gene_list)
                            ),
                            selected = "_none"
-            ) %>% bs_embed_tooltip("Which genes to show in genome view", placement = "top")
+            ) %>% bs_embed_tooltip("which genes to show in genome view", placement = "top")
           ),
           div(
             style = "display: inline-block;vertical-align:top;color:green",
             uiOutput("listn4", inline = TRUE) %>%
-              bs_embed_tooltip("Short contigs 22 and above are hidden", placement = "top")
+              bs_embed_tooltip("short contigs 22 and above are hidden", placement = "top")
           ),
           uiOutput("circosUI") %>% withLoader()
         ),

@@ -660,3 +660,5 @@ sq1 <- as.list(readRDS(paste0(annotpath, "/sq_chr.rds")))[1:21]
 sq_g <- data.frame(chrom = names(sq1),
                    size = unlist(sq1))
 
+# editing sites
+# edits <- read_tsv(paste0(annotpath, "/GSE106947_hyperedited_sites.bed.gz"))

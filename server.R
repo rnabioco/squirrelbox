@@ -47,7 +47,7 @@ server <- function(input, output, session) {
   historytab <- c()
 
   # init
-  observeEvent(rv$init == 0, {
+  observeEvent(rv$init, {
     if (rv$init == 0) {
       query <- parseQueryString(session$clientData$url_search)
       if (!is.null(query[["gene"]])) {
@@ -305,11 +305,25 @@ server <- function(input, output, session) {
           mods <- (rv$mod_df[1, ] %>% unlist())[-1]
           reg <- names(rv$mod_df)[-1]
         }
-        cowplot::plot_grid(
+        title <- ggdraw() + 
+          draw_label(
+            "cluster model expression (empty for genes with insignificant change or filtered out for low expression)",
+            fontface = 'bold',
+            x = 0,
+            hjust = 0
+          ) +
+          theme(plot.margin = margin(0, 0, 0, 7))
+        plots <- cowplot::plot_grid(
           plotlist = map(mods, function(x) eigen_gg[[x]]),
           labels = str_c(str_remove(reg, "cluster_"), mods, sep = ": "),
           ncol = 3,
           label_x = .3, hjust = 0
+        )
+        cowplot::plot_grid(
+          title,
+          plots,
+          ncol = 1,
+          rel_heights = c(0.1, 1)
         )
       }
     },
@@ -1261,7 +1275,7 @@ server <- function(input, output, session) {
     rv$listn3 <<- paste0("Displaying ", listn3_2, " out of ", listn3_1, " genes")
     
     bed_f <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= 21)
-    bed_f <- bed_f %>% group_by(unique_gene_symbol) %>% bed_merge(max_dist = 1000000000) 
+    bed_f <- bed_f %>% group_by(unique_gene_symbol) %>% bed_merge(max_dist = 10000000) 
     rv$bed <<- bed_f
     bed_f <- bed_f %>% bed_slop(sq_g, both = 2500000, trim = TRUE)
     
@@ -1405,7 +1419,7 @@ server <- function(input, output, session) {
   })
 
   # find function on new input
-  observeEvent(input$geneID != "", {
+  observeEvent(input$geneID, {
     if (rv$run2 == 1 & input$geneID != "" & !is.null(input$geneID) & input$tabMain == "Gene_query") {
       rv$run2 <- 1
       shinyjs::click("Find")
