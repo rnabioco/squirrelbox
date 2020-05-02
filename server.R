@@ -1270,12 +1270,12 @@ server <- function(input, output, session) {
     bed_f <- bed %>% filter((unique_gene_symbol %in% templist) | (str_to_upper(unique_gene_symbol) %in% templist))
     
     listn3_1 <- length(templist)
-    listn3_2 <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= 21) %>%
+    listn3_2 <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= chrlimit) %>%
       pull(unique_gene_symbol) %>% 
       unique() %>% length()
     rv$listn3 <<- paste0("Displaying ", listn3_2, " out of ", listn3_1, " genes")
     
-    bed_f <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= 21)
+    bed_f <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= chrlimit)
     bed_f <- bed_f %>% group_by(unique_gene_symbol) %>% bed_merge(max_dist = 10000000) 
     rv$bed <<- bed_f
     bed_f <- bed_f %>% bed_slop(sq_g, both = 2500000, trim = TRUE)
@@ -1286,7 +1286,7 @@ server <- function(input, output, session) {
     arcs_lab <- bed_f$unique_gene_symbol
     
     tracklist = BioCircosArcTrack('myArcTrack', arcs_chromosomes, arcs_begin, arcs_end, labels = arcs_lab,
-                                  minRadius = 0.7, maxRadius = 0.9, colors = "black", opacities = 0.4)
+                                  minRadius = 0.45, maxRadius = 0.65, colors = "blue", opacities = 0.4)
     tracklist
   })
   
@@ -1310,12 +1310,12 @@ server <- function(input, output, session) {
     bed_f <- bed %>% filter((unique_gene_symbol %in% templist) | (str_to_upper(unique_gene_symbol) %in% templist))
     
     listn4_1 <- length(templist)
-    listn4_2 <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= 21) %>%
+    listn4_2 <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= chrlimit) %>%
       pull(unique_gene_symbol) %>% 
       unique() %>% length()
     rv$listn4 <<- paste0("Displaying ", listn4_2, " out of ", listn4_1, " genes")
     
-    bed_f <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= 21)
+    bed_f <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= chrlimit)
     bed_f <- bed_f %>% group_by(unique_gene_symbol) %>% bed_merge(max_dist = 1000000000) 
     rv$bed <<- bed_f
     bed_f <- bed_f %>% bed_slop(sq_g, both = 2500000, trim = TRUE)
@@ -1326,25 +1326,53 @@ server <- function(input, output, session) {
     arcs_lab <- bed_f$unique_gene_symbol
     
     tracklist = BioCircosArcTrack('myArcTrack', arcs_chromosomes, arcs_begin, arcs_end, labels = arcs_lab,
-                                  minRadius = 0.45, maxRadius = 0.65, colors = "green", opacities = 0.4)
+                                  minRadius = 0.2, maxRadius = 0.4, colors = "green", opacities = 0.4)
+    tracklist
+  })
+  
+  circostrack3 <- reactive({
+    if (input$guse3 == "_none") {
+      return(NA)
+    } else {
+      bed_temp <- bed_fc %>% filter(region == input$guse3) %>%
+        filter(as.numeric(str_remove(chrom, "Itri")) <= chrlimit) %>% filter(abs(fold) >= 0.1)
+    }
+    temp3 <- bed_temp
+    tracklist <- BioCircosBarTrack(trackname = "fc", 
+                                   chromosomes = str_remove(temp3$chrom, "Itri"),
+                                   starts = temp3$start, 
+                                   ends = temp3$end, 
+                                   values = temp3$fold, 
+                                   labels = temp3$unique_gene_symbol,
+                                   range = c(0,log2(ceiling(max(bed_fc$fold)))),
+                                   color = "#000000",
+                                   maxRadius = 0.87,
+                                   minRadius = 0.7)
     tracklist
   })
   
   circosPlot1 <- reactive({
-    if (is.na(circostrack()) & is.na(circostrack2())) {
-      BioCircos(genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")), 
-                zoom = F)
-    } else if (is.na(circostrack())) {
-      BioCircos(circostrack2(), genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")), 
-                zoom = F)
-    } else if (is.na(circostrack2())) {
-      BioCircos(circostrack(), genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")), 
-                zoom = F)
-    } else {
-      BioCircos(circostrack() + circostrack2(),
-                genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")), 
-                zoom = F)
+    tracks = BioCircosTracklist()
+    if (!(is.na(circostrack()))) {
+      tracks <- tracks + circostrack()
     }
+    if (!(is.na(circostrack2()))) {
+      tracks <- tracks + circostrack2()
+    }
+    if (!(is.na(circostrack3()))) {
+      tracks <- tracks + circostrack3()
+    }
+    BioCircos(tracks,
+              genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")), 
+              ARCMouseOverTooltipsHtml02 = "<!––",
+              ARCMouseOverTooltipsHtml03 = "",
+              ARCMouseOverTooltipsHtml04 = "––><br/>",
+              chrPad = 0.023,
+              genomeLabelTextSize = "9pt",
+              BARMouseOverTooltipsHtml02 = "<!––", 
+              BARMouseOverTooltipsHtml03 = "",
+              BARMouseOverTooltipsHtml04 = "––><br/>",
+              BARMouseOverTooltipsHtml05 = "<br/>max_log2FC: ")
   })
   
   circosPlotr <- reactive({
@@ -1437,6 +1465,18 @@ server <- function(input, output, session) {
       updateSelectizeInput(session,
                            inputId = "geneID",
                            selected = input$geneID2,
+                           choices = autocomplete_list,
+                           server = T
+      )
+    }
+  })
+  
+  observeEvent(input$geneID3, {
+    rv$run2 <- 1
+    if (input$geneID3 %in% autocomplete_list) {
+      updateSelectizeInput(session,
+                           inputId = "geneID",
+                           selected = input$geneID3,
                            choices = autocomplete_list,
                            server = T
       )
