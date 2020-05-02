@@ -26,6 +26,7 @@ server <- function(input, output, session) {
   rv$go <- 0
   rv$tabinit_plot <- 0
   rv$tabinit_data <- 0
+  rv$tabinit_as <- 0
   rv$tabinit_enrich <- 0
   rv$tabinit_kmer <- 0
   rv$tabinit_venn <- 0
@@ -82,7 +83,7 @@ server <- function(input, output, session) {
       jqui_sortable(ui = "#tabMain", operation = "destroy")
     } else if (input$doLock != TRUE) {
       jqui_sortable(ui = "#sorted", operation = "enable", options = list(cancel = ".datatables"))
-      jqui_sortable(ui = "#sidediv", operation = "enable", options = list(cancel = ".datatables"))
+      jqui_sortable(ui = "#sidediv", operation = "enable", options = list(cancel = ".form-control"))
       jqui_sortable(ui = "#tabMain", operation = "enable")
     }
   })
@@ -1937,12 +1938,12 @@ server <- function(input, output, session) {
       enable("saveTable2")
       output$saveTable <- saveFiltered
       output$saveTable2 <- saveFiltered
-      # if (rv$tabinit_data == 0) {
-      #   showNotification("type `low...high` to input custom range for numeric filtering on column",
-      #     type = "message"
-      #   )
-      #   rv$tabinit_data <<- 1
-      # }
+      if (rv$tabinit_data == 0) {
+        showNotification("Type `low...high` to input custom range for numeric filtering on column. For instance, 0...0.001 filters for significant p value",
+                         type = "message"
+        )
+        rv$tabinit_data <<- 1
+      }
     } else if (input$tabMain == "table_AS") {
       disable("savePlot")
       disable("savePlot2")
@@ -1950,6 +1951,12 @@ server <- function(input, output, session) {
       enable("saveTable2")
       output$saveTable <- saveFilteredAS
       output$saveTable2 <- saveFilteredAS
+      if (rv$tabinit_as == 0) {
+        showNotification("Type `low...high` to input custom range for numeric filtering on column. For instance, 0...0.001 filters for significant p value",
+                         type = "message"
+        )
+        rv$tabinit_as <<- 1
+      }
     } else if (input$tabMain == "line_plot") {
       enable("savePlot")
       enable("savePlot2")

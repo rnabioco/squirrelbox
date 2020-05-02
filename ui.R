@@ -28,7 +28,6 @@ $(document).on("shiny:sessioninitialized",function(){
 });
 '
 
-
 # Define UI for application that draws the boxplot
 ui <- fluidPage(
   title = "squirrelBox",
@@ -51,15 +50,20 @@ ui <- fluidPage(
   tags$head(tags$style(
     HTML(
       "
-         #SIDE {
-            background-color: #F8F8F8;
+        #SIDE {
+          background-color: #F8F8F8;
         }",
       ".btn-options {
-         background-color: #F8F8F8;
+          background-color: #F8F8F8;
         }",
       ".btn {
-  text-transform: unset !important;
-}"
+          text-transform: unset !important;
+        }",
+      ".shiny-notification {
+        position:fixed;
+        top: 10px;
+        right: 10px);
+      }"
     )
   )),
   useShinyjs(),
@@ -240,7 +244,7 @@ ui <- fluidPage(
               div(id = "doTisdiv", checkboxInput("doTis", "plot non-brain data", value = F, width = NULL)),
               div(
                 id = "doLockdiv",
-                checkboxInput("doLock", "lock main panel order", value = T, width = NULL) %>%
+                checkboxInput("doLock", "lock panel order", value = FALSE, width = NULL) %>%
                   bs_embed_tooltip("if unlocked, tabs, sections, and table columns can be dragged and reordered",
                     placement = "right"
                   )
@@ -659,7 +663,8 @@ ui <- fluidPage(
           ),
           div(
             id = "rbptermdiv",
-            style = "display: inline-block;vertical-align:top;width:250px",
+            style = "display: inline-block;vertical-align:top;width:200px;margin-bottom:-60px;padding-bottom:-60px",
+            tags$style(HTML("#rbpterm {margin-top: -7px;}")),
             textInput("rbpterm", "highlight annotation", value = "MEX3C") %>%
               bs_embed_tooltip("highlights annotation in black, case insensitive", placement = "bottom")
           ),
@@ -667,7 +672,7 @@ ui <- fluidPage(
             id = "doPlotly2div",
             style = "display: inline-block;",
             checkboxInput("doPlotly2", "interactive plot", value = T, width = NULL) %>%
-              bs_embed_tooltip("display interactive plot with additional info on hover", placement = "right"),
+              bs_embed_tooltip("display interactive plot with additional info on hover", placement = "bottom"),
             style = "width:200px",
           ),
           uiOutput("kmerPlotUI") %>% withLoader(loader = "pacman", proxy.height = paste0(plot_height * 100 / 2, "px"))
@@ -739,7 +744,7 @@ ui <- fluidPage(
             ),
             data.step = 17,
             data.intro = "Circos-like visualization of genes from Genelist on newly assembled genome.<br><br>
-            Note that thousands of very short contigs are not displayed in the plot.<br><br>Saves as .html.",
+            Note that thousands of very short contigs are not displayed in the plot.<br><br>Hover over gene marks for additional info. Clicking loads the gene up ready for query.<br><br>Plot saves as .html.",
             data.position = "top"
           ),
           value = "genome",
@@ -774,7 +779,10 @@ ui <- fluidPage(
             uiOutput("listn4", inline = TRUE) %>%
               bs_embed_tooltip("short contigs 22 and above are hidden", placement = "top")
           ),
-          uiOutput("circosUI") %>% withLoader()
+          div(
+            style = "margin-top:-20px",
+            uiOutput("circosUI") %>% withLoader()
+          )
         ),
         tabPanel(
           introBox(
