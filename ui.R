@@ -28,6 +28,16 @@ $(document).on("shiny:sessioninitialized",function(){
 });
 '
 
+jscode3 <- '
+$(document).on("shiny:sessioninitialized",function(){
+  $(document).on("click","path.BioCircosHISTOGRAM",function(){
+        var circ = document.querySelectorAll("#BioCircosHISTOGRAMTooltip");
+        var gene = circ[circ.length-1].innerHTML.split(/<br>/);
+        Shiny.setInputValue("geneID3", gene[gene.length-2]);
+  });
+});
+'
+
 # Define UI for application that draws the boxplot
 ui <- fluidPage(
   title = "squirrelBox",
@@ -44,6 +54,9 @@ ui <- fluidPage(
         width: calc(100% - 70px);
       }
       .BioCircosARCTooltip {
+        z-index:10
+      }
+      .BioCircosHISTOGRAMTooltip {
         z-index:10
       }
   "),
@@ -110,6 +123,7 @@ ui <- fluidPage(
   tags$script(src = "shinyBS_mod.js"),
   tags$head(tags$script(HTML(jscode))),
   tags$head(tags$script(HTML(jscode2))),
+  tags$head(tags$script(HTML(jscode3))),
   tags$head(tags$style(
     type = "text/css",
     ".shiny-output-error { visibility: hidden; }",
@@ -759,7 +773,7 @@ ui <- fluidPage(
             ) %>% bs_embed_tooltip("which genes to show in genome view", placement = "top")
           ),
           div(
-            style = "display: inline-block;vertical-align:top;",
+            style = "display: inline-block;vertical-align:top;color:blue",
             uiOutput("listn3", inline = TRUE) %>%
             bs_embed_tooltip("short contigs 22 and above are hidden", placement = "top")
           ),
@@ -779,8 +793,18 @@ ui <- fluidPage(
             uiOutput("listn4", inline = TRUE) %>%
               bs_embed_tooltip("short contigs 22 and above are hidden", placement = "top")
           ),
+          div(style = "height:1px;margin:-10px", ""),
           div(
-            style = "margin-top:-20px",
+            style = "display:inline-block;width: 160px;margin-top:6px",
+            selectizeInput("guse3", NULL,
+                           choices = c(
+                             "_none", "Forebrain", "Hypothalamus", "Medulla"
+                           ),
+                           selected = "Hypothalamus"
+            ) %>% bs_embed_tooltip("displays max log2FoldChange between states for this tissue", placement = "top")
+          ),
+          div(
+            style = "margin-top:-50px",
             uiOutput("circosUI") %>% withLoader()
           )
         ),

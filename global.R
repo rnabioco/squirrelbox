@@ -44,7 +44,7 @@ listpath <- "data/lists"
 source(paste0(rpath, "/ggvenn.R"))
 
 ### general data settings
-versionN <- 0.98
+versionN <- 0.99
 geoN <- "G1234"
 bsgenomeL <- "BSgenome.Itridecemlineatus.whatever"
 pageN <- 10
@@ -60,6 +60,7 @@ sig_cut <- 0.001
 ncore <- parallel::detectCores() - 1
 start_tutorial <- TRUE
 verbose_bench <- FALSE
+chrlimit <- 20
 
 ### choose and order columns
 table_cols <- c(
@@ -657,9 +658,9 @@ gene_list <- sapply(lists_vec, function(x) {
 names(gene_list) <- names(gene_list) %>% str_remove("\\..+")
 
 # chromosome sizes
-sq1 <- as.list(readRDS(paste0(annotpath, "/sq_chr.rds")))[1:21]
+sq1 <- as.list(readRDS(paste0(annotpath, "/sq_chr.rds")))[1:chrlimit]
 sq_g <- data.frame(chrom = names(sq1),
                    size = unlist(sq1))
-
+bed_fc <- readRDS(paste0(datapath, "/fc.rds"))
 # editing sites
 # edits <- read_tsv(paste0(annotpath, "/GSE106947_hyperedited_sites.bed.gz"))
