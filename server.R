@@ -1331,14 +1331,18 @@ server <- function(input, output, session) {
   
   circosPlot1 <- reactive({
     if (is.na(circostrack()) & is.na(circostrack2())) {
-      BioCircos(genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")))
+      BioCircos(genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")), 
+                zoom = F)
     } else if (is.na(circostrack())) {
-      BioCircos(circostrack2(), genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")))
+      BioCircos(circostrack2(), genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")), 
+                zoom = F)
     } else if (is.na(circostrack2())) {
-      BioCircos(circostrack(), genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")))
+      BioCircos(circostrack(), genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")), 
+                zoom = F)
     } else {
       BioCircos(circostrack() + circostrack2(),
-                genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")))
+                genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")), 
+                zoom = F)
     }
   })
   
@@ -1423,6 +1427,18 @@ server <- function(input, output, session) {
     if (rv$run2 == 1 & input$geneID != "" & !is.null(input$geneID) & input$tabMain == "Gene_query") {
       rv$run2 <- 1
       shinyjs::click("Find")
+    }
+  })
+  
+  observeEvent(input$geneID2, {
+    rv$run2 <- 1
+    if (input$geneID2 %in% autocomplete_list) {
+      updateSelectizeInput(session,
+                           inputId = "geneID",
+                           selected = input$geneID2,
+                           choices = autocomplete_list,
+                           server = T
+      )
     }
   })
 

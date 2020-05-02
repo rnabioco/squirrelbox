@@ -18,6 +18,57 @@ $(function() {
 });
 '
 
+# jscode2 <- '
+# $(document).ready(function(){
+#   $("path").click(function(){
+#     alert("Text: " + $("#BioCircosARCTooltip").text());
+#   });
+# });
+# '
+
+jscode2 <- '
+$(document).on("shiny:sessioninitialized",function(){
+  $(document).on("click","path.BioCircosARC",function(){
+        var circ = document.querySelectorAll("#BioCircosARCTooltip");
+        var gene = circ[circ.length-1].innerHTML.split(/<br>/).pop();
+        Shiny.setInputValue("geneID2", gene);
+  });
+});
+'
+
+#         
+#  Shiny.onInputChange("geneID", gene);
+# jscode2 <- '
+# function onLoad(svg, error){
+#   alert("Text: " + $("#BioCircosARCTooltip").text());
+#   $("path").click(function(){
+#     alert("Text: " + $("#BioCircosARCTooltip").text());
+#   });
+# }
+# '
+# 
+# jscode2 <- '
+#   var SVG = document.getElementsByTagName("svg")[0].children;
+#   for (i = 0; i < SVG.length; i++) {
+#    element = SVG[i];
+#    element.style = "cursor: pointer;";
+#    $(element).click(function(evt){alert("Text: abc")});
+#   } 
+#   
+# '
+# 
+# jscode3 <- '
+# var svgobj = svg.find("svg")[0].children;
+# for (i = 0; i < svgobj.length; i++) {
+#    element = svgobj[i];
+#    element.style = "cursor: pointer;";
+#    $(element).click(function(evt){alert("Text: abc")});
+# }  
+# '
+
+# g.BioCircosARC
+# alert("Text: " + $("#BioCircosARCTooltip").text());
+
 # Define UI for application that draws the boxplot
 ui <- fluidPage(
   title = "squirrelBox",
@@ -85,6 +136,7 @@ ui <- fluidPage(
   position: absolute;
   z-index: 1000;
 }
+
              "),
   tags$style(".mock {position:fixed;width:7%;margin-top: 60px;z-index:10;}"),
   tags$style("
@@ -93,6 +145,7 @@ ui <- fluidPage(
 }"),
   tags$script(src = "shinyBS_mod.js"),
   tags$head(tags$script(HTML(jscode))),
+  tags$head(tags$script(HTML(jscode2))),
   tags$head(tags$style(
     type = "text/css",
     ".shiny-output-error { visibility: hidden; }",
@@ -761,10 +814,7 @@ ui <- fluidPage(
             uiOutput("listn4", inline = TRUE) %>%
               bs_embed_tooltip("short contigs 22 and above are hidden", placement = "top")
           ),
-          div(
-            style = "z-index:-1;",
-            uiOutput("circosUI") %>% withLoader()
-          )
+          uiOutput("circosUI") %>% withLoader()
         ),
         tabPanel(
           introBox(
