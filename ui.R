@@ -18,14 +18,6 @@ $(function() {
 });
 '
 
-# jscode2 <- '
-# $(document).ready(function(){
-#   $("path").click(function(){
-#     alert("Text: " + $("#BioCircosARCTooltip").text());
-#   });
-# });
-# '
-
 jscode2 <- '
 $(document).on("shiny:sessioninitialized",function(){
   $(document).on("click","path.BioCircosARC",function(){
@@ -36,38 +28,6 @@ $(document).on("shiny:sessioninitialized",function(){
 });
 '
 
-#         
-#  Shiny.onInputChange("geneID", gene);
-# jscode2 <- '
-# function onLoad(svg, error){
-#   alert("Text: " + $("#BioCircosARCTooltip").text());
-#   $("path").click(function(){
-#     alert("Text: " + $("#BioCircosARCTooltip").text());
-#   });
-# }
-# '
-# 
-# jscode2 <- '
-#   var SVG = document.getElementsByTagName("svg")[0].children;
-#   for (i = 0; i < SVG.length; i++) {
-#    element = SVG[i];
-#    element.style = "cursor: pointer;";
-#    $(element).click(function(evt){alert("Text: abc")});
-#   } 
-#   
-# '
-# 
-# jscode3 <- '
-# var svgobj = svg.find("svg")[0].children;
-# for (i = 0; i < svgobj.length; i++) {
-#    element = svgobj[i];
-#    element.style = "cursor: pointer;";
-#    $(element).click(function(evt){alert("Text: abc")});
-# }  
-# '
-
-# g.BioCircosARC
-# alert("Text: " + $("#BioCircosARCTooltip").text());
 
 # Define UI for application that draws the boxplot
 ui <- fluidPage(
