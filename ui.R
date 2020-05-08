@@ -680,7 +680,7 @@ ui <- fluidPage(
             style = "display: inline-block;vertical-align:top;width:200px;margin-bottom:-60px;padding-bottom:-60px",
             tags$style(HTML("#rbpterm {margin-top: -7px;}")),
             textInput("rbpterm", "highlight annotation", value = "MEX3C") %>%
-              bs_embed_tooltip("highlights annotation in black, case insensitive", placement = "bottom")
+              bs_embed_tooltip("highlights annotation (kmer or RBP/mir) in black, case insensitive", placement = "bottom")
           ),
           div(
             id = "doPlotly2div",

@@ -1015,7 +1015,7 @@ server <- function(input, output, session) {
     res
   })
 
-  kmerPlot1 <- reactive({
+  kmerPlot1_pre_debounce <- reactive({
     topsk <- kmertemp()
     t1 <- Sys.time()
 
@@ -1043,7 +1043,23 @@ server <- function(input, output, session) {
     if (verbose_bench) {
       print(paste0("kmerplot1 step1: ", Sys.time() - t1))
     }
+    
+    topsk
+  })
+  
+  kmerPlot1_debounce <- reactive({
+    de_rbpterm <- input$rbpterm
+    #de_rbpterm <- debounce(input$rbpterm, 100)
+    topsk <- kmerPlot1_pre_debounce() %>%
+      mutate(found = ifelse(str_detect(str_to_upper(RBP), str_to_upper(de_rbpterm)) | 
+                                               str_detect(kmer, str_to_upper(de_rbpterm)),
+                            1,
+                            0))
+    topsk
+  })
 
+  kmerPlot1 <- reactive({
+    topsk <- kmerPlot1_debounce()
     g <- ggplot(topsk, aes(
       x = enrichment,
       y = minuslog10,
@@ -1054,7 +1070,7 @@ server <- function(input, output, session) {
       geom_point(aes(color = sig), size = 0.5) +
       scale_color_manual(values = c("#FC8D62", "#B3B3B3")) +
       geom_point(data = topsk %>%
-        filter(str_detect(str_to_upper(RBP), str_to_upper(de_rbpterm))), color = "black", size = 0.5) +
+        filter(found == 1), color = "black", size = 0.5) +
       ggrepel::geom_text_repel(box.padding = 0.05, size = 3, aes(label = text2)) +
       xlab("log2enrichment") +
       ylab("-log10(FDR)") +

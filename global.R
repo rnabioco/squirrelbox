@@ -31,6 +31,7 @@ options(readr.num_columns = 0)
 options(stringsAsFactors = FALSE)
 options(spinner.type = 6)
 theme_set(theme_cowplot())
+stack_size <- getOption("pandoc.stack.size", default = "1000m")
 # options(shiny.reactlog = TRUE)
 # options(repos = BiocManager::repositories())
 
