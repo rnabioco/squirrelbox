@@ -169,6 +169,7 @@ server <- function(input, output, session) {
     } else {
       plot_temp <- plot_temp %>% mutate(text = "NA")
     }
+    # plot_temp2 <<- plot_temp
 
     set.seed(1)
     g <- ggplot(plot_temp, aes(state, log2_counts, text = text)) +
@@ -190,6 +191,7 @@ server <- function(input, output, session) {
 
     if (input$doPadj == T & nrow(rv$pval) != 0 & input$doPlotly == F) {
       t2 <- Sys.time()
+      # padj2 <<- padj
       padj <- padj[str_detect(rownames(padj), paste(region_short_main, collapse = "|")), , drop = FALSE]
       sig_sym <- sig_sym[str_detect(rownames(sig_sym), paste(region_short_main, collapse = "|")), , drop = FALSE]
       temp2 <- calls_sig(padj, sig_sym, as.numeric(input$pval))
@@ -710,6 +712,7 @@ server <- function(input, output, session) {
         ggtitle("no genes loaded")))
     }
 
+    # temp2 <<- temp
     if (input$doSummary) {
       temp <- temp %>%
         group_by(region, state) %>%
@@ -1981,12 +1984,6 @@ server <- function(input, output, session) {
       disable("saveTable2")
       output$savePlot <- savePlot
       output$savePlot2 <- savePlot
-      # if (rv$tabinit_plot == 0) {
-      #   showNotification("tabs, modules, and columns of tables can be dragged and rearranged",
-      #     type = "message"
-      #   )
-      #   rv$tabinit_plot <<- 1
-      # }
     } else if (input$tabMain == "table_data") {
       disable("savePlot")
       disable("savePlot2")
@@ -2029,12 +2026,6 @@ server <- function(input, output, session) {
       output$savePlot2 <- savePlot2
       output$saveTable <- saveEnrich
       output$saveTable2 <- saveEnrich
-      # if (rv$tabinit_enrich == 0) {
-      #   showNotification("add corresponding genes to Cart by clicking on GO term bar",
-      #     type = "message"
-      #   )
-      #   rv$tabinit_enrich <<- 1
-      # }
     } else if (input$tabMain == "heat_plot") {
       enable("savePlot")
       enable("savePlot2")
@@ -2051,25 +2042,12 @@ server <- function(input, output, session) {
       output$savePlot2 <- savePlot4
       output$saveTable <- saveK
       output$saveTable2 <- saveK
-      # if (rv$tabinit_kmer == 0) {
-      #   showNotification("Annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed",
-      #     type = "message"
-      #   )
-      #   rv$tabinit_kmer <<- 1
-      # }
     } else if (input$tabMain == "venn") {
       enable("savePlot")
       enable("savePlot2")
       disable("saveTable")
       disable("saveTable2")
       output$savePlot <- savePlot6
-      # output$savePlot2 <- savePlot6
-      # if (rv$tabinit_venn == 0) {
-      #   showNotification("click on venn numbers to load associated genes into Cart",
-      #     type = "message"
-      #   )
-      #   rv$tabinit_venn <<- 1
-      # }
     } else if (input$tabMain == "about") {
       disable("savePlot")
       disable("savePlot2")

@@ -477,7 +477,6 @@ sort_groups <- function(groups, states, state_order) {
   colnames(full2) <- str_c("V", 1:ncol(full2))
   full2 <- full2 %>%
     mutate_all(factor, levels = state_order)
-  ffff <<- full2
   full2 <- full2[order(full2$V1, method = "radix"), , drop = F]
 
   full3 <- full2 %>%
