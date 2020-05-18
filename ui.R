@@ -541,7 +541,7 @@ ui <- fluidPage(
               circle = FALSE, status = "options", icon = icon("gear"), width = "200px", size = "sm",
               tooltip = tooltipOptions(title = "plotting options"), margin = "20px",
               br(),
-              div(id = "doName2div", checkboxInput("doName2", "additional labels", value = F, width = NULL) %>%
+              div(id = "doName2div", checkboxInput("doName2", "additional labels", value = T, width = NULL) %>%
                 bs_embed_tooltip("show toggleable legend", placement = "right")),
               div(id = "doNormdiv", checkboxInput("doNorm", "normalize to SA", value = F, width = NULL) %>%
                 bs_embed_tooltip("otherwise centered by mean expression", placement = "right")),
@@ -684,10 +684,11 @@ ui <- fluidPage(
           ),
           div(
             id = "doPlotly2div",
-            style = "display: inline-block;",
+            style = "display: inline-block;vertical-align:bottom;width:200px;",
             checkboxInput("doPlotly2", "interactive plot", value = T, width = NULL) %>%
-              bs_embed_tooltip("display interactive plot with additional info on hover", placement = "bottom"),
-            style = "width:200px",
+              bs_embed_tooltip("display interactive plot with additional info on hover", placement = "right"),
+            checkboxInput("doPline2", "line at p-val threshold", value = TRUE, width = NULL) %>% 
+              bs_embed_tooltip("whether to draw horizontal line to indicate target p-val", placement = "right")
           ),
           uiOutput("kmerPlotUI") %>% withLoader(loader = "pacman", proxy.height = paste0(plot_height * 100 / 2, "px"))
         ),

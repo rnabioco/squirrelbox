@@ -729,7 +729,6 @@ server <- function(input, output, session) {
       )) +
         ylab("log2fold") +
         facet_wrap(~region) +
-        theme(legend.position = "none") +
         geom_point(aes(color = unique_gene_symbol)) +
         geom_line(aes(color = unique_gene_symbol)) +
         geom_errorbar(aes(ymin = log2_counts - sem, ymax = log2_counts + sem), width = .05, size = 0.5)
@@ -740,7 +739,6 @@ server <- function(input, output, session) {
       )) +
         ylab("log2fold") +
         facet_wrap(~region) +
-        theme(legend.position = "none") +
         geom_point(aes(color = unique_gene_symbol)) +
         geom_line(aes(color = unique_gene_symbol))
     }
@@ -748,10 +746,10 @@ server <- function(input, output, session) {
   })
 
   output$linePlot <- renderPlotly({
-    g <- linePlot1()
+    g <- linePlot1() + theme(legend.position = "none")
     fac <- input$doTis + input$doBr
     if ((rv$toolarge == 0) | (rv$toolarge == 1 & rv$go == 2) | input$doSummary) {
-      if (input$doName2 == T) {
+      if (input$doName2) {
         ggplotly(g, tooltip = "text", height = as.numeric(input$ploth) * 100 * fac / 2, width = as.numeric(input$plotw) * 100) %>%
           layout(
             autosize = FALSE,
@@ -773,7 +771,11 @@ server <- function(input, output, session) {
     filename = "lineplot.pdf",
     content = function(file) {
       fac <- input$doTis + input$doBr
-      ggplot2::ggsave(file, plot = linePlot1(), device = "pdf", width = as.numeric(input$plotw), height = as.numeric(input$ploth) / 2 * fac)
+      g <- linePlot1() + theme(legend.title = element_blank())
+      if (!input$doName2) {
+        g <- g + theme(legend.position = "none")
+      }
+      ggplot2::ggsave(file, plot = g, device = "pdf", width = as.numeric(input$plotw), height = as.numeric(input$ploth) / 2 * fac)
     }
   )
 
@@ -1013,7 +1015,7 @@ server <- function(input, output, session) {
       }
     }
     topsk <- topsk %>%
-      mutate(minuslog10 = -log10(adj.p.value), enrichment = log2(enrichment))
+      mutate(minuslog10 = -log10(adj_p_value), enrichment = log2(enrichment))
     res <- topsk %>% replace_na(list(RBP = ""))
     res
   })
@@ -1024,8 +1026,7 @@ server <- function(input, output, session) {
 
     de_rbpterm <- input$rbpterm
     if (nrow(topsk) == 0) {
-      return(ggplot() +
-        ggtitle("no genes loaded"))
+      return(data.frame())
     }
     topsk <- topsk %>%
       mutate(sig = factor(ifelse(minuslog10 >= -log10(as.numeric(input$pval)), "sig", "insig"),
@@ -1053,7 +1054,11 @@ server <- function(input, output, session) {
   kmerPlot1_debounce <- reactive({
     de_rbpterm <- input$rbpterm
     #de_rbpterm <- debounce(input$rbpterm, 100)
-    topsk <- kmerPlot1_pre_debounce() %>%
+    topsk <- kmerPlot1_pre_debounce() 
+    if (nrow(topsk) == 0) {
+      return(data.frame())
+    }
+    topsk <- topsk %>%
       mutate(found = ifelse(str_detect(str_to_upper(RBP), str_to_upper(de_rbpterm)) | 
                                                str_detect(kmer, str_to_upper(de_rbpterm)),
                             1,
@@ -1063,6 +1068,10 @@ server <- function(input, output, session) {
 
   kmerPlot1 <- reactive({
     topsk <- kmerPlot1_debounce()
+    if (nrow(topsk) == 0) {
+      return(ggplot() +
+               ggtitle("no genes loaded"))
+    }
     g <- ggplot(topsk, aes(
       x = enrichment,
       y = minuslog10,
@@ -1078,8 +1087,11 @@ server <- function(input, output, session) {
       xlab("log2enrichment") +
       ylab("-log10(FDR)") +
       labs(color = "") +
-      scale_y_continuous(expand = c(0, 0)) +
-      geom_hline(yintercept = -log10(as.numeric(input$pval)))
+      scale_y_continuous(expand = c(0, 0))
+      
+    if (input$doPline2) {
+      g <- g + geom_hline(yintercept = -log10(as.numeric(input$pval)))
+    }
 
     if (verbose_bench) {
       print(paste0("kmerplot1 step2: ", Sys.time() - t1))
