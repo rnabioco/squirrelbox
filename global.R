@@ -565,42 +565,42 @@ if (file.exists(paste0(datapath, "/seqs_precal_noG.rds"))) {
   seqs_precal <- readRDS(paste0(datapath, "/seqs_precal_noG.rds"))
 } else {
   seqs_precal <- list()
-  seqs_precal[["5mers_utr3"]] <- generateKmers(seqs %>% filter(
+  seqs_precal[["5mers_utr3"]] <- generate_kmers(seqs %>% filter(
     str_length(utr3) >= 200,
     str_length(cds) >= 200
   ) %>%
     pull(utr3),
   k = 5
   )
-  seqs_precal[["6mers_utr3"]] <- generateKmers(seqs %>% filter(
+  seqs_precal[["6mers_utr3"]] <- generate_kmers(seqs %>% filter(
     str_length(utr3) >= 200,
     str_length(cds) >= 200
   ) %>%
     pull(utr3),
   k = 6
   )
-  seqs_precal[["7mers_utr3"]] <- generateKmers(seqs %>% filter(
+  seqs_precal[["7mers_utr3"]] <- generate_kmers(seqs %>% filter(
     str_length(utr3) >= 200,
     str_length(cds) >= 200
   ) %>%
     pull(utr3),
   k = 7
   )
-  seqs_precal[["5mers_utr5"]] <- generateKmers(seqs %>% filter(
+  seqs_precal[["5mers_utr5"]] <- generate_kmers(seqs %>% filter(
     str_length(utr5) >= 200,
     str_length(cds) >= 200
   ) %>%
     pull(utr5),
   k = 5
   )
-  seqs_precal[["6mers_utr5"]] <- generateKmers(seqs %>% filter(
+  seqs_precal[["6mers_utr5"]] <- generate_kmers(seqs %>% filter(
     str_length(utr5) >= 200,
     str_length(cds) >= 200
   ) %>%
     pull(utr5),
   k = 6
   )
-  seqs_precal[["7mers_utr5"]] <- generateKmers(seqs %>% filter(
+  seqs_precal[["7mers_utr5"]] <- generate_kmers(seqs %>% filter(
     str_length(utr5) >= 200,
     str_length(cds) >= 200
   ) %>%
@@ -625,7 +625,7 @@ comp_kmer <- function(df = seqs,
     return(NA)
   }
   enq <- enq[str_length(enq) >= cutoff]
-  enq_res <- generateKmers(enq, k)
+  enq_res <- generate_kmers(enq, k)
 
   if (recal_bac) {
     bac <- df %>%
@@ -633,17 +633,17 @@ comp_kmer <- function(df = seqs,
       pull(col) %>%
       na.omit()
     bac <- bac[str_length(bac) >= cutoff]
-    bac <- generateKmers(bac, k)
+    bac <- generate_kmers(bac, k)
   }
 
-  res <- computeKmerEnrichment(enq_res,
+  res <- compute_kmer_enrichment(enq_res,
     bac,
     permutation = FALSE,
-    chisq.p.value.threshold = 0,
-    p.adjust.method = "fdr"
+    chisq_p_value_threshold = 0,
+    p_adjust_method = "fdr"
   )
   res$kmer <- str_replace_all(names(enq_res), "T", "U")
-  res[order(res$adj.p.value, method = "radix"), , drop = F]
+  res[order(res$adj_p_value, method = "radix"), , drop = F]
 }
 
 fivemers <- read_csv(paste0(annotpath, "/RBP_5mer.csv"))
