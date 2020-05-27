@@ -45,7 +45,9 @@ listpath <- "data/lists"
 source(paste0(rpath, "/ggvenn.R"))
 
 ### general data settings
-versionN <- 0.99
+url <- "https://github.com/rnabioco/squirrelbox/"
+s3 <- "https://s3.console.aws.amazon.com/s3/object/squirrelbox/"
+versionN <- 0.999
 geoN <- "G1234"
 bsgenomeL <- "BSgenome.Itridecemlineatus.whatever"
 pageN <- 10

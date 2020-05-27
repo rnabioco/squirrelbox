@@ -1921,11 +1921,13 @@ server <- function(input, output, session) {
   })
 
   output$version <- renderUI({
-    url <- "https://github.com/rnabioco/squirrelbox/"
     clean <- a(versionN,
       href = url
     )
-    tagList(tags$h6(icon("github-square"), "squirrelBox version: ", clean))
+    s3link <- a("S3",
+               href = s3
+    )
+    tagList(tags$h6(icon("github-square"), "squirrelBox version: ", clean, "; or available to download and run locally: ", s3link))
   })
 
   output$explain <- DT::renderDataTable({
