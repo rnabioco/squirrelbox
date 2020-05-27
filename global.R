@@ -293,8 +293,13 @@ find_spelling <- function(entry, dict) {
 namedvec <- combined3$clean_gene_symbol
 names(namedvec) <- combined3$unique_gene_symbol
 
-unique_to_clean <- function(genevec, namedvec) {
-  namedvec[genevec] %>% na.omit() %>% unique()
+unique_to_clean <- function(genevec, namedvec, na_omit = T) {
+  temp <- namedvec[genevec] 
+  if (na_omit) {
+    temp %>% na.omit() %>% unique()
+  } else {
+    temp
+  }
 }
 
 # read go terms and TFs
