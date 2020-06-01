@@ -76,7 +76,10 @@ table_cols <- c(
 
 orf_cols_join <- c(
   "gene_id",
+  "source",
   "orf_len",
+  "micropeptide_pred",
+  "micropeptide_homology",
   "exons",
   "rna_len",
   "novel",
@@ -92,6 +95,7 @@ orf_cols <- c(
   "transcript_id",
   "rna_len",
   "orf_len",
+  "micropeptide_pred",
   "exons"
 )
 
@@ -406,6 +410,9 @@ orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
   ) %>%
   mutate(majiq_directed = factor(ifelse(is.na(majiq), 0, 1)))
 
+# load short orf predictions
+sorf <- read_csv(paste0(datapath, "/MiPepid_pred.csv"))
+sorf_blast <- read_csv(paste0(datapath, "/SmProt_blast.csv"))
 fulltbl <- combined3 %>%
   select(-c(gene_symbol, clean_gene_symbol, original_gene_name)) %>%
   left_join(orfs %>% select(any_of(orf_cols_join), contains("LRT")), by = "gene_id") %>%
@@ -413,18 +420,26 @@ fulltbl <- combined3 %>%
   mutate(source = factor(source)) %>%
   mutate_at(vars(contains("cluster")), factor) %>%
   distinct()
-
 fulltbl_collapse <- fulltbl %>%
   group_by(gene_id) %>%
   arrange(desc(orf_len), .by_group = TRUE) %>%
   dplyr::slice(1) %>%
   ungroup()
+fulltbl <- fulltbl %>% mutate(micropeptide_pred = ifelse(transcript_id %in% sorf$transcript_DNA_sequence_ID, TRUE, FALSE)) %>% 
+  left_join(sorf_blast %>% select(transcript_id, micropeptide_homology = stitle), by = "transcript_id") %>% 
+  select(any_of(orf_cols_join), everything())
+fulltbl_sorf <- fulltbl %>% filter(micropeptide_pred)
+fulltbl_collapse <- fulltbl_collapse %>%
+  mutate(micropeptide_pred = ifelse(gene_id %in% fulltbl_sorf$gene_id, TRUE, FALSE)) %>% 
+  left_join(fulltbl_sorf %>% select(gene_id, micropeptide_homology), by = "gene_id") %>% 
+  select(any_of(orf_cols_join), everything())
 
 length_detected_genes <- orfs %>%
   filter(br_expr == 1) %>%
   pull(gene_id) %>%
   unique() %>%
   length()
+orfs <- orfs %>% mutate(micropeptide_pred = ifelse(gene_id %in% fulltbl_sorf$gene_id, TRUE, FALSE))
 
 # padj functions
 find_padj <- function(region, state, tbl) {

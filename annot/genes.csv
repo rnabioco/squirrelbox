@@ -11,6 +11,8 @@ kid_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
 gene_id,newly annotated genes start with G
 source,reference denotes carry-over from ensemble/NCBI
 orf_len,aa length of longest orf
+micropeptide_pred,"whether the transcript contains predicted micropeptide, by MiPepid"
+micropeptide_homology,sequence homologous micropeptide documented in high confidence set of SmProt database
 exons,number of exons
 rna_len,length of longest transcript
 transcript_id,"if collapsed, only longest transcript_id listed"
