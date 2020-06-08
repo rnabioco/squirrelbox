@@ -1988,6 +1988,49 @@ server <- function(input, output, session) {
       )
     )
   })
+  
+  output$explain3 <- DT::renderDataTable({
+    dfreg3 <- data.frame(
+      file = c(
+        "clusters.feather",
+        "combined2.feather",
+        "combined3.feather",
+        "fc.rds",
+        "MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz",
+        "MiPepid_pred.csv",
+        "novel_domains.csv",
+        "padj_orf.feather",
+        "seqs_precal_noG.rds",
+        "SmProt_blast.csv",
+        "utrs_sq_noG.feather",
+        "utrs_sq.feather"
+      ),
+      desc = c(
+        "cluster assignments to each tissue",
+        "log expression values per gene per animal",
+        "gene id, symbol, version info",
+        "gene interval and max fold change",
+        "alternative splicing summary",
+        "micropeptide prediction",
+        "novel domain scanning",
+        "scanned orfs and pair-wise differential expression p-values",
+        "precalculated kmer info of all sequences (non-novel)",
+        "homologous sequences to SmProt micropeptide database",
+        "all utr5/3/cds sequences (non-novel)",
+        "all utr5/3/cds sequences"
+      )
+    )
+    DT::datatable(dfreg3,
+                  escape = FALSE,
+                  selection = "none",
+                  rownames = FALSE,
+                  options = list(
+                    searchable = FALSE,
+                    dom = "t",
+                    paging = FALSE
+                    )
+    )
+  })
 
   # graying out buttons, warnings/hints
   observe({

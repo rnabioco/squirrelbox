@@ -822,6 +822,7 @@ ui <- fluidPage(
             data.position = "top"
           ),
           value = "about",
+          h5("About squirrelBox"),
           uiOutput("intro"),
           uiOutput("track"),
           uiOutput("rawdata"),
@@ -830,9 +831,15 @@ ui <- fluidPage(
           uiOutput("version"),
           uiOutput("GitHub"),
           uiOutput("contact"),
-          column(width = 4, DT::dataTableOutput("explain")),
+          hr(),
+          h5("About Samples"),
+          fluidRow(column(width = 4, DT::dataTableOutput("explain")),
           column(width = 1),
-          column(width = 4, DT::dataTableOutput("explain2"))
+          column(width = 4, DT::dataTableOutput("explain2")),
+          column(width = 3, "")),
+          hr(),
+          h5("Data Files"),
+          column(width = 9, DT::dataTableOutput("explain3"))
         )
       )
     )

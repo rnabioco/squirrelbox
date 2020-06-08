@@ -9,11 +9,11 @@ library(feather)
 library(ggplot2)
 library(ggrepel)
 library(cowplot)
-library(ComplexHeatmap)
+library(ComplexHeatmap) # github
 library(DT)
 library(igraph)
 library(valr)
-library(transite)
+library(transite) # bioconductor
 library(plotly)
 library(crosstalk)
 library(shinyjs)
