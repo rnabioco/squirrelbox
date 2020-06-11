@@ -82,11 +82,11 @@ orf_cols_join <- c(
   "micropeptide_homology",
   "exons",
   "rna_len",
+  "transcript_id",
   "novel",
   "min_sig",
   "domains",
   "br_expr",
-  "transcript_id",
   "majiq_directed"
 )
 
@@ -183,7 +183,10 @@ region_short_main <- c(
 region_one <- c(
   "f",
   "h",
-  "m"
+  "m",
+  "a",
+  "k",
+  "l"
 )
 
 # read database
@@ -223,7 +226,7 @@ bed <- suppressWarnings(read_tsv(paste0(annotpath, "/final_tx_annotations_202002
   mutate(majiq_directed = factor(ifelse(is.na(majiq_directed), 0, 1)))
 
 # read modules/clusters
-mod <- read_feather(paste0(datapath, "/clusters.feather"))
+mod <- read_feather(paste0(datapath, "/clusters.feather")) %>% select(gene, any_of(str_c("cluster_", region_one)))
 mod <- mod[, c("gene", intersect(str_c("cluster_", region_one), colnames(mod)))]
 
 eigen <- suppressWarnings(read_tsv(paste0(datapath, "/cluster_patterns_matrices/reference_patterns.tsv"))) %>%
@@ -415,7 +418,7 @@ sorf <- read_csv(paste0(datapath, "/MiPepid_pred.csv"))
 sorf_blast <- read_csv(paste0(datapath, "/SmProt_blast.csv"))
 fulltbl <- combined3 %>%
   select(-c(gene_symbol, clean_gene_symbol, original_gene_name)) %>%
-  left_join(orfs %>% select(any_of(orf_cols_join), contains("LRT")), by = "gene_id") %>%
+  left_join(orfs %>% select(any_of(orf_cols_join), any_of(str_c(region_short, "_LRT_padj"))), by = "gene_id") %>%
   left_join(mod, by = c("unique_gene_symbol" = "gene")) %>%
   mutate(source = factor(source)) %>%
   mutate_at(vars(contains("cluster")), factor) %>%
