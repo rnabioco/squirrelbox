@@ -421,8 +421,7 @@ fulltbl <- combined3 %>%
   left_join(orfs %>% select(any_of(orf_cols_join), any_of(str_c(region_short, "_LRT_padj"))), by = "gene_id") %>%
   left_join(mod, by = c("unique_gene_symbol" = "gene")) %>%
   mutate(source = factor(source)) %>%
-  mutate_at(vars(contains("cluster")), factor) %>%
-  distinct()
+  mutate_at(vars(contains("cluster")), factor)
 fulltbl_collapse <- fulltbl %>%
   group_by(gene_id) %>%
   arrange(desc(orf_len), .by_group = TRUE) %>%
@@ -430,12 +429,13 @@ fulltbl_collapse <- fulltbl %>%
   ungroup()
 fulltbl <- fulltbl %>% mutate(micropeptide_pred = ifelse(transcript_id %in% sorf$transcript_DNA_sequence_ID, TRUE, FALSE)) %>% 
   left_join(sorf_blast %>% select(transcript_id, micropeptide_homology = stitle), by = "transcript_id") %>% 
-  select(any_of(orf_cols_join), everything())
+  select(any_of(orf_cols_join), everything()) %>% 
+  distinct()
 fulltbl_sorf <- fulltbl %>% filter(micropeptide_pred)
 fulltbl_collapse <- fulltbl_collapse %>%
   mutate(micropeptide_pred = ifelse(gene_id %in% fulltbl_sorf$gene_id, TRUE, FALSE)) %>% 
   left_join(fulltbl_sorf %>% select(gene_id, micropeptide_homology), by = "gene_id") %>% 
-  select(any_of(orf_cols_join), everything())
+  select(any_of(orf_cols_join), everything()) %>% distinct()
 
 length_detected_genes <- orfs %>%
   filter(br_expr == 1) %>%

@@ -1549,6 +1549,7 @@ server <- function(input, output, session) {
     }
     historytablist <<- autocomplete_list[str_to_upper(autocomplete_list) %in%
       str_to_upper(v_genes %>% unique())]
+    historytablist <- historytablist %>% unique()
     rv$line_refresh <- rv$line_refresh + 1
   })
 
@@ -1574,6 +1575,7 @@ server <- function(input, output, session) {
 
   onclick("Load", {
     historytablist <- carttablist
+    historytablist <- historytablist %>% unique()
     rv$line_refresh <- rv$line_refresh + 1
     updateTabsetPanel(session,
       "side2",
@@ -1769,6 +1771,7 @@ server <- function(input, output, session) {
   onclick("loadtab", {
     s <- input$genes_rows_all
     historytablist <- orftbl()[s, ] %>% pull(unique_gene_symbol)
+    historytablist <- historytablist %>% unique()
     rv$line_refresh <- rv$line_refresh + 1
     updateTabsetPanel(session,
       "side2",
@@ -1844,6 +1847,7 @@ server <- function(input, output, session) {
     historytablist <- majtbl()[s, ] %>%
       pull(unique_gene_symbol) %>%
       unique()
+    historytablist <- historytablist %>% unique()
     rv$line_refresh <- rv$line_refresh + 1
     updateTabsetPanel(session,
       "side2",
