@@ -137,7 +137,7 @@ ui <- fluidPage(
   )),
   titlePanel(div(
     class = "header", img(src = "logo.png", style = "width : 4%;"),
-    "13-lined ground squirrel gene-level RNA-seq expression",
+    apptitle,
     style = "font-size:23px; background:white;text-decoration: underline; background-clip: inherit;"
   )),
   fixedPanel(

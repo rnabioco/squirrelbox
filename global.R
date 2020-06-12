@@ -45,6 +45,7 @@ listpath <- "data/lists"
 source(paste0(rpath, "/ggvenn.R"))
 
 ### general data settings
+apptitle <- "13-lined ground squirrel hibernating brain RNA-seq expression"
 url <- "https://github.com/rnabioco/squirrelbox/"
 s3 <- "https://s3.console.aws.amazon.com/s3/object/squirrelbox/"
 versionN <- 0.999
