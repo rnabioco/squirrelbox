@@ -1783,7 +1783,7 @@ server <- function(input, output, session) {
     rv$run2 <- 1
     updateSelectizeInput(session,
       inputId = "geneID",
-      selected = orftbl()[input$genes_rows_selected, "unique_gene_symbol"],
+      selected = orftbl()[["unique_gene_symbol"]][input$genes_rows_selected],
       choices = autocomplete_list,
       server = T
     )
@@ -1859,7 +1859,7 @@ server <- function(input, output, session) {
     rv$run2 <- 1
     updateSelectizeInput(session,
       inputId = "geneID",
-      selected = majtbl()[input$alt_rows_selected, "unique_gene_symbol"],
+      selected = majtbl()[["unique_gene_symbol"]][input$alt_rows_selected],
       choices = autocomplete_list,
       server = T
     )
