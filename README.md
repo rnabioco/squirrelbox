@@ -18,4 +18,4 @@ All packages required are listed at the start of `global.R`
 docker load --input squirrelbox_docker.tar
 docker run --rm -p 80:80 squirrelbox_docker
 ```
-or find latest repo in [dockerhub](https://hub.docker.com/repository/docker/raysinensis/squirrelbox)
+or find latest repo in [dockerhub](https://hub.docker.com/r/raysinensis/squirrelbox)
