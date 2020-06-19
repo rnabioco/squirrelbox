@@ -17,4 +17,5 @@ novel,"for newly annotated genes, gene_id start with G"
 min_sig,minimum adjusted pval across tissues
 domains,whether domains were found for orf
 br_expr,whether expressed above cutoff in at least one brain tissue
+edited,whether RNA editing events were detected (Riemondy2018)
 majiq_directed,whether symbol assignment was assisted by majiq splice junctions

@@ -799,7 +799,7 @@ ui <- fluidPage(
             style = "display:inline-block;width: 160px;margin-top:6px",
             selectizeInput("guse3", NULL,
                            choices = c(
-                             "_none", "Forebrain", "Hypothalamus", "Medulla"
+                             "_none", "Forebrain", "Hypothalamus", "Medulla", "Editing_Riemondy2018"
                            ),
                            selected = "Hypothalamus"
             ) %>% bs_embed_tooltip("displays max log2FoldChange between states for this tissue", placement = "top")

@@ -1364,6 +1364,18 @@ server <- function(input, output, session) {
   circostrack3 <- reactive({
     if (input$guse3 == "_none") {
       return(NA)
+    } else if (input$guse3 == "Editing_Riemondy2018") {
+      tracklist <- BioCircosBarTrack(trackname = "fc", 
+                                     chromosomes = str_remove(edits$chrom, "Itri"),
+                                     starts = edits$start, 
+                                     ends = edits$end, 
+                                     values = edits$max, 
+                                     labels = edits$unique_gene_symbol,
+                                     range = c(0,1),
+                                     color = "#000000",
+                                     maxRadius = 0.87,
+                                     minRadius = 0.7)
+      return(tracklist)
     } else {
       bed_temp <- bed_fc %>% filter(region == input$guse3) %>%
         filter(as.numeric(str_remove(chrom, "Itri")) <= chrlimit) %>% filter(abs(fold) >= 0.1)
@@ -1393,17 +1405,31 @@ server <- function(input, output, session) {
     if (!(is.na(circostrack3()))) {
       tracks <- tracks + circostrack3()
     }
-    BioCircos(tracks,
-              genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")), 
-              ARCMouseOverTooltipsHtml02 = "<!––",
-              ARCMouseOverTooltipsHtml03 = "",
-              ARCMouseOverTooltipsHtml04 = "––><br/>",
-              chrPad = 0.023,
-              genomeLabelTextSize = "9pt",
-              BARMouseOverTooltipsHtml02 = "<!––", 
-              BARMouseOverTooltipsHtml03 = "",
-              BARMouseOverTooltipsHtml04 = "––><br/>",
-              BARMouseOverTooltipsHtml05 = "<br/>max_log2FC: ")
+    if (input$guse3 == "Editing_Riemondy2018") {
+      BioCircos(tracks,
+                genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")), 
+                ARCMouseOverTooltipsHtml02 = "<!––",
+                ARCMouseOverTooltipsHtml03 = "",
+                ARCMouseOverTooltipsHtml04 = "––><br/>",
+                chrPad = 0.023,
+                genomeLabelTextSize = "9pt",
+                BARMouseOverTooltipsHtml02 = "<!––", 
+                BARMouseOverTooltipsHtml03 = "",
+                BARMouseOverTooltipsHtml04 = "––><br/>",
+                BARMouseOverTooltipsHtml05 = "<br/>max_fraction: ")
+    } else {
+      BioCircos(tracks,
+                genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")), 
+                ARCMouseOverTooltipsHtml02 = "<!––",
+                ARCMouseOverTooltipsHtml03 = "",
+                ARCMouseOverTooltipsHtml04 = "––><br/>",
+                chrPad = 0.023,
+                genomeLabelTextSize = "9pt",
+                BARMouseOverTooltipsHtml02 = "<!––", 
+                BARMouseOverTooltipsHtml03 = "",
+                BARMouseOverTooltipsHtml04 = "––><br/>",
+                BARMouseOverTooltipsHtml05 = "<br/>max_log2FC: ")
+    }
   })
   
   circosPlotr <- reactive({

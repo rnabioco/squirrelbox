@@ -88,6 +88,7 @@ orf_cols_join <- c(
   "min_sig",
   "domains",
   "br_expr",
+  "edited",
   "majiq_directed"
 )
 
@@ -97,7 +98,8 @@ orf_cols <- c(
   "rna_len",
   "orf_len",
   "micropeptide_pred",
-  "exons"
+  "exons",
+  "edited"
 )
 
 if (file.exists(paste0(annotpath, "/genes.csv"))) {
@@ -414,6 +416,22 @@ orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
   ) %>%
   mutate(majiq_directed = factor(ifelse(is.na(majiq), 0, 1)))
 
+# chromosome sizes
+sq1 <- as.list(readRDS(paste0(annotpath, "/sq_chr.rds")))[1:chrlimit]
+sq_g <- data.frame(chrom = names(sq1),
+                   size = unlist(sq1))
+bed_fc <- readRDS(paste0(datapath, "/fc.rds"))
+
+# editing sites
+edits <- read_tsv(paste0(datapath, "/brain_editing_site_proportions.bed"))
+edits$max <- apply(edits[, c(7:96)], 1, function(x) {max(x, na.rm = T)})
+edits <- edits %>% bed_intersect(bed, suffix = c("", "_gene")) %>% 
+  select(c("chrom", "start", "end", "site", "max"), unique_gene_symbol = unique_gene_symbol_gene) %>% 
+  distinct()
+edits <- edits %>% bed_slop(sq_g, both = 2000000)
+edited_genes <- edits$unique_gene_symbol %>% unique()
+orfs <- orfs %>% mutate(edited = ifelse(unique_gene_symbol %in% edited_genes, TRUE, FALSE))
+
 # load short orf predictions
 sorf <- read_csv(paste0(datapath, "/MiPepid_pred.csv"))
 sorf_blast <- read_csv(paste0(datapath, "/SmProt_blast.csv"))
@@ -682,11 +700,3 @@ gene_list <- sapply(lists_vec, function(x) {
   read_csv(paste0(listpath, "/", x)) %>% pull(1)
 }, simplify = FALSE)
 names(gene_list) <- names(gene_list) %>% str_remove("\\..+")
-
-# chromosome sizes
-sq1 <- as.list(readRDS(paste0(annotpath, "/sq_chr.rds")))[1:chrlimit]
-sq_g <- data.frame(chrom = names(sq1),
-                   size = unlist(sq1))
-bed_fc <- readRDS(paste0(datapath, "/fc.rds"))
-# editing sites
-# edits <- read_tsv(paste0(annotpath, "/GSE106947_hyperedited_sites.bed.gz"))
