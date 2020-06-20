@@ -189,7 +189,7 @@ server <- function(input, output, session) {
         geom_point(position = position_jitter(seed = 1))
     }
 
-    if (input$doPadj == T & nrow(rv$pval) != 0 & input$doPlotly == F) {
+    if (input$doPadj == T & nrow(rv$pval) != 0) { #  & input$doPlotly == F
       t2 <- Sys.time()
       # padj2 <<- padj
       padj <- padj[str_detect(rownames(padj), paste(region_short_main, collapse = "|")), , drop = FALSE]
@@ -232,7 +232,7 @@ server <- function(input, output, session) {
             label = letter,
             y = log2_counts + nudgey,
             x = state,
-            group = NULL
+            group = "text"
           ))
       }
     }
