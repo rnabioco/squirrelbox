@@ -186,10 +186,7 @@ region_short_main <- c(
 region_one <- c(
   "f",
   "h",
-  "m",
-  "a",
-  "k",
-  "l"
+  "m"
 )
 
 # read database
@@ -389,7 +386,12 @@ if (file.exists(paste0(annotpath, "/", gmt_file, ".rds"))) {
   saveRDS(gmtlist_sq, paste0(annotpath, "/", gmt_file, ".rds"))
 }
 
-gmtlist_human <- construct_gmtlist(gmt_file, gmt$genes %>% unique(), 60662)
+if (file.exists(paste0(annotpath, "/", gmt_file, "_human.rds"))) {
+  gmtlist_human <- readRDS(paste0(annotpath, "/", gmt_file, "_human.rds"))
+} else {
+  gmtlist_human <- construct_gmtlist(gmt_file, gmt$genes %>% unique(), 60662)
+  saveRDS(gmtlist_human, paste0(annotpath, "/", gmt_file, "_human.rds"))
+}
 
 domains <- read_csv(paste0(datapath, "/novel_domains.csv"), col_types = "cc")
 

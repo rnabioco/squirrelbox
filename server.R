@@ -1796,6 +1796,9 @@ server <- function(input, output, session) {
 
   onclick("loadtab", {
     s <- input$genes_rows_all
+    if (length(s) == 0) {
+      return()
+    }
     historytablist <- orftbl()[s, ] %>% pull(unique_gene_symbol)
     historytablist <- historytablist %>% unique()
     rv$line_refresh <- rv$line_refresh + 1
@@ -1870,9 +1873,11 @@ server <- function(input, output, session) {
 
   onclick("loadtab2", {
     s <- input$alt_rows_all
+    if (length(s) == 0) {
+      return()
+    }
     historytablist <- majtbl()[s, ] %>%
-      pull(unique_gene_symbol) %>%
-      unique()
+      pull(unique_gene_symbol)
     historytablist <- historytablist %>% unique()
     rv$line_refresh <- rv$line_refresh + 1
     updateTabsetPanel(session,
@@ -2022,6 +2027,7 @@ server <- function(input, output, session) {
   output$explain3 <- DT::renderDataTable({
     dfreg3 <- data.frame(
       file = c(
+        "brain_editing_site_proportions.bed",
         "clusters.feather",
         "combined2.feather",
         "combined3.feather",
@@ -2036,6 +2042,7 @@ server <- function(input, output, session) {
         "utrs_sq.feather"
       ),
       desc = c(
+        "RNA editing events found from seq data (Riemondy2018)",
         "cluster assignments to each tissue",
         "log expression values per gene per animal",
         "gene id, symbol, version info",
