@@ -303,9 +303,11 @@ namedvec <- combined3$clean_gene_symbol
 names(namedvec) <- combined3$unique_gene_symbol
 
 unique_to_clean <- function(genevec, namedvec, na_omit = T) {
-  temp <- namedvec[genevec] 
+  temp <- namedvec[genevec]
   if (na_omit) {
-    temp %>% na.omit() %>% unique()
+    temp %>%
+      na.omit() %>%
+      unique()
   } else {
     temp
   }
@@ -345,25 +347,25 @@ gmt <- gmt_to_list(paste0(annotpath, "/", gmt_file), rm = gmt_short)
 construct_gmtlist <- function(gmt_file, genes, n) {
   temp <- list()
   temp[["n"]] <- n
-  
+
   temp[["Biological Process"]] <- gmt_to_list(paste0(annotpath, "/", str_replace(gmt_file, "all", "bp")), rm = gmt_short, per = FALSE)
   temp[["Biological Process"]] <- sapply(temp[["Biological Process"]], function(x) {
     intersect(x, genes)
   })
   temp[["Biological Process"]] <- temp[["Biological Process"]][sapply(temp[["Biological Process"]], length) >= 5]
-  
+
   temp[["Cellular Component"]] <- gmt_to_list(paste0(annotpath, "/", str_replace(gmt_file, "all", "cc")), rm = gmt_short, per = FALSE)
   temp[["Cellular Component"]] <- sapply(temp[["Cellular Component"]], function(x) {
     intersect(x, genes)
   })
   temp[["Cellular Component"]] <- temp[["Cellular Component"]][sapply(temp[["Cellular Component"]], length) >= 5]
-  
+
   temp[["Molecular Function"]] <- gmt_to_list(paste0(annotpath, "/", str_replace(gmt_file, "all", "mf")), rm = gmt_short, per = FALSE)
   temp[["Molecular Function"]] <- sapply(temp[["Molecular Function"]], function(x) {
     intersect(x, genes)
   })
   temp[["Molecular Function"]] <- temp[["Molecular Function"]][sapply(temp[["Molecular Function"]], length) >= 5]
-  
+
   temp
 }
 
@@ -371,18 +373,22 @@ construct_gmtlist <- function(gmt_file, genes, n) {
 if (file.exists(paste0(annotpath, "/", gmt_file, "_br.rds"))) {
   gmtlist_br <- readRDS(paste0(annotpath, "/", gmt_file, "_br.rds"))
 } else {
-  gmtlist_br <- construct_gmtlist(gmt_file,
-                                  str_to_upper(combined3$clean_gene_symbol %>% unique()),
-                                  length(combined3$clean_gene_symbol %>% unique()))
+  gmtlist_br <- construct_gmtlist(
+    gmt_file,
+    str_to_upper(combined3$clean_gene_symbol %>% unique()),
+    length(combined3$clean_gene_symbol %>% unique())
+  )
   saveRDS(gmtlist_br, paste0(annotpath, "/", gmt_file, "_br.rds"))
 }
 
 if (file.exists(paste0(annotpath, "/", gmt_file, ".rds"))) {
   gmtlist_sq <- readRDS(paste0(annotpath, "/", gmt_file, ".rds"))
 } else {
-  gmtlist_sq <- construct_gmtlist(gmt_file, 
-                                  str_to_upper(bed$clean_gene_symbol %>% unique()),
-                                  length(bed$clean_gene_symbol %>% unique()))
+  gmtlist_sq <- construct_gmtlist(
+    gmt_file,
+    str_to_upper(bed$clean_gene_symbol %>% unique()),
+    length(bed$clean_gene_symbol %>% unique())
+  )
   saveRDS(gmtlist_sq, paste0(annotpath, "/", gmt_file, ".rds"))
 }
 
@@ -420,15 +426,20 @@ orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
 
 # chromosome sizes
 sq1 <- as.list(readRDS(paste0(annotpath, "/sq_chr.rds")))[1:chrlimit]
-sq_g <- data.frame(chrom = names(sq1),
-                   size = unlist(sq1))
+sq_g <- data.frame(
+  chrom = names(sq1),
+  size = unlist(sq1)
+)
 bed_fc <- readRDS(paste0(datapath, "/fc.rds"))
 
 # editing sites
 edits <- read_tsv(paste0(datapath, "/brain_editing_site_proportions.bed"))
-edits$max <- apply(edits[, c(7:96)], 1, function(x) {max(x, na.rm = T)})
-edits <- edits %>% bed_intersect(bed, suffix = c("", "_gene")) %>% 
-  select(c("chrom", "start", "end", "site", "max"), unique_gene_symbol = unique_gene_symbol_gene) %>% 
+edits$max <- apply(edits[, c(7:96)], 1, function(x) {
+  max(x, na.rm = T)
+})
+edits <- edits %>%
+  bed_intersect(bed, suffix = c("", "_gene")) %>%
+  select(c("chrom", "start", "end", "site", "max"), unique_gene_symbol = unique_gene_symbol_gene) %>%
   distinct()
 edits <- edits %>% bed_slop(sq_g, both = 2000000)
 edited_genes <- edits$unique_gene_symbol %>% unique()
@@ -448,15 +459,17 @@ fulltbl_collapse <- fulltbl %>%
   arrange(desc(orf_len), .by_group = TRUE) %>%
   dplyr::slice(1) %>%
   ungroup()
-fulltbl <- fulltbl %>% mutate(micropeptide_pred = ifelse(transcript_id %in% sorf$transcript_DNA_sequence_ID, TRUE, FALSE)) %>% 
-  left_join(sorf_blast %>% select(transcript_id, micropeptide_homology = stitle), by = "transcript_id") %>% 
-  select(any_of(orf_cols_join), everything()) %>% 
+fulltbl <- fulltbl %>%
+  mutate(micropeptide_pred = ifelse(transcript_id %in% sorf$transcript_DNA_sequence_ID, TRUE, FALSE)) %>%
+  left_join(sorf_blast %>% select(transcript_id, micropeptide_homology = stitle), by = "transcript_id") %>%
+  select(any_of(orf_cols_join), everything()) %>%
   distinct()
 fulltbl_sorf <- fulltbl %>% filter(micropeptide_pred)
 fulltbl_collapse <- fulltbl_collapse %>%
-  mutate(micropeptide_pred = ifelse(gene_id %in% fulltbl_sorf$gene_id, TRUE, FALSE)) %>% 
-  left_join(fulltbl_sorf %>% select(gene_id, micropeptide_homology), by = "gene_id") %>% 
-  select(any_of(orf_cols_join), everything()) %>% distinct()
+  mutate(micropeptide_pred = ifelse(gene_id %in% fulltbl_sorf$gene_id, TRUE, FALSE)) %>%
+  left_join(fulltbl_sorf %>% select(gene_id, micropeptide_homology), by = "gene_id") %>%
+  select(any_of(orf_cols_join), everything()) %>%
+  distinct()
 
 length_detected_genes <- orfs %>%
   filter(br_expr == 1) %>%

@@ -200,7 +200,8 @@ ui <- fluidPage(
             id = "side1",
             tabPanel(
               span(icon("link", class = NULL, lib = "font-awesome"), "Gene_links",
-                    title = "additional external links for a specific query gene"),
+                title = "additional external links for a specific query gene"
+              ),
               br(.noWS = "outside"),
               introBox(
                 fluidRow(
@@ -315,8 +316,9 @@ ui <- fluidPage(
             id = "side2",
             tabPanel(
               introBox(
-                span(icon("file-alt", class = NULL, lib = "font-awesome"), "Genelist", 
-                     title = "load list of genes for analysis from file or interactive table"),
+                span(icon("file-alt", class = NULL, lib = "font-awesome"), "Genelist",
+                  title = "load list of genes for analysis from file or interactive table"
+                ),
                 data.step = 9,
                 data.intro = "Genelist can be loaded from external file, or passed from the tables/cart.<br><br>
                 The other multi-gene analysis tabs, Lineplot/ Heatmap/ GO/ Kmer, all use genes from this list.",
@@ -343,8 +345,9 @@ ui <- fluidPage(
             tabPanel(
               value = "cart",
               introBox(
-                span(icon("shopping-cart", class = NULL, lib = "font-awesome"), "Cart", 
-                     title = "cart list of genes to save and export"),
+                span(icon("shopping-cart", class = NULL, lib = "font-awesome"), "Cart",
+                  title = "cart list of genes to save and export"
+                ),
                 data.step = 10,
                 data.intro = "A cart list stores query genes that were added (see button above), which can be exported to .txt file, or moved to the loaded Genelist.<br><br>
                 Interactive clicking on the GO_enrich and Venn plots also put the corresponding genes into this cart.",
@@ -361,7 +364,7 @@ ui <- fluidPage(
                 ),
                 column(
                   width = 2,
-                  actionButton("Add", NULL, icon  = icon("plus-square")) %>%
+                  actionButton("Add", NULL, icon = icon("plus-square")) %>%
                     bs_embed_tooltip("add current query gene to cart", placement = "bottom")
                 ),
                 column(
@@ -371,7 +374,7 @@ ui <- fluidPage(
                 ),
                 column(
                   width = 3,
-                  actionButton("Load", "to Genelist") %>% 
+                  actionButton("Load", "to Genelist") %>%
                     bs_embed_tooltip("send genes in this Cart to loaded Genelist in side panel", placement = "bottom")
                 )
               ),
@@ -429,9 +432,10 @@ ui <- fluidPage(
                   ),
                   data.step = 4,
                   data.intro = "Additional plotting options, for interactivity and labels, can be accessed here.
-                  <br><br>Look for this button on other tabs as",
+                  <br><br>Look for this button on other plotting tabs as well.",
                   data.position = "left"
-                )              ),
+                )
+              ),
               div(
                 style = "vertical-align:top;",
                 uiOutput("boxPlotUI") %>% withLoader()
@@ -447,7 +451,7 @@ ui <- fluidPage(
                 )
               ),
               data.step = 5,
-              data.intro = "Additional info panels for the query gene is by default folded, click to reveal.", 
+              data.intro = "Additional info panels for the query gene is by default folded, click to reveal.",
               data.position = "top"
             ),
             bsCollapse(
@@ -631,17 +635,19 @@ ui <- fluidPage(
             circle = FALSE, status = "analysis options", icon = icon("gear"), width = "200px", size = "sm",
             tooltip = tooltipOptions(title = "boxplot options"), margin = "20px",
             br(),
-            checkboxInput("doPline", "line at p-val threshold", value = TRUE) %>% 
+            checkboxInput("doPline", "line at p-val threshold", value = TRUE) %>%
               bs_embed_tooltip("whether to draw vertical line to indicate threshold p-val", placement = "right"),
             div(
               style = "display: inline-block;vertical-align:top;",
-              radioButtons("background", "background", 
-                           c("brain highly expressed", "all squirrel genes", "all human genes"), 
-                           selected = "all human genes", inline = FALSE) %>% 
+              radioButtons("background", "background",
+                c("brain highly expressed", "all squirrel genes", "all human genes"),
+                selected = "all human genes", inline = FALSE
+              ) %>%
                 bs_embed_tooltip("genes to use as statistical background", placement = "top"),
-              radioButtons("gocat", "GO collection", 
-                           c("Biological Process", "Cellular Component", "Molecular Function"), 
-                           selected = "Biological Process", inline = FALSE) %>% 
+              radioButtons("gocat", "GO collection",
+                c("Biological Process", "Cellular Component", "Molecular Function"),
+                selected = "Biological Process", inline = FALSE
+              ) %>%
                 bs_embed_tooltip("subcollection of GO terms to test against", placement = "bottom")
             )
           ),
@@ -668,7 +674,8 @@ ui <- fluidPage(
             style = "display: inline-block;vertical-align:top; width:175px;",
             radioButtons("km", "kmer length", c("5", "6", "7"), selected = "6", inline = TRUE) %>%
               bs_embed_tooltip("longer kmer requires longer statistical calculation time.",
-                               placement = "bottom")
+                placement = "bottom"
+              )
           ),
           div(
             id = "kmlabdiv",
@@ -676,7 +683,8 @@ ui <- fluidPage(
             tags$style(HTML(".radio-inline {margin-right: 10px;}")),
             radioButtons("kmlab", "annotate kmer", c("RBP/mir", "seq", "none"), selected = "RBP/mir", inline = TRUE) %>%
               bs_embed_tooltip("annotations: 5mer - Ray2013 + Encode, 6mer - Transite R, 7mer TargetScan mir seed",
-                               placement = "bottom")
+                placement = "bottom"
+              )
           ),
           div(
             style = "display: inline-block;vertical-align:top;",
@@ -694,7 +702,7 @@ ui <- fluidPage(
             style = "display: inline-block;vertical-align:bottom;width:200px;",
             checkboxInput("doPlotly2", "interactive plot", value = T, width = NULL) %>%
               bs_embed_tooltip("display interactive plot with additional info on hover", placement = "right"),
-            checkboxInput("doPline2", "line at p-val threshold", value = TRUE, width = NULL) %>% 
+            checkboxInput("doPline2", "line at p-val threshold", value = TRUE, width = NULL) %>%
               bs_embed_tooltip("whether to draw horizontal line to indicate threshold p-val", placement = "right")
           ),
           uiOutput("kmerPlotUI") %>% withLoader(loader = "pacman", proxy.height = paste0(plot_height * 100 / 2, "px"))
@@ -761,12 +769,12 @@ ui <- fluidPage(
         tabPanel(
           introBox(
             span(icon("circle-notch", class = NULL, lib = "font-awesome"),
-                 "Genome",
-                 title = "Visualize gene list on longest 20 contigs (slow)"
+              "Genome",
+              title = "Visualize gene list on longest 20 contigs (slow)"
             ),
             data.step = 17,
             data.intro = "Circos-like visualization of genes on newly assembled genome and annotation.<br><br>
-            Can display genes from Genelist, previously documented list, and editing sites previously reported.<br><br>
+            Can display genes from Genelist, previously documented list, and RNA editing sites previously reported.<br><br>
             Note that thousands of very short contigs are not displayed in the plot.<br><br>
             Hover over gene marks for additional info. Clicking loads the gene up ready for query.<br><br>
             Plot saves as .html.",
@@ -776,27 +784,27 @@ ui <- fluidPage(
           div(
             style = "display:inline-block;width: 160px;margin-top:6px",
             selectizeInput("guse", NULL,
-                           choices = c(
-                             "_none", "_Gene_list", "_Cart_list",
-                             names(gene_list)
-                           ),
-                           selected = "_Gene_list"
+              choices = c(
+                "_none", "_Gene_list", "_Cart_list",
+                names(gene_list)
+              ),
+              selected = "_Gene_list"
             ) %>% bs_embed_tooltip("which genes to show in genome view", placement = "top")
           ),
           div(
             style = "display: inline-block;vertical-align:top;color:blue",
             uiOutput("listn3", inline = TRUE) %>%
-            bs_embed_tooltip("short contigs 21 and above are hidden", placement = "top")
+              bs_embed_tooltip("short contigs 21 and above are hidden", placement = "top")
           ),
           div(style = "height:1px;margin:-10px", ""),
           div(
             style = "display:inline-block;width: 160px;margin-top:6px",
             selectizeInput("guse2", NULL,
-                           choices = c(
-                             "_none", "_Gene_list", "_Cart_list",
-                             names(gene_list)
-                           ),
-                           selected = "_none"
+              choices = c(
+                "_none", "_Gene_list", "_Cart_list",
+                names(gene_list)
+              ),
+              selected = "_none"
             ) %>% bs_embed_tooltip("which genes to show in genome view", placement = "top")
           ),
           div(
@@ -808,11 +816,11 @@ ui <- fluidPage(
           div(
             style = "display:inline-block;width: 160px;margin-top:6px",
             selectizeInput("guse3", NULL,
-                           choices = c(
-                             "_none", "Forebrain", "Hypothalamus", "Medulla", "Editing_Riemondy2018"
-                           ),
-                           selected = "Hypothalamus"
-            ) %>% bs_embed_tooltip("displays max log2FoldChange (or max proportions edited for editing sites) between states for this tissue", placement = "top")
+              choices = c(
+                "_none", "Forebrain", "Hypothalamus", "Medulla", "Editing_Riemondy2018"
+              ),
+              selected = "Hypothalamus"
+            ) %>% bs_embed_tooltip("displays max log2FoldChange (or max proportions edited for RNA editing sites) between states for this tissue", placement = "top")
           ),
           div(
             style = "margin-top:-50px",
@@ -843,10 +851,12 @@ ui <- fluidPage(
           uiOutput("contact"),
           hr(),
           h5("About Samples"),
-          fluidRow(column(width = 4, DT::dataTableOutput("explain")),
-          column(width = 1),
-          column(width = 4, DT::dataTableOutput("explain2")),
-          column(width = 3, "")),
+          fluidRow(
+            column(width = 4, DT::dataTableOutput("explain")),
+            column(width = 1),
+            column(width = 4, DT::dataTableOutput("explain2")),
+            column(width = 3, "")
+          ),
           hr(),
           h5("Data Files"),
           column(width = 9, DT::dataTableOutput("explain3"))

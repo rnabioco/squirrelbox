@@ -308,10 +308,10 @@ server <- function(input, output, session) {
           mods <- (rv$mod_df[1, ] %>% unlist())[-1]
           reg <- names(rv$mod_df)[-1]
         }
-        title <- ggdraw() + 
+        title <- ggdraw() +
           draw_label(
             "cluster model expression (empty for genes with insignificant change or filtered out for low expression)",
-            fontface = 'bold',
+            fontface = "bold",
             x = 0,
             hjust = 0
           ) +
@@ -888,7 +888,7 @@ server <- function(input, output, session) {
       gmtlist1 <- gmtlist_sq
     } else if (input$background == "all human genes") {
       gmtlist1 <- gmtlist_human
-    } 
+    }
     tops <- fisher(genevec, gmtlist1[[input$gocat]], gmtlist1[["n"]])
     tops$pathway <- reorder(tops$pathway, tops$minuslog10)
     tops
@@ -900,7 +900,8 @@ server <- function(input, output, session) {
       return(ggplot() +
         ggtitle("no genes loaded"))
     }
-    tops <- tops %>% dplyr::slice(1:max(min(which(tops$padj > as.numeric(input$pval))), 15)) %>% 
+    tops <- tops %>%
+      dplyr::slice(1:max(min(which(tops$padj > as.numeric(input$pval))), 15)) %>%
       mutate(pathway = str_to_lower(pathway))
 
     g <- ggplot(
@@ -909,7 +910,7 @@ server <- function(input, output, session) {
     ) +
       geom_bar(stat = "identity") +
       xlab(paste0("enriched : ", str_remove(gmt_short, "_"))) +
-      scale_x_discrete(limits= rev(tops$pathway[1:15])) +
+      scale_x_discrete(limits = rev(tops$pathway[1:15])) +
       coord_flip() +
       cowplot::theme_minimal_vgrid() +
       theme(
@@ -919,9 +920,9 @@ server <- function(input, output, session) {
         axis.title.x = element_text(size = 10),
         legend.position = "none"
       ) +
-      scale_y_continuous(expand = c(0, 0)) + 
+      scale_y_continuous(expand = c(0, 0)) +
       ylab("-log10(FDR)")
-    
+
     if (input$doPline) {
       g <- g + geom_hline(yintercept = -log10(as.numeric(input$pval)))
     }
@@ -1047,22 +1048,23 @@ server <- function(input, output, session) {
     if (verbose_bench) {
       print(paste0("kmerplot1 step1: ", Sys.time() - t1))
     }
-    
+
     topsk
   })
-  
+
   kmerPlot1_debounce <- reactive({
     de_rbpterm <- input$rbpterm
-    #de_rbpterm <- debounce(input$rbpterm, 100)
-    topsk <- kmerPlot1_pre_debounce() 
+    # de_rbpterm <- debounce(input$rbpterm, 100)
+    topsk <- kmerPlot1_pre_debounce()
     if (nrow(topsk) == 0) {
       return(data.frame())
     }
     topsk <- topsk %>%
-      mutate(found = ifelse(str_detect(str_to_upper(RBP), str_to_upper(de_rbpterm)) | 
-                                               str_detect(kmer, str_to_upper(de_rbpterm)),
-                            1,
-                            0))
+      mutate(found = ifelse(str_detect(str_to_upper(RBP), str_to_upper(de_rbpterm)) |
+        str_detect(kmer, str_to_upper(de_rbpterm)),
+      1,
+      0
+      ))
     topsk
   })
 
@@ -1070,7 +1072,7 @@ server <- function(input, output, session) {
     topsk <- kmerPlot1_debounce()
     if (nrow(topsk) == 0) {
       return(ggplot() +
-               ggtitle("no genes loaded"))
+        ggtitle("no genes loaded"))
     }
     g <- ggplot(topsk, aes(
       x = enrichment,
@@ -1088,7 +1090,7 @@ server <- function(input, output, session) {
       ylab("-log10(FDR)") +
       labs(color = "") +
       scale_y_continuous(expand = c(0, 0))
-      
+
     if (input$doPline2) {
       g <- g + geom_hline(yintercept = -log10(as.numeric(input$pval)))
     }
@@ -1287,7 +1289,7 @@ server <- function(input, output, session) {
       return(NA)
     } else if (input$guse == "_Gene_list") {
       templist <- historytablist
-    } else if (input$guse == "_Cart_list"){
+    } else if (input$guse == "_Cart_list") {
       templist <- carttablist
     } else {
       templist <- gene_list[[input$guse]]
@@ -1297,30 +1299,36 @@ server <- function(input, output, session) {
       rv$listn3 <<- "Displaying 0 genes"
       return(NA)
     }
-    
+
     bed_f <- bed %>% filter((unique_gene_symbol %in% templist) | (str_to_upper(unique_gene_symbol) %in% templist))
-    
+
     listn3_1 <- length(templist)
-    listn3_2 <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= chrlimit) %>%
-      pull(unique_gene_symbol) %>% 
-      unique() %>% length()
+    listn3_2 <- bed_f %>%
+      filter(as.numeric(str_remove(chrom, "Itri")) <= chrlimit) %>%
+      pull(unique_gene_symbol) %>%
+      unique() %>%
+      length()
     rv$listn3 <<- paste0("Displaying ", listn3_2, " out of ", listn3_1, " genes")
-    
+
     bed_f <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= chrlimit)
-    bed_f <- bed_f %>% group_by(unique_gene_symbol) %>% bed_merge(max_dist = 10000000) 
+    bed_f <- bed_f %>%
+      group_by(unique_gene_symbol) %>%
+      bed_merge(max_dist = 10000000)
     rv$bed <<- bed_f
     bed_f <- bed_f %>% bed_slop(sq_g, both = 2500000, trim = TRUE)
-    
+
     arcs_chromosomes <- str_remove(bed_f$chrom, "Itri") # Chromosomes on which the arcs should be displayed
     arcs_begin <- bed_f$start
     arcs_end <- bed_f$end
     arcs_lab <- bed_f$unique_gene_symbol
-    
-    tracklist = BioCircosArcTrack('myArcTrack', arcs_chromosomes, arcs_begin, arcs_end, labels = arcs_lab,
-                                  minRadius = 0.45, maxRadius = 0.65, colors = "blue", opacities = 0.4)
+
+    tracklist <- BioCircosArcTrack("myArcTrack", arcs_chromosomes, arcs_begin, arcs_end,
+      labels = arcs_lab,
+      minRadius = 0.45, maxRadius = 0.65, colors = "blue", opacities = 0.4
+    )
     tracklist
   })
-  
+
   circostrack2 <- reactive({
     rv$line_refresh
     if (input$guse2 == "_none") {
@@ -1328,7 +1336,7 @@ server <- function(input, output, session) {
       return(NA)
     } else if (input$guse2 == "_Gene_list") {
       templist <- historytablist
-    } else if (input$guse2 == "_Cart_list"){
+    } else if (input$guse2 == "_Cart_list") {
       templist <- carttablist
     } else {
       templist <- gene_list[[input$guse2]]
@@ -1337,65 +1345,77 @@ server <- function(input, output, session) {
       rv$listn4 <<- "Displaying 0 genes"
       return(NA)
     }
-    
+
     bed_f <- bed %>% filter((unique_gene_symbol %in% templist) | (str_to_upper(unique_gene_symbol) %in% templist))
-    
+
     listn4_1 <- length(templist)
-    listn4_2 <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= chrlimit) %>%
-      pull(unique_gene_symbol) %>% 
-      unique() %>% length()
+    listn4_2 <- bed_f %>%
+      filter(as.numeric(str_remove(chrom, "Itri")) <= chrlimit) %>%
+      pull(unique_gene_symbol) %>%
+      unique() %>%
+      length()
     rv$listn4 <<- paste0("Displaying ", listn4_2, " out of ", listn4_1, " genes")
-    
+
     bed_f <- bed_f %>% filter(as.numeric(str_remove(chrom, "Itri")) <= chrlimit)
-    bed_f <- bed_f %>% group_by(unique_gene_symbol) %>% bed_merge(max_dist = 1000000000) 
+    bed_f <- bed_f %>%
+      group_by(unique_gene_symbol) %>%
+      bed_merge(max_dist = 1000000000)
     rv$bed <<- bed_f
     bed_f <- bed_f %>% bed_slop(sq_g, both = 2500000, trim = TRUE)
-    
+
     arcs_chromosomes <- str_remove(bed_f$chrom, "Itri") # Chromosomes on which the arcs should be displayed
     arcs_begin <- bed_f$start
     arcs_end <- bed_f$end
     arcs_lab <- bed_f$unique_gene_symbol
-    
-    tracklist = BioCircosArcTrack('myArcTrack', arcs_chromosomes, arcs_begin, arcs_end, labels = arcs_lab,
-                                  minRadius = 0.2, maxRadius = 0.4, colors = "green", opacities = 0.4)
+
+    tracklist <- BioCircosArcTrack("myArcTrack", arcs_chromosomes, arcs_begin, arcs_end,
+      labels = arcs_lab,
+      minRadius = 0.2, maxRadius = 0.4, colors = "green", opacities = 0.4
+    )
     tracklist
   })
-  
+
   circostrack3 <- reactive({
     if (input$guse3 == "_none") {
       return(NA)
     } else if (input$guse3 == "Editing_Riemondy2018") {
-      tracklist <- BioCircosBarTrack(trackname = "fc", 
-                                     chromosomes = str_remove(edits$chrom, "Itri"),
-                                     starts = edits$start, 
-                                     ends = edits$end, 
-                                     values = edits$max, 
-                                     labels = edits$unique_gene_symbol,
-                                     range = c(0,1),
-                                     color = "#000000",
-                                     maxRadius = 0.87,
-                                     minRadius = 0.7)
+      tracklist <- BioCircosBarTrack(
+        trackname = "fc",
+        chromosomes = str_remove(edits$chrom, "Itri"),
+        starts = edits$start,
+        ends = edits$end,
+        values = edits$max,
+        labels = edits$unique_gene_symbol,
+        range = c(0, 1),
+        color = "#000000",
+        maxRadius = 0.87,
+        minRadius = 0.7
+      )
       return(tracklist)
     } else {
-      bed_temp <- bed_fc %>% filter(region == input$guse3) %>%
-        filter(as.numeric(str_remove(chrom, "Itri")) <= chrlimit) %>% filter(abs(fold) >= 0.1)
+      bed_temp <- bed_fc %>%
+        filter(region == input$guse3) %>%
+        filter(as.numeric(str_remove(chrom, "Itri")) <= chrlimit) %>%
+        filter(abs(fold) >= 0.1)
     }
     temp3 <- bed_temp
-    tracklist <- BioCircosBarTrack(trackname = "fc", 
-                                   chromosomes = str_remove(temp3$chrom, "Itri"),
-                                   starts = temp3$start, 
-                                   ends = temp3$end, 
-                                   values = temp3$fold, 
-                                   labels = temp3$unique_gene_symbol,
-                                   range = c(0,log2(ceiling(max(bed_fc$fold)))),
-                                   color = "#000000",
-                                   maxRadius = 0.87,
-                                   minRadius = 0.7)
+    tracklist <- BioCircosBarTrack(
+      trackname = "fc",
+      chromosomes = str_remove(temp3$chrom, "Itri"),
+      starts = temp3$start,
+      ends = temp3$end,
+      values = temp3$fold,
+      labels = temp3$unique_gene_symbol,
+      range = c(0, log2(ceiling(max(bed_fc$fold)))),
+      color = "#000000",
+      maxRadius = 0.87,
+      minRadius = 0.7
+    )
     tracklist
   })
-  
+
   circosPlot1 <- reactive({
-    tracks = BioCircosTracklist()
+    tracks <- BioCircosTracklist()
     if (!(is.na(circostrack()))) {
       tracks <- tracks + circostrack()
     }
@@ -1407,63 +1427,65 @@ server <- function(input, output, session) {
     }
     if (input$guse3 == "Editing_Riemondy2018") {
       BioCircos(tracks,
-                genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")), 
-                ARCMouseOverTooltipsHtml02 = "<!––",
-                ARCMouseOverTooltipsHtml03 = "",
-                ARCMouseOverTooltipsHtml04 = "––><br/>",
-                chrPad = 0.023,
-                genomeLabelTextSize = "9pt",
-                BARMouseOverTooltipsHtml02 = "<!––", 
-                BARMouseOverTooltipsHtml03 = "",
-                BARMouseOverTooltipsHtml04 = "––><br/>",
-                BARMouseOverTooltipsHtml05 = "<br/>max_fraction: ")
+        genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")),
+        ARCMouseOverTooltipsHtml02 = "<!––",
+        ARCMouseOverTooltipsHtml03 = "",
+        ARCMouseOverTooltipsHtml04 = "––><br/>",
+        chrPad = 0.023,
+        genomeLabelTextSize = "9pt",
+        BARMouseOverTooltipsHtml02 = "<!––",
+        BARMouseOverTooltipsHtml03 = "",
+        BARMouseOverTooltipsHtml04 = "––><br/>",
+        BARMouseOverTooltipsHtml05 = "<br/>max_fraction: "
+      )
     } else {
       BioCircos(tracks,
-                genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")), 
-                ARCMouseOverTooltipsHtml02 = "<!––",
-                ARCMouseOverTooltipsHtml03 = "",
-                ARCMouseOverTooltipsHtml04 = "––><br/>",
-                chrPad = 0.023,
-                genomeLabelTextSize = "9pt",
-                BARMouseOverTooltipsHtml02 = "<!––", 
-                BARMouseOverTooltipsHtml03 = "",
-                BARMouseOverTooltipsHtml04 = "––><br/>",
-                BARMouseOverTooltipsHtml05 = "<br/>max_log2FC: ")
+        genome = sq1 %>% setNames(names(sq1) %>% str_remove("Itri")),
+        ARCMouseOverTooltipsHtml02 = "<!––",
+        ARCMouseOverTooltipsHtml03 = "",
+        ARCMouseOverTooltipsHtml04 = "––><br/>",
+        chrPad = 0.023,
+        genomeLabelTextSize = "9pt",
+        BARMouseOverTooltipsHtml02 = "<!––",
+        BARMouseOverTooltipsHtml03 = "",
+        BARMouseOverTooltipsHtml04 = "––><br/>",
+        BARMouseOverTooltipsHtml05 = "<br/>max_log2FC: "
+      )
     }
   })
-  
+
   circosPlotr <- reactive({
     output$circos <- renderBioCircos({
       circosPlot1()
     })
     BioCircosOutput("circos", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100)
   })
-  
+
   output$circosUI <- renderUI({
     circosPlotr()
   })
-  
+
   savePlot7 <- downloadHandler(
     filename = "genome.html",
     content = function(file) {
       htmlwidgets::saveWidget(circosPlot1(), file = file)
     }
   )
-  
+
   saveFilteredbed <- downloadHandler("filtré.csv", content = function(file) {
     write_csv(rv$bed, file)
   })
-  
+
   output$listn3 <- renderUI({
     HTML(str_c("<strong><h5>", rv$listn3, "</h5></strong>"))
   })
-  
+
   output$listn4 <- renderUI({
     HTML(str_c("<strong><h5 style='color:green'>", rv$listn4, "</h5></strong>"))
   })
-  
+
   # misc
-  
+
   onclick("Cart_all", {
     gene_vec <- unlist(venntemp()) %>% unique()
     carttablist <- gene_vec
@@ -1515,27 +1537,27 @@ server <- function(input, output, session) {
       shinyjs::click("Find")
     }
   })
-  
+
   observeEvent(input$geneID2, {
     rv$run2 <- 1
     if (input$geneID2 %in% autocomplete_list) {
       updateSelectizeInput(session,
-                           inputId = "geneID",
-                           selected = input$geneID2,
-                           choices = autocomplete_list,
-                           server = T
+        inputId = "geneID",
+        selected = input$geneID2,
+        choices = autocomplete_list,
+        server = T
       )
     }
   })
-  
+
   observeEvent(input$geneID3, {
     rv$run2 <- 1
     if (input$geneID3 %in% autocomplete_list) {
       updateSelectizeInput(session,
-                           inputId = "geneID",
-                           selected = input$geneID3,
-                           choices = autocomplete_list,
-                           server = T
+        inputId = "geneID",
+        selected = input$geneID3,
+        choices = autocomplete_list,
+        server = T
       )
     }
   })
@@ -1584,12 +1606,12 @@ server <- function(input, output, session) {
     carttablist <- unique(c(historytab[1], carttablist))
     rv$listn2 <- length(carttablist)
   })
-  
+
   onclick("Empty", {
     carttablist <- c()
     rv$listn2 <- length(carttablist)
   })
-  
+
 
   output$listn2 <- renderUI({
     HTML(str_c("<strong><h5> # in Cart: ", rv$listn2, "</h5></strong>"))
@@ -1960,7 +1982,7 @@ server <- function(input, output, session) {
       href = url
     )
     s3link <- a("S3",
-               href = s3
+      href = s3
     )
     tagList(tags$h6(icon("github-square"), "squirrelBox version: ", clean, "; or available to download and run locally: ", s3link))
   })
@@ -2023,7 +2045,7 @@ server <- function(input, output, session) {
       )
     )
   })
-  
+
   output$explain3 <- DT::renderDataTable({
     dfreg3 <- data.frame(
       file = c(
@@ -2058,14 +2080,14 @@ server <- function(input, output, session) {
       )
     )
     DT::datatable(dfreg3,
-                  escape = FALSE,
-                  selection = "none",
-                  rownames = FALSE,
-                  options = list(
-                    searchable = FALSE,
-                    dom = "t",
-                    paging = FALSE
-                    )
+      escape = FALSE,
+      selection = "none",
+      rownames = FALSE,
+      options = list(
+        searchable = FALSE,
+        dom = "t",
+        paging = FALSE
+      )
     )
   })
 
@@ -2087,7 +2109,7 @@ server <- function(input, output, session) {
       output$saveTable2 <- saveFiltered
       if (rv$tabinit_data == 0) {
         showNotification("Type `low...high` to input custom range for numeric filtering on column. For instance, 0...0.001 filters for significant p value",
-                         type = "message"
+          type = "message"
         )
         rv$tabinit_data <<- 1
       }
@@ -2100,7 +2122,7 @@ server <- function(input, output, session) {
       output$saveTable2 <- saveFilteredAS
       if (rv$tabinit_as == 0) {
         showNotification("Type `low...high` to input custom range for numeric filtering on column. For instance, 0...0.001 filters for significant p value",
-                         type = "message"
+          type = "message"
         )
         rv$tabinit_as <<- 1
       }
@@ -2231,12 +2253,13 @@ server <- function(input, output, session) {
   )
 
   observeEvent(input$tutorial, {
-    introjs(session, options = list(
-      "nextLabel" = ">",
-      "prevLabel" = "<",
-      "skipLabel" = "skip",
-      "overlayOpacity" = -1
-      ) #,events = list("onexit" = I("alert('abc')"))
+    introjs(session,
+      options = list(
+        "nextLabel" = ">",
+        "prevLabel" = "<",
+        "skipLabel" = "skip",
+        "overlayOpacity" = -1
+      ) # ,events = list("onexit" = I("alert('abc')"))
     )
   })
 
@@ -2248,8 +2271,7 @@ server <- function(input, output, session) {
         "prevLabel" = "<",
         "skipLabel" = "skip",
         "overlayOpacity" = -1
-        )
-      ) #events = list("onexit" = I("document.getElementsByClassName('introjs-nextbutton').blur()")))
+      )) # events = list("onexit" = I("document.getElementsByClassName('introjs-nextbutton').blur()")))
     }
   })
 }
