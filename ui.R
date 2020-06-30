@@ -199,7 +199,8 @@ ui <- fluidPage(
           tabsetPanel(
             id = "side1",
             tabPanel(
-              span(icon("link", class = NULL, lib = "font-awesome"), "Gene_links", title = "additional external links for querying a specific gene"),
+              span(icon("link", class = NULL, lib = "font-awesome"), "Gene_links",
+                    title = "additional external links for a specific query gene"),
               br(.noWS = "outside"),
               introBox(
                 fluidRow(
@@ -247,7 +248,7 @@ ui <- fluidPage(
               # style = "height:150px;"
             ),
             tabPanel(
-              span(icon("cogs", class = NULL, lib = "font-awesome"), "Options", title = "options specific to each main tab"),
+              span(icon("cogs", class = NULL, lib = "font-awesome"), "Options", title = "additional global options"),
               br(.noWS = "outside"),
               div(id = "doEigendiv", checkboxInput("doEigen", "plot model clusters", value = T, width = NULL)),
               checkboxInput("doUcsc", "pull track", value = T, width = NULL),
@@ -314,7 +315,8 @@ ui <- fluidPage(
             id = "side2",
             tabPanel(
               introBox(
-                span(icon("file-alt", class = NULL, lib = "font-awesome"), "Genelist", title = "load list of genes for analysis from file or interactive table"),
+                span(icon("file-alt", class = NULL, lib = "font-awesome"), "Genelist", 
+                     title = "load list of genes for analysis from file or interactive table"),
                 data.step = 9,
                 data.intro = "Genelist can be loaded from external file, or passed from the tables/cart.<br><br>
                 The other multi-gene analysis tabs, Lineplot/ Heatmap/ GO/ Kmer, all use genes from this list.",
@@ -322,7 +324,7 @@ ui <- fluidPage(
               ),
               value = "load",
               div(id = "filediv", fileInput("file", label = NULL) %>%
-                bs_embed_tooltip("expects gene symbols as first column, or comma separated")),
+                bs_embed_tooltip("expects gene symbols (case-insensitive) as first column of tsv, or comma separated line")),
               div(
                 uiOutput("listn"),
                 style = "display: inline-block;vertical-align:middle;"
@@ -341,10 +343,11 @@ ui <- fluidPage(
             tabPanel(
               value = "cart",
               introBox(
-                span(icon("shopping-cart", class = NULL, lib = "font-awesome"), "Cart", title = "cart list of genes to save and export"),
+                span(icon("shopping-cart", class = NULL, lib = "font-awesome"), "Cart", 
+                     title = "cart list of genes to save and export"),
                 data.step = 10,
                 data.intro = "A cart list stores query genes that were added (see button above), which can be exported to .txt file, or moved to the loaded Genelist.<br><br>
-                Interactive clicking on the GO_enrich and Venn plots also put the corresponding genes into the cart.",
+                Interactive clicking on the GO_enrich and Venn plots also put the corresponding genes into this cart.",
                 data.position = "top"
               ),
               uiOutput("listn2"),
@@ -358,15 +361,18 @@ ui <- fluidPage(
                 ),
                 column(
                   width = 2,
-                  actionButton("Add", NULL, icon  = icon("plus-square")) %>% bs_embed_tooltip("add current query gene to cart", placement = "bottom")
+                  actionButton("Add", NULL, icon  = icon("plus-square")) %>%
+                    bs_embed_tooltip("add current query gene to cart", placement = "bottom")
                 ),
                 column(
                   width = 2,
-                  actionButton("Empty", NULL, icon = icon("broom")) %>% bs_embed_tooltip("remove all genes from cart", placement = "bottom")
+                  actionButton("Empty", NULL, icon = icon("broom")) %>%
+                    bs_embed_tooltip("remove all genes from cart", placement = "bottom")
                 ),
                 column(
                   width = 3,
-                  actionButton("Load", "to Genelist") %>% bs_embed_tooltip("send genes in Cart to loaded Genelist in side panel", placement = "bottom")
+                  actionButton("Load", "to Genelist") %>% 
+                    bs_embed_tooltip("send genes in this Cart to loaded Genelist in side panel", placement = "bottom")
                 )
               ),
               DT::dataTableOutput("tbllist2"),
@@ -399,7 +405,7 @@ ui <- fluidPage(
               title = "Plot expression box plot and other info of query gene"
             ),
             data.step = 3,
-            data.intro = "For the query gene, this tab displays the expression boxplot, as well as other annotations and analyses.",
+            data.intro = "For a query gene, this tab displays the expression boxplot, as well as other annotations and analyses.",
             data.position = "top"
           ),
           value = "Gene_query",
@@ -417,12 +423,13 @@ ui <- fluidPage(
                     div(id = "doPlotlydiv", checkboxInput("doPlotly", "interactive plots", value = F, width = NULL) %>%
                       bs_embed_tooltip("display interactive plot with additional info on hover", placement = "right")),
                     div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL) %>%
-                      bs_embed_tooltip("label groups by nonsignficance", placement = "right")),
+                      bs_embed_tooltip("label groups by nonsignificance", placement = "right")),
                     div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL) %>%
                       bs_embed_tooltip("label points by sample", placement = "right"))
                   ),
                   data.step = 4,
-                  data.intro = "Additional plotting options, for interactivity and labels, can be accessed here.",
+                  data.intro = "Additional plotting options, for interactivity and labels, can be accessed here.
+                  <br><br>Look for this button on other tabs as",
                   data.position = "left"
                 )              ),
               div(
@@ -482,7 +489,7 @@ ui <- fluidPage(
             ),
             data.step = 7,
             data.intro = "Here we summarize the genes in this study.<br><br>
-            The table can be filtered, exported as .csv, and passed to Genelist for additional on-the-fly analyses.<br><br>
+            The table can be filtered, exported as .csv (only exports entries that pass filter), and passed to Genelist for additional on-the-fly analyses.<br><br>
             Hover over column names for additional descriptions.",
             data.position = "top"
           ),
@@ -503,11 +510,11 @@ ui <- fluidPage(
         tabPanel(
           introBox(
             span(icon("list", class = NULL, lib = "font-awesome"), "AS_table",
-              title = "Table of majiq output for alternative splicing events"
+              title = "Table of MAJIQ output for alternative splicing events"
             ),
             data.step = 8,
             data.intro = "Similarly, splicing analysis via MAJIQ is presented as a table.<br><br>
-            The table can be filtered, exported as .csv, and passed to Genelist for additional on-the-fly analyses.<br><br>
+            The table can be filtered, exported as .csv (only exports entries that pass filter), and passed to Genelist for additional on-the-fly analyses.<br><br>
             Hover over column names for additional descriptions.",
             data.position = "top"
           ),
@@ -528,10 +535,10 @@ ui <- fluidPage(
         tabPanel(
           introBox(
             span(icon("chart-line", class = NULL, lib = "font-awesome"), "Line_plot",
-              title = "Plot expression of loaded Genelist"
+              title = "Plot expression of loaded Genelist, each gene as a line"
             ),
             data.step = 12,
-            data.intro = "Visualize loaded Genelist as line plot, also supports summarized line.",
+            data.intro = "Visualize loaded Genelist as line plot, also supports summarized (mean +- sem) line.",
             data.position = "top"
           ),
           value = "line_plot",
@@ -542,11 +549,11 @@ ui <- fluidPage(
               tooltip = tooltipOptions(title = "plotting options"), margin = "20px",
               br(),
               div(id = "doName2div", checkboxInput("doName2", "additional labels", value = T, width = NULL) %>%
-                bs_embed_tooltip("show toggleable legend", placement = "right")),
+                bs_embed_tooltip("show toggleable/interactive legend", placement = "right")),
               div(id = "doNormdiv", checkboxInput("doNorm", "normalize to SA", value = F, width = NULL) %>%
                 bs_embed_tooltip("otherwise centered by mean expression", placement = "right")),
               div(id = "doSummaryiv", checkboxInput("doSummary", "summary line", value = F, width = NULL) %>%
-                bs_embed_tooltip("summarize instead of individual lines", placement = "right"))
+                bs_embed_tooltip("summarize all genes as single instead of individual lines", placement = "right"))
             )
           ),
           div(
@@ -560,7 +567,7 @@ ui <- fluidPage(
               title = "Plot Z-Score of loaded Genelist as heat map"
             ),
             data.step = 13,
-            data.intro = "Similar to the lineplot, visualize loaded Genelist as heatmap.",
+            data.intro = "Similar to the lineplot, visualize loaded Genelist as heatmap (normalized as Z-scores).",
             data.position = "top"
           ),
           value = "heat_plot",
@@ -625,7 +632,7 @@ ui <- fluidPage(
             tooltip = tooltipOptions(title = "boxplot options"), margin = "20px",
             br(),
             checkboxInput("doPline", "line at p-val threshold", value = TRUE) %>% 
-              bs_embed_tooltip("whether to draw vertical line to indicate target p-val", placement = "right"),
+              bs_embed_tooltip("whether to draw vertical line to indicate threshold p-val", placement = "right"),
             div(
               style = "display: inline-block;vertical-align:top;",
               radioButtons("background", "background", 
@@ -646,7 +653,7 @@ ui <- fluidPage(
               title = "Kmer enrichment analysis and annotation for loaded Genelist (slow)"
             ),
             data.step = 15,
-            data.intro = "Kmer analysis of loaded Genelist, with option to annotate known RBP motifs or mir seeds.<br><br>
+            data.intro = "Kmer analysis of loaded Genelist, with option to annotate and/or highlight (in black) known RBP motifs or mir seeds.<br><br>
             Note that this process may take ~30 seconds due to statistical calculations.",
             data.position = "top"
           ),
@@ -660,7 +667,7 @@ ui <- fluidPage(
             id = "kmerdiv",
             style = "display: inline-block;vertical-align:top; width:175px;",
             radioButtons("km", "kmer length", c("5", "6", "7"), selected = "6", inline = TRUE) %>%
-              bs_embed_tooltip("longer kmer requires longer calculation time.",
+              bs_embed_tooltip("longer kmer requires longer statistical calculation time.",
                                placement = "bottom")
           ),
           div(
@@ -688,18 +695,18 @@ ui <- fluidPage(
             checkboxInput("doPlotly2", "interactive plot", value = T, width = NULL) %>%
               bs_embed_tooltip("display interactive plot with additional info on hover", placement = "right"),
             checkboxInput("doPline2", "line at p-val threshold", value = TRUE, width = NULL) %>% 
-              bs_embed_tooltip("whether to draw horizontal line to indicate target p-val", placement = "right")
+              bs_embed_tooltip("whether to draw horizontal line to indicate threshold p-val", placement = "right")
           ),
           uiOutput("kmerPlotUI") %>% withLoader(loader = "pacman", proxy.height = paste0(plot_height * 100 / 2, "px"))
         ),
         tabPanel(
           introBox(
             span(icon("circle", class = NULL, lib = "font-awesome"), "Venn",
-              title = "Visualize gene overlap between regions by venn diagram, and retrieve lists"
+              title = "Visualize gene overlap between regions and other lists by venn diagram, and retrieve intersection/union of genes"
             ),
             data.step = 16,
             data.intro = "Use venn diagram to visualize documented and loaded Genelist/Cart.<br><br>
-            Clicking on numbers moves genes of that category to Cart",
+            Clicking on numbers moves genes of that category to Cart for other analyses/export.",
             data.position = "top"
           ),
           value = "venn",
@@ -746,7 +753,7 @@ ui <- fluidPage(
           div(
             id = "loadalldiv",
             actionButton("Cart_all", "all genes to Cart") %>%
-              bs_embed_tooltip("add all genes from these sets into `Cart` side panel", placement = "bottom"),
+              bs_embed_tooltip("add all genes from all selected sets into `Cart` side panel", placement = "bottom"),
             style = "display: inline-block"
           ),
           plotlyOutput("vennPlot") %>% withLoader()
@@ -755,11 +762,14 @@ ui <- fluidPage(
           introBox(
             span(icon("circle-notch", class = NULL, lib = "font-awesome"),
                  "Genome",
-                 title = "Visualize gene list on major chromosomes"
+                 title = "Visualize gene list on longest 20 contigs (slow)"
             ),
             data.step = 17,
-            data.intro = "Circos-like visualization of genes from Genelist on newly assembled genome.<br><br>
-            Note that thousands of very short contigs are not displayed in the plot.<br><br>Hover over gene marks for additional info. Clicking loads the gene up ready for query.<br><br>Plot saves as .html.",
+            data.intro = "Circos-like visualization of genes on newly assembled genome and annotation.<br><br>
+            Can display genes from Genelist, previously documented list, and editing sites previously reported.<br><br>
+            Note that thousands of very short contigs are not displayed in the plot.<br><br>
+            Hover over gene marks for additional info. Clicking loads the gene up ready for query.<br><br>
+            Plot saves as .html.",
             data.position = "top"
           ),
           value = "genome",
@@ -776,7 +786,7 @@ ui <- fluidPage(
           div(
             style = "display: inline-block;vertical-align:top;color:blue",
             uiOutput("listn3", inline = TRUE) %>%
-            bs_embed_tooltip("short contigs 22 and above are hidden", placement = "top")
+            bs_embed_tooltip("short contigs 21 and above are hidden", placement = "top")
           ),
           div(style = "height:1px;margin:-10px", ""),
           div(
@@ -792,7 +802,7 @@ ui <- fluidPage(
           div(
             style = "display: inline-block;vertical-align:top;color:green",
             uiOutput("listn4", inline = TRUE) %>%
-              bs_embed_tooltip("short contigs 22 and above are hidden", placement = "top")
+              bs_embed_tooltip("short contigs 21 and above are hidden", placement = "top")
           ),
           div(style = "height:1px;margin:-10px", ""),
           div(
@@ -802,7 +812,7 @@ ui <- fluidPage(
                              "_none", "Forebrain", "Hypothalamus", "Medulla", "Editing_Riemondy2018"
                            ),
                            selected = "Hypothalamus"
-            ) %>% bs_embed_tooltip("displays max log2FoldChange between states for this tissue", placement = "top")
+            ) %>% bs_embed_tooltip("displays max log2FoldChange (or max proportions edited for editing sites) between states for this tissue", placement = "top")
           ),
           div(
             style = "margin-top:-50px",

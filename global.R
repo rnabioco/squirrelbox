@@ -48,7 +48,7 @@ source(paste0(rpath, "/ggvenn.R"))
 apptitle <- "13-lined ground squirrel hibernating brain RNA-seq expression"
 url <- "https://github.com/rnabioco/squirrelbox/"
 s3 <- "https://s3.console.aws.amazon.com/s3/object/squirrelbox/"
-versionN <- 0.999
+versionN <- "1.0.0"
 geoN <- "G1234"
 bsgenomeL <- "BSgenome.Itridecemlineatus.whatever"
 pageN <- 10
