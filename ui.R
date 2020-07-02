@@ -408,7 +408,7 @@ ui <- fluidPage(
               title = "Plot expression box plot and other info of query gene"
             ),
             data.step = 3,
-            data.intro = "For a query gene, this tab displays the expression boxplot, as well as other annotations and analyses.",
+            data.intro = "For a query gene, this tab displays the log2 count expression boxplot (note that visualization may differ from DEseq2 fold changes reported after accounting for covariates), as well as other annotations and analyses.",
             data.position = "top"
           ),
           value = "Gene_query",

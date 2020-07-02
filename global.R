@@ -48,6 +48,7 @@ source(paste0(rpath, "/ggvenn.R"))
 apptitle <- "13-lined ground squirrel hibernating brain RNA-seq expression"
 url <- "https://github.com/rnabioco/squirrelbox/"
 s3 <- "https://s3.console.aws.amazon.com/s3/object/squirrelbox/"
+docker <- "https://hub.docker.com/r/raysinensis/squirrelbox"
 versionN <- "1.0.0"
 geoN <- "G1234"
 bsgenomeL <- "BSgenome.Itridecemlineatus.whatever"
@@ -155,13 +156,18 @@ state_order <- c(
   "IBA",
   "Ent",
   "LT",
+  "EAr",
   "Ar",
+  "LAr",
   "SpD"
 )
 region_order <- c(
   "Forebrain",
   "Hypothalamus",
-  "Medulla"
+  "Medulla",
+  "Adrenal",
+  "Kidney",
+  "Liver"
 )
 region_main <- c(
   "Forebrain",
@@ -176,7 +182,10 @@ region_main2 <- c(
 region_short <- c(
   "fb",
   "hy",
-  "med"
+  "med",
+  "adr",
+  "kid",
+  "liv"
 )
 region_short_main <- c(
   "fb",
@@ -186,7 +195,10 @@ region_short_main <- c(
 region_one <- c(
   "f",
   "h",
-  "m"
+  "m",
+  "a",
+  "k",
+  "l"
 )
 
 # read database
@@ -417,7 +429,7 @@ orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
     everything()
   ) %>%
   mutate(novel = factor(ifelse(str_detect(gene_id, "^G"), 1, 0))) %>%
-  mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fb_LRT_padj, na.rm = T)) %>%
+  mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fb_LRT_padj, na.rm = T)) %>% # curently hardcoded
   mutate(domains = factor(ifelse(gene_id %in% domains$gene_id, 1, 0))) %>%
   mutate(
     br_expr = factor(ifelse(gene_id %in% br_expr, 1, 0))

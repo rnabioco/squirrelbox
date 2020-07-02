@@ -1984,7 +1984,10 @@ server <- function(input, output, session) {
     s3link <- a("S3",
       href = s3
     )
-    tagList(tags$h6(icon("github-square"), "squirrelBox version: ", clean, "; or available to download and run locally: ", s3link))
+    docklink <- a("docker_hub",
+      href = docker
+    )
+    tagList(tags$h6(icon("github-square"), "squirrelBox version: ", clean, "; or available to download and run locally: ", s3link," and ", docklink))
   })
 
   output$explain <- DT::renderDataTable({
@@ -1992,7 +1995,7 @@ server <- function(input, output, session) {
       region = region_order,
       short = region_short,
       letter = region_one
-    )
+    ) %>% filter(region %in% (combined2$region %>% unique()))
     DT::datatable(dfreg,
       escape = FALSE,
       selection = "none",
