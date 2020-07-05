@@ -31,7 +31,13 @@ server <- function(input, output, session) {
   rv$tabinit_kmer <- 0
   rv$tabinit_venn <- 0
   rv$starttutorial <- 0
-
+  rv$region_main <- region_main
+  rv$region_main2 <- region_main2
+  rv$region_order <- region_order
+  rv$region_short <- region_short
+  rv$region_short_main <- region_short_main
+  rv$region_one <- region_one
+  
   # hide some checkboxes
   removeModal()
   hide("doKegg")
@@ -46,7 +52,27 @@ server <- function(input, output, session) {
 
   # empty history list to start
   historytab <- c()
-
+  
+  # reordering
+  observeEvent(input$bsselectconfirm, {
+    rv$region_main <- input$bsshow_order
+    rv$region_main2 <- input$bshide_order
+    rv$region_order <- c(rv$region_main, rv$region_main2)
+    print(rv$region_order)
+    rv$region_short <- region_short[match(rv$region_order, region_order)]
+    rv$region_short_main <- region_short[match(rv$region_main, region_order)]
+    rv$region_one <- region_one[match(rv$region_order, region_order)]
+  })
+  observeEvent(input$bsselectdefault, {
+    rv$region_main <- region_main
+    rv$region_main2 <- region_main2
+    rv$region_order <- region_order
+    print(rv$region_order)
+    rv$region_short <- region_short
+    rv$region_short_main <- region_short_main
+    rv$region_one <- region_one
+  })
+  
   # init
   observeEvent(rv$init, {
     if (rv$init == 0) {
@@ -129,11 +155,11 @@ server <- function(input, output, session) {
     }
 
     if (input$doTis & input$doBr) {
-      mis <- setdiff(region_order, plot_temp$region %>% unique() %>% as.character())
+      mis <- setdiff(rv$region_order, plot_temp$region %>% unique() %>% as.character())
     } else if (!(input$doTis) & input$doBr) {
-      mis <- setdiff(region_main, plot_temp$region %>% unique() %>% as.character())
+      mis <- setdiff(rv$region_main, plot_temp$region %>% unique() %>% as.character())
     } else {
-      mis <- setdiff(region_main2, plot_temp$region %>% unique() %>% as.character())
+      mis <- setdiff(rv$region_main2, plot_temp$region %>% unique() %>% as.character())
     }
 
     if (length(mis) > 0) {
@@ -147,10 +173,10 @@ server <- function(input, output, session) {
       }
     }
     if (!input$doTis) {
-      plot_temp <- plot_temp %>% filter(!(region %in% region_main2))
+      plot_temp <- plot_temp %>% filter(!(region %in% rv$region_main2))
     }
     if (!input$doBr) {
-      plot_temp <- plot_temp %>% filter(!(region %in% region_main))
+      plot_temp <- plot_temp %>% filter(!(region %in% rv$region_main))
     }
     if (nrow(rv$pval) != 0) {
       padj <- rv$pval %>%
@@ -169,6 +195,7 @@ server <- function(input, output, session) {
     } else {
       plot_temp <- plot_temp %>% mutate(text = "NA")
     }
+    plot_temp <- plot_temp %>% mutate(region = factor(region, levels = rv$region_order))
     # plot_temp2 <<- plot_temp
 
     set.seed(1)
@@ -192,8 +219,8 @@ server <- function(input, output, session) {
     if (input$doPadj == T & nrow(rv$pval) != 0) { #  & input$doPlotly == F
       t2 <- Sys.time()
       # padj2 <<- padj
-      padj <- padj[str_detect(rownames(padj), paste(region_short_main, collapse = "|")), , drop = FALSE]
-      sig_sym <- sig_sym[str_detect(rownames(sig_sym), paste(region_short_main, collapse = "|")), , drop = FALSE]
+      padj <- padj[str_detect(rownames(padj), paste(rv$region_short_main, collapse = "|")), , drop = FALSE]
+      sig_sym <- sig_sym[str_detect(rownames(sig_sym), paste(rv$region_short_main, collapse = "|")), , drop = FALSE]
       temp2 <- calls_sig(padj, sig_sym, as.numeric(input$pval))
       temp2 <- temp2 %>%
         replace_na(list(call1 = list(0))) %>%
@@ -201,9 +228,9 @@ server <- function(input, output, session) {
         mutate(call1 = as.numeric(call1))
       temp2 <- temp2[, !(names(temp2) %in% c("padj", "call")), drop = F]
 
-      temp2$region <- region_order[factor(temp2$region, level = region_short) %>% as.numeric()]
+      temp2$region <- rv$region_order[factor(temp2$region, level = rv$region_short) %>% as.numeric()]
       temp3 <- groups_to_letters_igraph(temp2) %>%
-        mutate(region = factor(region, level = region_order))
+        mutate(region = factor(region, level = rv$region_order))
 
       if (verbose_bench) {
         print(paste0("boxPlot1 agg step2: ", Sys.time() - t2))
@@ -214,7 +241,7 @@ server <- function(input, output, session) {
         agg_min <- aggregate(log2_counts ~ state + region, plot_temp, min)
         agg$min <- agg_min$log2_counts
         agg2 <- agg %>%
-          mutate(region = factor(region, level = region_order)) %>%
+          mutate(region = factor(region, level = rv$region_order)) %>%
           group_by(region) %>%
           mutate(
             maxy = max(log2_counts),
@@ -242,14 +269,6 @@ server <- function(input, output, session) {
     }
     g
   })
-
-  #  output$boxPlot_ly <- renderPlotly({
-  #    boxPlot1()}# , height = function(){100*as.numeric(input$ploth)}, width = function(){100*as.numeric(input$plotw)}
-  # )
-  #  output$boxPlot_g <- renderPlot({
-  #    boxPlot1()}, height = function(){100*as.numeric(input$ploth)/2}, width = function(){100*as.numeric(input$plotw)}
-  # )
-  #
 
   # boxplot size
   boxPlotr <- reactive({
@@ -665,7 +684,9 @@ server <- function(input, output, session) {
     plot_temp <- comb_fil_factor(combined2, combined3, historytablist) %>%
       group_by(region, state, unique_gene_symbol) %>%
       summarize(counts = mean(2^log2_counts)) %>%
-      ungroup()
+      ungroup() %>% 
+      mutate(region = factor(region, levels = rv$region_order))
+    
     if (input$doNorm == TRUE) {
       plot_temp <- plot_temp %>%
         group_by(unique_gene_symbol, region) %>%
@@ -677,7 +698,7 @@ server <- function(input, output, session) {
         mutate(log2_counts = log2(counts / mean(counts))) %>%
         ungroup()
     }
-    mis <- setdiff(region_main, plot_temp$region %>% unique() %>% as.character())
+    mis <- setdiff(rv$region_main, plot_temp$region %>% unique() %>% as.character())
     if (length(mis) > 0) {
       for (element in mis) {
         l <- as.list(plot_temp[1, ])
@@ -688,10 +709,10 @@ server <- function(input, output, session) {
       }
     }
     if (!input$doTis) {
-      plot_temp <- plot_temp %>% filter(!(region %in% region_main2))
+      plot_temp <- plot_temp %>% filter(!(region %in% rv$region_main2))
     }
     if (!input$doBr) {
-      plot_temp <- plot_temp %>% filter(!(region %in% region_main))
+      plot_temp <- plot_temp %>% filter(!(region %in% rv$region_main))
     }
     plot_temp
   })
@@ -782,7 +803,7 @@ server <- function(input, output, session) {
   # heatmap
   heatPlot1 <- reactive({
     set.seed(1)
-    temp <- linetemp()
+    temp <- linetemp() %>% mutate(region = factor(region, levels = rv$region_order))
     if (length(historytablist) == 0) {
       return(Heatmap(matrix(), column_title = "no genes loaded", show_heatmap_legend = FALSE))
     }
@@ -791,6 +812,7 @@ server <- function(input, output, session) {
       pivot_wider(names_from = state, values_from = counts) %>%
       unite(region, unique_gene_symbol, col = "id", sep = ":") %>%
       column_to_rownames("id")
+
     if (input$doPivot) {
       temp2 <- scale(t(temp2))
     } else {
@@ -802,7 +824,7 @@ server <- function(input, output, session) {
         Heatmap(temp2,
           cluster_rows = input$doRowcluster,
           cluster_columns = input$doColumncluster,
-          column_split = str_remove(colnames(temp2), ":.+"),
+          column_split = factor(str_remove(colnames(temp2), ":.+"), levels = rv$region_order),
           column_labels = str_remove(colnames(temp2), "^.+:"),
           show_column_names = input$doLabelgene,
           heatmap_legend_param = list(title = "Z-Score")
@@ -811,7 +833,7 @@ server <- function(input, output, session) {
         Heatmap(temp2,
           cluster_rows = input$doRowcluster,
           cluster_columns = input$doColumncluster,
-          row_split = str_remove(rownames(temp2), ":.+"),
+          row_split = factor(str_remove(rownames(temp2), ":.+"), levels = rv$region_order),
           row_labels = str_remove(rownames(temp2), "^.+:"),
           show_row_names = input$doLabelgene,
           heatmap_legend_param = list(title = "Z-Score")
@@ -2111,7 +2133,7 @@ server <- function(input, output, session) {
       output$saveTable <- saveFiltered
       output$saveTable2 <- saveFiltered
       if (rv$tabinit_data == 0) {
-        showNotification("Type `low...high` to input custom range for numeric filtering on column. For instance, 0...0.001 filters for significant p value",
+        showNotification("Type `low...high` to input custom range for numeric filtering on column, and upper or lower limits can be omitted. For instance, ...0.001 filters for significant p value, and 200...2000 filters RNA length to that range.",
           type = "message"
         )
         rv$tabinit_data <<- 1
@@ -2124,7 +2146,7 @@ server <- function(input, output, session) {
       output$saveTable <- saveFilteredAS
       output$saveTable2 <- saveFilteredAS
       if (rv$tabinit_as == 0) {
-        showNotification("Type `low...high` to input custom range for numeric filtering on column. For instance, 0...0.001 filters for significant p value",
+        showNotification("Type `low...high` to input custom range for numeric filtering on column, and upper or lower limits can be omitted. For instance, ...0.001 filters for significant p value, and 200...2000 filters RNA length to that range.",
           type = "message"
         )
         rv$tabinit_as <<- 1

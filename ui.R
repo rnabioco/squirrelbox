@@ -199,7 +199,7 @@ ui <- fluidPage(
           tabsetPanel(
             id = "side1",
             tabPanel(
-              span(icon("link", class = NULL, lib = "font-awesome"), "Gene_links",
+              span(icon("link", class = NULL, lib = "font-awesome"), "Gene",
                 title = "additional external links for a specific query gene"
               ),
               br(.noWS = "outside"),
@@ -310,6 +310,20 @@ ui <- fluidPage(
                 )
               ),
               style = "height:150px;"
+            ),
+            tabPanel(
+              span(icon("sort", class = NULL, lib = "font-awesome"), "Order", title = "Select and order box/line/heatplot"),
+              orderInput('bsshow', 'Show', items = region_main,
+                         placeholder = 'Drag items here...',
+                         connect = 'bshide', item_class = "primary"),
+              orderInput('bshide', 'Hide', items = region_main2,
+                         placeholder = 'Drag items here...',
+                         connect = 'bsshow', item_class = "info"),
+              br(.noWS = "outside"),
+              actionButton("bsselectconfirm", "Update", icon = icon("refresh")) %>%
+                bs_embed_tooltip("update with selection and order", placement = "bottom"),
+              actionButton("bsselectdefault", "Default", icon = icon("times")) %>%
+                bs_embed_tooltip("restore default selection and order", placement = "bottom")
             )
           ),
           tabsetPanel(
