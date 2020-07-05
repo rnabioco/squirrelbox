@@ -218,7 +218,7 @@ server <- function(input, output, session) {
 
     if (input$doPadj == T & nrow(rv$pval) != 0) { #  & input$doPlotly == F
       t2 <- Sys.time()
-      # padj2 <<- padj
+      padj2 <<- padj
       padj <- padj[str_detect(rownames(padj), paste(rv$region_short_main, collapse = "|")), , drop = FALSE]
       sig_sym <- sig_sym[str_detect(rownames(sig_sym), paste(rv$region_short_main, collapse = "|")), , drop = FALSE]
       temp2 <- calls_sig(padj, sig_sym, as.numeric(input$pval))

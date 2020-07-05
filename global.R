@@ -203,8 +203,8 @@ region_one <- c(
 
 # read database
 if (file.exists(paste0(datapath, "/combined2.feather"))) {
-  combined2 <- read_feather(paste0(datapath, "/combined2.feather"))
-  combined3 <- read_feather(paste0(datapath, "/combined3.feather"))
+  combined2 <- read_feather(paste0(datapath, "/full_combined2.feather"))
+  combined3 <- read_feather(paste0(datapath, "/full_combined3.feather"))
 } else if (file.exists(paste0(datapath, "/combined2.csv"))) {
   combined2 <- fread(paste0(datapath, "/combined2.csv"), nThread = ncore)
   combined3 <- fread(paste0(datapath, "/combined3.csv"), nThread = ncore)
@@ -419,7 +419,7 @@ br_expr <- combined2 %>%
   unique()
 
 # load orf predictions
-orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
+orfs <- read_feather(paste0(datapath, "/full_padj_orf.feather")) %>%
   select(gene_id,
     orf_len = len,
     exons,
@@ -566,11 +566,11 @@ sort_groups <- function(groups, states, state_order) {
 
 groups_to_letters_igraph <- function(df) {
   reg <- df$region %>% unique()
-  df2 <- df %>% filter(call1 == 0)
-  states <- unique(c(df$state1, df$state2))
   g <- lapply(reg, function(x) {
-    g <- df2 %>% filter(region == x)
-    g2 <<- find_groups_igraph(g)
+    g <- df %>% filter(region == x)
+    states <- unique(c(g$state1, g$state2))
+    g <- g %>% filter(call1 == 0)
+    g2 <- find_groups_igraph(g) #<<-?
     g3 <- sort_groups(g2, states, state_order)
     g3$region <- x
     return(g3)
