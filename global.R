@@ -59,8 +59,6 @@ plot_height <- 6
 set_shinytheme <- "paper"
 track_name <- "hub_1512849_KG_HiC"
 track_url <- "https://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
-track_name <- "hub_2262407_KG_HiC"
-track_url <- "https://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub_liver.txt"
 gmt_file <- "c5.all.v7.1.symbols.gmt"
 gmt_short <- "GO_"
 sig_cut <- 0.001
@@ -205,8 +203,8 @@ region_one <- c(
 
 # read database
 if (file.exists(paste0(datapath, "/combined2.feather"))) {
-  combined2 <- read_feather(paste0(datapath, "/full_combined2.feather"))
-  combined3 <- read_feather(paste0(datapath, "/full_combined3.feather"))
+  combined2 <- read_feather(paste0(datapath, "/combined2.feather"))
+  combined3 <- read_feather(paste0(datapath, "/combined3.feather"))
 } else if (file.exists(paste0(datapath, "/combined2.csv"))) {
   combined2 <- fread(paste0(datapath, "/combined2.csv"), nThread = ncore)
   combined3 <- fread(paste0(datapath, "/combined3.csv"), nThread = ncore)
@@ -421,7 +419,7 @@ br_expr <- combined2 %>%
   unique()
 
 # load orf predictions
-orfs <- read_feather(paste0(datapath, "/full_padj_orf.feather")) %>%
+orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
   select(gene_id,
     orf_len = len,
     exons,
