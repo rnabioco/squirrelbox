@@ -59,6 +59,8 @@ plot_height <- 6
 set_shinytheme <- "paper"
 track_name <- "hub_1512849_KG_HiC"
 track_url <- "https://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
+track_name <- "hub_2262407_KG_HiC"
+track_url <- "https://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub_liver.txt"
 gmt_file <- "c5.all.v7.1.symbols.gmt"
 gmt_short <- "GO_"
 sig_cut <- 0.001

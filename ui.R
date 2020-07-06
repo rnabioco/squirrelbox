@@ -313,10 +313,10 @@ ui <- fluidPage(
             ),
             tabPanel(
               span(icon("sort", class = NULL, lib = "font-awesome"), "Order", title = "Select and order box/line/heatplot"),
-              orderInput('bsshow', 'Show', items = region_main,
+              orderInput('bsshow', 'Drag Blocks Here to Show', items = region_main,
                          placeholder = 'Drag items here...',
                          connect = 'bshide', item_class = "primary"),
-              orderInput('bshide', 'Hide', items = region_main2,
+              orderInput('bshide', 'Drag Blocks Here to Hide', items = region_main2,
                          placeholder = 'Drag items here...',
                          connect = 'bsshow', item_class = "info"),
               br(.noWS = "outside"),
