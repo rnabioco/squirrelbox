@@ -86,7 +86,7 @@ orf_cols_join <- c(
   "rna_len",
   "transcript_id",
   "novel",
-  "min_sig",
+  "min_padj",
   "domains",
   "br_expr",
   "edited",
@@ -429,7 +429,9 @@ orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
     everything()
   ) %>%
   mutate(novel = factor(ifelse(str_detect(gene_id, "^G"), 1, 0))) %>%
-  mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fb_LRT_padj, na.rm = T)) %>% # curently hardcoded
+  mutate(min_padj = select(., contains("LRT_padj")) %>% 
+           reduce(pmin, na.rm = TRUE)) %>% 
+  #mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fb_LRT_padj, na.rm = T)) %>% # curently hardcoded
   mutate(domains = factor(ifelse(gene_id %in% domains$gene_id, 1, 0))) %>%
   mutate(
     br_expr = factor(ifelse(gene_id %in% br_expr, 1, 0))
@@ -462,7 +464,7 @@ sorf <- read_csv(paste0(datapath, "/MiPepid_pred.csv"))
 sorf_blast <- read_csv(paste0(datapath, "/SmProt_blast.csv"))
 fulltbl <- combined3 %>%
   select(-c(gene_symbol, clean_gene_symbol, original_gene_name)) %>%
-  left_join(orfs %>% select(any_of(orf_cols_join), any_of(str_c(region_short, "_LRT_padj"))), by = "gene_id") %>%
+  left_join(orfs %>% select(any_of(orf_cols_join), any_of(str_c(region_short, "_LRT_padj")), min_padj), by = "gene_id") %>%
   left_join(mod, by = c("unique_gene_symbol" = "gene")) %>%
   mutate(source = factor(source)) %>%
   mutate_at(vars(contains("cluster")), factor)

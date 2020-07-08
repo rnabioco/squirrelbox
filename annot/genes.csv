@@ -5,6 +5,7 @@ cluster_m,gene clusters assigned by expression pattern for medulla
 fb_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
 hy_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
 med_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
+min_sig,minimum adjusted pval across tissues
 gene_id,newly annotated genes start with G
 source,reference denotes carry-over from ensemble/NCBI
 orf_len,aa length of longest orf
@@ -14,7 +15,6 @@ exons,number of exons
 rna_len,length of longest transcript
 transcript_id,"if collapsed, only longest transcript_id listed"
 novel,"for newly annotated genes, gene_id start with G"
-min_sig,minimum adjusted pval across tissues
 domains,whether domains were found for orf
 br_expr,whether expressed above cutoff in at least one brain tissue
 edited,whether RNA editing events were detected (Riemondy2018)

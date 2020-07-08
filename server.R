@@ -1796,6 +1796,7 @@ server <- function(input, output, session) {
         unique_gene_symbol,
         contains("cluster"),
         contains("LRT"),
+        contains("padj"),
         everything()
       )
     if (!(file.exists(paste0(annotpath, "/genes.csv")))) {
