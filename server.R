@@ -355,7 +355,7 @@ server <- function(input, output, session) {
       }
     },
     cacheKeyExpr = {
-      tryCatch(list(rv$mod_df %>% select(-1), rv$region_short_main),
+      tryCatch(list(rv$mod_df %>% select(-1), rv$region_short_main, input$ncol),
         error = function(e) {
           "error"
         }
