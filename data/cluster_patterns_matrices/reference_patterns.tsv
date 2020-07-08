@@ -1,7 +1,7 @@
-	Winter_high	Winter_low	Cold_high_EH	Cold_high_EM	Cold_high_EL	Cold_low_EL	Cold_low_EM	Cold_low_EH	IBA_high	IBA_low
-Ar	1	-1	1	1	1	-1	-1	-1	-1	1
-Ent	1	-1	1	0	-1	-1	0	1	-1	1
-IBA	1	-1	-1	-1	-1	1	1	1	1	-1
-LT	1	-1	1	1	1	-1	-1	-1	-1	1
-SpD	-1	1	-1	-1	-1	1	1	1	-1	1
-SA	-1	1	-1	-1	-1	1	1	1	-1	1
+	Winter_high	Winter_low	Cold_high_EH	Cold_high_EM	Cold_high_EL	Cold_low_EL	Cold_low_EM	Cold_low_EH	IBA_high	IBA_low	SpD_high	SpD_low	SA_low	SA_high
+Ar	1	-1	1	1	1	-1	-1	-1	-1	1	-1	1	1	-1
+Ent	1	-1	1	0	-1	-1	0	1	-1	1	-1	1	1	-1
+IBA	1	-1	-1	-1	-1	1	1	1	1	-1	-1	1	1	-1
+LT	1	-1	1	1	1	-1	-1	-1	-1	1	-1	1	1	-1
+SpD	-1	1	-1	-1	-1	1	1	1	-1	1	1	-1	1	-1
+SA	-1	1	-1	-1	-1	1	1	1	-1	1	-1	1	-1	1

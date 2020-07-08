@@ -202,13 +202,16 @@ region_one <- c(
 )
 
 # read database
-if (file.exists(paste0(datapath, "/combined2.feather"))) {
-  combined2 <- read_feather(paste0(datapath, "/combined2.feather"))
-  combined3 <- read_feather(paste0(datapath, "/combined3.feather"))
+if (file.exists(paste0(datapath, "/full_combined2.feather"))) {
+  combined2 <- read_feather(paste0(datapath, "/full_combined2.feather"))
+  combined3 <- read_feather(paste0(datapath, "/full_combined3.feather"))
 } else if (file.exists(paste0(datapath, "/combined2.csv"))) {
   combined2 <- fread(paste0(datapath, "/combined2.csv"), nThread = ncore)
   combined3 <- fread(paste0(datapath, "/combined3.csv"), nThread = ncore)
 }
+
+# fix EAr
+combined2 <- combined2 %>% mutate(state = ifelse(state == "EAr", "Ar", as.character(state))) %>% filter(state != "ST")
 
 # read annotation file to find ucsc track
 bed <- suppressWarnings(read_tsv(paste0(annotpath, "/final_tx_annotations_20200201.tsv.gz"),
@@ -238,8 +241,8 @@ bed <- suppressWarnings(read_tsv(paste0(annotpath, "/final_tx_annotations_202002
   mutate(majiq_directed = factor(ifelse(is.na(majiq_directed), 0, 1)))
 
 # read modules/clusters
-mod <- read_feather(paste0(datapath, "/clusters.feather")) %>% select(gene, any_of(str_c("cluster_", region_one)))
-mod <- mod[, c("gene", intersect(str_c("cluster_", region_one), colnames(mod)))]
+mod <- read_feather(paste0(datapath, "/full_clusters.feather")) %>% select(gene, any_of(str_c("cluster_", region_short)))
+mod <- mod[, c("gene", intersect(str_c("cluster_", region_short), colnames(mod)))]
 
 eigen <- suppressWarnings(read_tsv(paste0(datapath, "/cluster_patterns_matrices/reference_patterns.tsv"))) %>%
   rename(state = X1) %>%
@@ -419,7 +422,7 @@ br_expr <- combined2 %>%
   unique()
 
 # load orf predictions
-orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
+orfs <- read_feather(paste0(datapath, "/full_padj_orf.feather")) %>%
   select(gene_id,
     orf_len = len,
     exons,

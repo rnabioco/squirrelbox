@@ -321,11 +321,16 @@ server <- function(input, output, session) {
         g
       } else {
         if (nrow(rv$mod_df) == 0) {
-          mods <- c("filtered", "filtered", "filtered")
+          mods <- rep("filtered", as.numeric(input$ncol))
           reg <- colnames(mod)[-1]
+          reg <- reg[match(rv$regio_shortn_main, str_remove(reg, "cluster_"))]
         } else {
           mods <- (rv$mod_df[1, ] %>% unlist())[-1]
+          print(mods)
           reg <- names(rv$mod_df)[-1]
+          mods <- mods[match(rv$region_short_main, str_remove(reg, "cluster_"))]
+          reg <- reg[match(rv$region_short_main, str_remove(reg, "cluster_"))]
+          print(mods)
         }
         title <- ggdraw() +
           draw_label(
@@ -338,7 +343,7 @@ server <- function(input, output, session) {
         plots <- cowplot::plot_grid(
           plotlist = map(mods, function(x) eigen_gg[[x]]),
           labels = str_c(str_remove(reg, "cluster_"), mods, sep = ": "),
-          ncol = input$ncol,
+          ncol = as.numeric(input$ncol),
           label_x = .3, hjust = 0
         )
         cowplot::plot_grid(
@@ -350,7 +355,7 @@ server <- function(input, output, session) {
       }
     },
     cacheKeyExpr = {
-      tryCatch(rv$mod_df %>% select(-1),
+      tryCatch(list(rv$mod_df %>% select(-1), rv$region_short_main),
         error = function(e) {
           "error"
         }
