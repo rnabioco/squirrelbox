@@ -270,6 +270,9 @@ ui <- fluidPage(
                   tags$style(HTML("#pval{margin-top: 0px; margin-bottom: -10px; font-size:12px;}"))
                 ),
                 tags$head(
+                  tags$style(HTML("#ncol{margin-top: 0px; margin-bottom: -10px; font-size:12px;}"))
+                ),
+                tags$head(
                   tags$style(HTML("#plotw{margin-top: 0px; margin-bottom: -10px; font-size:12px;}"))
                 ),
                 tags$head(
@@ -280,6 +283,12 @@ ui <- fluidPage(
                   tags$td(width = "50%", div(style = "font-size:12px;", "p-value cutoff")),
                   tags$td(width = "50%", textInput("pval", NULL, value = sig_cut) %>%
                     bs_embed_tooltip("p-value cut off used for all plotting/analyses", placement = "right"))
+                ),
+                tags$tr(
+                  width = "100%",
+                  tags$td(width = "50%", div(style = "font-size:12px;", "# of columns")),
+                  tags$td(width = "50%", textInput("ncol", NULL, value = 3, width = "100px") %>%
+                            bs_embed_tooltip("how many regions to plot side by side in each row, for box and line plots", placement = "right"))
                 ),
                 tags$tr(
                   width = "100%",
@@ -319,6 +328,12 @@ ui <- fluidPage(
               orderInput('bshide', 'Drag Blocks Here to Hide', items = region_main2,
                          placeholder = 'Drag items here...',
                          connect = 'bsshow', item_class = "info"),
+              tags$head(
+                tags$style(HTML(".btn-info{font-size:11px;margin:3px;padding:6px 6px;}"))
+              ),
+              tags$head(
+                tags$style(HTML(".btn-primary{font-size:11px;margin:3px;padding:6px 6px;}"))
+              ),
               br(.noWS = "outside"),
               actionButton("bsselectconfirm", "Update", icon = icon("refresh")) %>%
                 bs_embed_tooltip("update with selection and order", placement = "bottom"),

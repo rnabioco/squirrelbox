@@ -201,7 +201,7 @@ server <- function(input, output, session) {
     set.seed(1)
     g <- ggplot(plot_temp, aes(state, log2_counts, text = text)) +
       ylab("rlog(counts)") +
-      facet_wrap(~region, scales = "free") +
+      facet_wrap(~region, scales = "free", ncol = input$ncol) +
       theme(legend.position = "none")
 
     if (input$doName == T) {
@@ -284,7 +284,7 @@ server <- function(input, output, session) {
   # boxplot-plotly
   boxPlotlyr <- reactive({
     g <- boxPlot1()
-    output$boxPlot2 <- renderPlotly(ggplotly(g + facet_wrap(~region), tooltip = "text") %>%
+    output$boxPlot2 <- renderPlotly(ggplotly(g + facet_wrap(~region, ncol = input$ncol), tooltip = "text") %>%
       layout(hovermode = "closest"))
     if (input$doTis + input$doBr == 2) {
       plotlyOutput("boxPlot2", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100)
@@ -338,7 +338,7 @@ server <- function(input, output, session) {
         plots <- cowplot::plot_grid(
           plotlist = map(mods, function(x) eigen_gg[[x]]),
           labels = str_c(str_remove(reg, "cluster_"), mods, sep = ": "),
-          ncol = 3,
+          ncol = input$ncol,
           label_x = .3, hjust = 0
         )
         cowplot::plot_grid(
@@ -749,7 +749,7 @@ server <- function(input, output, session) {
         text = unique_gene_symbol
       )) +
         ylab("log2fold") +
-        facet_wrap(~region) +
+        facet_wrap(~region, ncol = input$ncol) +
         geom_point(aes(color = unique_gene_symbol)) +
         geom_line(aes(color = unique_gene_symbol)) +
         geom_errorbar(aes(ymin = log2_counts - sem, ymax = log2_counts + sem), width = .05, size = 0.5)
@@ -759,7 +759,7 @@ server <- function(input, output, session) {
         text = unique_gene_symbol
       )) +
         ylab("log2fold") +
-        facet_wrap(~region) +
+        facet_wrap(~region, ncol = input$ncol) +
         geom_point(aes(color = unique_gene_symbol)) +
         geom_line(aes(color = unique_gene_symbol))
     }
