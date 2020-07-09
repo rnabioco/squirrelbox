@@ -72,6 +72,8 @@ server <- function(input, output, session) {
     rv$region_short <- region_short
     rv$region_short_main <- region_short_main
     rv$region_one <- region_one
+    # updateOrderInput(session, "bsshow", items = region_main)
+    # updateOrderInput(session, "bshide", items = region_main2)
   })
   
   # init
@@ -2110,7 +2112,8 @@ server <- function(input, output, session) {
         "all utr5/3/cds sequences (non-novel)",
         "all utr5/3/cds sequences"
       )
-    )
+    ) %>% mutate(download = str_c(url, "raw/master/", datapath,"/", file)) %>%
+      dplyr::mutate(download = paste0("<a href='", download, "'>link</a>"))
     DT::datatable(dfreg3,
       escape = FALSE,
       selection = "single",
