@@ -732,3 +732,31 @@ gene_list <- sapply(lists_vec, function(x) {
   read_csv(paste0(listpath, "/", x)) %>% pull(1)
 }, simplify = FALSE)
 names(gene_list) <- names(gene_list) %>% str_remove("\\..+")
+
+# brief preview of each file
+data_files <- list.files(path = datapath, full.names = T)
+generate_prev <- function(x, ncol = 5, nrow = 3) {
+  if (str_detect(x, ".bed") | str_detect(x, ".tsv")) {
+    temp <- read_tsv(x, n_max = (nrow + 1))
+    return(temp[1:min(nrow(temp), nrow), 1:min(ncol(temp), ncol)])
+  } else if (str_detect(x, ".feather")) {
+    temp <- read_feather(x)
+    return(temp[1:min(nrow(temp), nrow), 1:min(ncol(temp), ncol)])
+  } else if (str_detect(x, ".csv")) {
+    temp <- read_csv(x, n_max = (nrow + 1))
+    return(temp[1:min(nrow(temp), nrow), 1:min(ncol(temp), ncol)])
+  } else if (str_detect(x, ".rds")) {
+    temp <- readRDS(x)
+    if (!is.data.frame(temp)) {
+      temp <- temp[[1]]
+    }
+    if (is.vector(temp)) {
+      return(temp[1:ncol])
+    }
+    return(temp[1:min(nrow(temp), nrow), 1:min(ncol(temp), ncol)])
+  } 
+}
+data_prev <- sapply(data_files, generate_prev, simplify = F)
+names(data_prev) <- str_remove(names(data_prev), paste0(datapath, "/"))
+                               
+                               

@@ -887,7 +887,9 @@ ui <- fluidPage(
             column(width = 3, "")
           ),
           hr(),
-          h5("Data Files"),
+          div(
+            style = "display: inline-block;vertical-align:bottom;", h5("Data Files")
+            ),p("click to preview"),
           column(width = 9, DT::dataTableOutput("explain3"))
         )
       )

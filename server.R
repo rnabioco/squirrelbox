@@ -37,6 +37,7 @@ server <- function(input, output, session) {
   rv$region_short <- region_short
   rv$region_short_main <- region_short_main
   rv$region_one <- region_one
+  rv$data_prev <- data.frame()
   
   # hide some checkboxes
   removeModal()
@@ -2112,7 +2113,7 @@ server <- function(input, output, session) {
     )
     DT::datatable(dfreg3,
       escape = FALSE,
-      selection = "none",
+      selection = "single",
       rownames = FALSE,
       options = list(
         searchable = FALSE,
@@ -2122,6 +2123,32 @@ server <- function(input, output, session) {
     )
   })
 
+  observeEvent(input$explain3_rows_selected, {
+    checkfile <- c(
+      "brain_editing_site_proportions.bed",
+      "clusters.feather",
+      "combined2.feather",
+      "combined3.feather",
+      "fc.rds",
+      "MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz",
+      "MiPepid_pred.csv",
+      "novel_domains.csv",
+      "padj_orf.feather",
+      "seqs_precal_noG.rds",
+      "SmProt_blast.csv",
+      "utrs_sq_noG.feather",
+      "utrs_sq.feather"
+    )[input$explain3_rows_selected]
+    rv$data_prev <- data_prev[[checkfile]]
+    showModal(modalPrev)
+  })
+  
+  output$preview <- DT::renderDataTable({
+    temp <- rv$data_prev
+    DT::datatable(temp,
+                  options = list(searchable = FALSE, dom = "t", paging = FALSE, scrollY = TRUE))
+  })
+  
   # graying out buttons, warnings/hints
   observe({
     if (input$tabMain == "Gene_query") {
@@ -2256,6 +2283,17 @@ server <- function(input, output, session) {
     }
   })
 
+  modalPrev <- draggableModalDialog(
+    id = "bsprev",
+    icon("eye"),
+    br(),
+    footer = NULL,
+    size = "l",
+    easyClose = T,
+    fade = TRUE,
+    DT::dataTableOutput("preview")
+  )
+  
   modalWarn <- draggableModalDialog(
     id = "bsconfirm",
     icon("exclamation-triangle"),
