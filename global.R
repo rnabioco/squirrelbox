@@ -50,8 +50,8 @@ url <- "https://github.com/rnabioco/squirrelbox/"
 s3 <- "https://s3.console.aws.amazon.com/s3/object/squirrelbox/"
 docker <- "https://hub.docker.com/r/raysinensis/squirrelbox"
 versionN <- "1.0.0"
-geoN <- "G1234"
-bsgenomeL <- "BSgenome.Itridecemlineatus.whatever"
+geoN <- "GSE106947"
+bsgenomeL <- "BSgenome.Itridecemlineatus.v???"
 pageN <- 10
 warningN <- 100
 plot_width <- 8
@@ -759,4 +759,8 @@ generate_prev <- function(x, ncol = 5, nrow = 3) {
 data_prev <- sapply(data_files, generate_prev, simplify = F)
 names(data_prev) <- str_remove(names(data_prev), paste0(datapath, "/"))
                                
-                               
+layout_ggplotly <- function(gg, x = -0.06, y = -0.12){
+  gg[['x']][['layout']][['annotations']][[1]][['y']] <- y
+  gg[['x']][['layout']][['annotations']][[2]][['x']] <- x
+  gg
+}                         

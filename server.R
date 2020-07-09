@@ -288,7 +288,8 @@ server <- function(input, output, session) {
   boxPlotlyr <- reactive({
     g <- boxPlot1()
     output$boxPlot2 <- renderPlotly(ggplotly(g + facet_wrap(~region, ncol = input$ncol), tooltip = "text") %>%
-      layout(hovermode = "closest"))
+      layout(hovermode = "closest") %>% 
+        layout_ggplotly())
     if (input$doTis + input$doBr == 2) {
       plotlyOutput("boxPlot2", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100)
     } else {
@@ -737,8 +738,8 @@ server <- function(input, output, session) {
     set.seed(1)
     temp <- linetemp()
     if (length(historytablist) == 0) {
-      return(ggplotly(ggplot() +
-        ggtitle("no genes loaded")))
+      return(ggplot() +
+        ggtitle("no genes loaded"))
     }
 
     # temp2 <<- temp
@@ -779,13 +780,20 @@ server <- function(input, output, session) {
     fac <- input$doTis + input$doBr
     if ((rv$toolarge == 0) | (rv$toolarge == 1 & rv$go == 2) | input$doSummary) {
       if (input$doName2) {
-        ggplotly(g, tooltip = "text", height = as.numeric(input$ploth) * 100 * fac / 2, width = as.numeric(input$plotw) * 100) %>%
-          layout(
-            autosize = FALSE,
-            showlegend = TRUE
-          )
+        tryCatch(
+          ggplotly(g, tooltip = "text", height = as.numeric(input$ploth) * 100 * fac / 2, width = as.numeric(input$plotw) * 100) %>%
+            layout_ggplotly() %>% 
+            layout(
+              autosize = FALSE,
+              showlegend = TRUE
+            ), error = function(e) {
+              ggplot() +
+                ggtitle("no genes loaded")
+            }
+        )
       } else {
-        ggplotly(g, tooltip = "text", height = as.numeric(input$ploth) * 100 * fac / 2, width = as.numeric(input$plotw) * 100)
+        ggplotly(g, tooltip = "text", height = as.numeric(input$ploth) * 100 * fac / 2, width = as.numeric(input$plotw) * 100) %>%
+          layout_ggplotly()
       }
     } else {
       if (rv$go <= 0) {
@@ -811,11 +819,12 @@ server <- function(input, output, session) {
   # heatmap
   heatPlot1 <- reactive({
     set.seed(1)
-    temp <- linetemp() %>% mutate(region = factor(region, levels = rv$region_order))
+    temp <- linetemp() 
     if (length(historytablist) == 0) {
       return(Heatmap(matrix(), column_title = "no genes loaded", show_heatmap_legend = FALSE))
     }
     temp2 <- temp %>%
+      mutate(region = factor(region, levels = rv$region_order)) %>% 
       select(-log2_counts) %>%
       pivot_wider(names_from = state, values_from = counts) %>%
       unite(region, unique_gene_symbol, col = "id", sep = ":") %>%
