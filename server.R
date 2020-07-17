@@ -2355,4 +2355,9 @@ server <- function(input, output, session) {
       )) # events = list("onexit" = I("document.getElementsByClassName('introjs-nextbutton').blur()")))
     }
   })
+  
+  observeEvent(input$reset, {
+    start_tutorial <<- FALSE
+    session$reload()
+    })  
 }

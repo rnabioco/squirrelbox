@@ -38,6 +38,8 @@ $(document).on("shiny:sessioninitialized",function(){
 });
 '
 
+jsResetCode <- "shinyjs.reset = function() {history.go(0)}"
+
 # Define UI for application that draws the boxplot
 ui <- fluidPage(
   title = "squirrelBox",
@@ -124,6 +126,7 @@ ui <- fluidPage(
   tags$head(tags$script(HTML(jscode))),
   tags$head(tags$script(HTML(jscode2))),
   tags$head(tags$script(HTML(jscode3))),
+  tags$head(tags$script(HTML(jsResetCode))),
   tags$head(tags$style(
     type = "text/css",
     ".shiny-output-error { visibility: hidden; }",
@@ -158,17 +161,25 @@ ui <- fluidPage(
   ),
   fixedPanel(
     style = "z-index:100;",
-    actionButton("back_to_top", label = "to Top", icon = icon("angle-double-up")) %>%
+    actionButton("back_to_top", label = " to Top ", icon = icon("angle-double-up"), 
+                 style = "padding:3px 9px;float:left;border-radius:0px;") %>%
       bs_embed_tooltip("scroll back to the top of the page"),
     bsButton("showpanel", "Sidebar", type = "toggle", value = FALSE, icon = icon("bars")) %>%
       bs_embed_tooltip("turn sidebar on/off"),
+    tags$head(
+      tags$style(HTML("#showpanel{padding:3px 9px;float:left;border-radius:0px;}"))
+    ),
+    actionButton("reset", " Reset ", icon = icon("redo"),
+                 style = "padding:3px 9px;float:left;border-radius:0px;") %>% 
+      bs_embed_tooltip("reset all settings"),
+    #p(HTML("<A HREF=\"javascript:history.go(0)\">Reset</A>")),
     right = 10,
     bottom = 10
   ),
   sidebarLayout(
     sidebarPanel(
       id = "SIDE",
-      style = "position:fixed;width:23%;margin-top: 60px;z-index:50;",
+      style = "position:fixed;width:23%;margin-top:60px;z-index:50;",
       width = 3,
       div(
         id = "sideall",
@@ -403,7 +414,7 @@ ui <- fluidPage(
                 ),
                 column(
                   width = 3,
-                  actionButton("Load", "to Genelist") %>%
+                  actionButton("Load", "to Genelist", icon("file-alt", class = NULL, lib = "font-awesome")) %>%
                     bs_embed_tooltip("send genes in this Cart to loaded Genelist in side panel", placement = "bottom")
                 )
               ),
@@ -477,7 +488,7 @@ ui <- fluidPage(
                   uiOutput("EigenPlot") %>% withLoader(),
                   title = "Cluster_assignments",
                   style = "danger"
-                )
+                ) %>% bs_embed_tooltip("cluster assignment and model expression for each", placement = "top")
               ),
               data.step = 5,
               data.intro = "Additional info panels for the query gene is by default folded, click to reveal.",
@@ -488,7 +499,7 @@ ui <- fluidPage(
               bsCollapsePanel(DT::dataTableOutput("orfinfo") %>% withLoader(),
                 title = "Called_orfs",
                 style = "primary"
-              )
+              ) %>% bs_embed_tooltip("all potential open read frames", placement = "top")
             ),
             bsCollapse(
               id = "tabs3", multiple = TRUE, open = NULL, # open = "majiq_alternative_splicing",
@@ -496,21 +507,21 @@ ui <- fluidPage(
                 DT::dataTableOutput("majinfo") %>% withLoader(),
                 title = "MAJIQ_alternative_splicing",
                 style = "warning"
-              )
+              ) %>% bs_embed_tooltip("MAJIQ-reported alternative splicing event, if any", placement = "top")
             ),
             bsCollapse(
               id = "tabs4", multiple = TRUE, open = NULL, # open = "UCSC browser plot",
               bsCollapsePanel(htmlOutput("ucscPlot") %>% withLoader(),
                 title = "UCSC browser plot",
                 style = "success"
-              )
+              ) %>% bs_embed_tooltip("click on plot to reach UCSC trackhub with RNAseq data", placement = "top")
             ),
             bsCollapse(
               id = "tabs5", multiple = TRUE, open = NULL, # open = "go_terms/domains",
               bsCollapsePanel(DT::dataTableOutput("gotab") %>% withLoader(),
                 title = "GO_terms/domains",
                 style = "info"
-              )
+              ) %>% bs_embed_tooltip("GO terms from human counterpart, or Domain predictions for novel/unknown genes", placement = "top")
             )
           )
         ),
@@ -536,7 +547,7 @@ ui <- fluidPage(
               width = NULL
             ) %>% bs_embed_tooltip("only show longest orf transcript for each gene", placement = "bottom")
           ),
-          actionButton("loadtab", "to Genelist") %>%
+          actionButton("loadtab", "to Genelist", icon("file-alt", class = NULL, lib = "font-awesome")) %>%
             bs_embed_tooltip("send filtered results to loaded Genelist in side panel", placement = "right"),
           DT::dataTableOutput("genes")
         ),
@@ -561,7 +572,7 @@ ui <- fluidPage(
               width = NULL
             ) %>% bs_embed_tooltip("bring in gene info as last columns", placement = "bottom")
           ),
-          actionButton("loadtab2", "to Genelist") %>%
+          actionButton("loadtab2", "to Genelist", icon("file-alt", class = NULL, lib = "font-awesome")) %>%
             bs_embed_tooltip("send filtered results to loaded Genelist in side panel", placement = "right"),
           DT::dataTableOutput("alt")
         ),
@@ -789,7 +800,7 @@ ui <- fluidPage(
           ),
           div(
             id = "loadalldiv",
-            actionButton("Cart_all", "all genes to Cart") %>%
+            actionButton("Cart_all", "all genes to Cart", icon("shopping-cart")) %>%
               bs_embed_tooltip("add all genes from all selected sets into `Cart` side panel", placement = "bottom"),
             style = "display: inline-block"
           ),
