@@ -881,15 +881,27 @@ ui <- fluidPage(
           hr(),
           h5("About Samples"),
           fluidRow(
-            column(width = 4, DT::dataTableOutput("explain")),
+            #column(width = 1),
+            div(
+              img(src = 'Fig1.jpg', height = "175",
+                  alt = "Body temperature and hibernation behavior in 13-lined ground squirrels."),
+              style = "text-align: center;"
+            )
+          ),
+          fluidRow(
             column(width = 1),
-            column(width = 4, DT::dataTableOutput("explain2")),
-            column(width = 3, "")
+            column(width = 4, 
+                   DT::dataTableOutput("explain")),
+            column(width = 1),
+            column(width = 4,
+                   DT::dataTableOutput("explain2")),
+            column(width = 2, "")
           ),
           hr(),
           div(
             style = "display: inline-block;vertical-align:bottom;", h5("Included Data Files")
             ),p("click to preview"),
+          column(width = 1),
           column(width = 9, DT::dataTableOutput("explain3"))
         )
       )

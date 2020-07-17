@@ -2029,7 +2029,7 @@ server <- function(input, output, session) {
     )
     tagList(tags$h6(icon("github-square"), "squirrelBox version: ", clean, "; or available to download and run locally: ", s3link," and ", docklink))
   })
-
+  
   output$explain <- DT::renderDataTable({
     dfreg <- data.frame(
       region = region_order,
