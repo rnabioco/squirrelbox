@@ -562,7 +562,7 @@ server <- function(input, output, session) {
     HTML(str_c(
       '<a href ="',
       url,
-      '">',
+      '", target="_blank">',
       '<img src="',
       src,
       '">',
@@ -588,7 +588,8 @@ server <- function(input, output, session) {
         outputtab$start,
         "-",
         outputtab$end
-      )
+      ),
+      target="_blank"
     )
     tagList(url)
   })
@@ -604,7 +605,8 @@ server <- function(input, output, session) {
         "https://www.ncbi.nlm.nih.gov/gene/?term=",
         str_remove(outputtab$unique_gene_symbol, "_.+"),
         "[sym]+AND+human[ORGN]"
-      )
+      ),
+      target="_blank"
     )
     tagList(clean)
   })
@@ -619,7 +621,8 @@ server <- function(input, output, session) {
       href = str_c(
         "https://www.genenames.org/data/gene-symbol-report/#!/symbol/",
         str_remove(outputtab$unique_gene_symbol, "_.+")
-      )
+      ),
+      target="_blank"
     )
     tagList(clean)
   })
@@ -634,7 +637,8 @@ server <- function(input, output, session) {
       href = str_c(
         "https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
         str_remove(outputtab$unique_gene_symbol, "_.+")
-      )
+      ),
+      target="_blank"
     )
     tagList(clean)
   })
@@ -651,7 +655,8 @@ server <- function(input, output, session) {
         href = str_c(
           "https://blast.ncbi.nlm.nih.gov/blast/Blast.cgi?CMD=Put&PROGRAM=blastp&DATABASE=nr&QUERY=",
           orf
-        )
+        ),
+        target="_blank"
       )
       tagList(url)
     } else {
@@ -1970,7 +1975,8 @@ server <- function(input, output, session) {
   output$intro <- renderUI({
     url <- str_c("manuscript link here")
     clean <- a("manuscript",
-      href = url
+      href = url,
+      target="_blank"
     )
     tagList(tags$h6("RNA sequencing data and analysis for 13-lined ground squirrel brain samples from hibernation cycle. Please see ", clean, "for more details."))
   })
@@ -1983,7 +1989,8 @@ server <- function(input, output, session) {
       track_url
     )
     clean <- a("UCSC browser",
-      href = url
+      href = url,
+      target="_blank"
     )
     tagList(tags$h6("Newly assembled genome and annotated transcriptome are hosted on ", clean))
   })
@@ -1993,7 +2000,8 @@ server <- function(input, output, session) {
       "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=", geoN
     )
     clean <- a(geoN,
-      href = url
+      href = url,
+      target="_blank"
     )
     tagList(tags$h6("Raw data is deposited on GEO, ", clean))
   })
@@ -2003,7 +2011,8 @@ server <- function(input, output, session) {
       "https://bioconductor.org/packages/release/data/annotation/html/", bsgenomeL
     )
     clean <- a(bsgenomeL,
-      href = url
+      href = url,
+      target="_blank"
     )
     tagList(tags$h6("Full genome sequences are deposited to ___ and stored in Biostring/BSgenome format, ", clean))
   })
@@ -2011,7 +2020,8 @@ server <- function(input, output, session) {
   output$GOversion <- renderUI({
     url <- "https://www.gsea-msigdb.org/gsea/msigdb/collections.jsp"
     clean <- a(gmt_file,
-      href = url
+      href = url,
+      target="_blank"
     )
 
     tagList(tags$h6("GO database version: ", clean))
@@ -2019,24 +2029,28 @@ server <- function(input, output, session) {
 
   output$version <- renderUI({
     s3link <- a("S3 bucket",
-      href = s3
+      href = s3,
+      target="_blank"
     )
     docklink <- a("Docker hub",
-      href = docker
+      href = docker,
+      target="_blank"
     )
     tagList(tags$h6("Also available to download and run locally: ", s3link," and ", docklink))
   })
   
   output$GitHub <- renderUI({
     clean <- a(paste0("v", versionN),
-               href = url
+               href = url,
+               target="_blank"
     )
     tagList(tags$p(icon("github-square"), clean))
   })
   
   output$thanks <- renderUI({
     tw <- a("Twemoji",
-            href = "https://twemoji.twitter.com/"
+            href = "https://twemoji.twitter.com/",
+            target="_blank"
     )
     tagList(tags$p("Special thanks to ", tw, " for squirrel logo."))
   })
