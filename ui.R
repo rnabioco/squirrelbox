@@ -876,7 +876,7 @@ ui <- fluidPage(
                 "_none", "Forebrain", "Hypothalamus", "Medulla", "Editing_Riemondy2018"
               ),
               selected = "Hypothalamus"
-            ) %>% bs_embed_tooltip("displays max log2FoldChange (or max proportions edited for RNA editing sites) between states for this tissue", placement = "bottom")
+            ) %>% bs_embed_tooltip("displays max log2FoldChange (or max proportions edited for RNA editing sites) between states for this tissue", placement = "right")
           ),
           div(
             style = "margin-top:-50px",

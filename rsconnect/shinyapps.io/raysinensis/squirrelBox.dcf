@@ -5,9 +5,9 @@ account: raysinensis
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2154339
-bundleId: 3406458
+bundleId: 3406531
 url: https://raysinensis.shinyapps.io/squirrelBox/
-when: 1595058950.30444
+when: 1595063382.01312
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: README.html|docker/Dockerfile|docker/shiny-server.conf|docker/shiny-server.sh|full/.DS_Store|full/full_combined2.feather|full/full_combined3.feather|full/full_padj_orf.feather|full_old/full_combined2.feather|full_old/full_combined3.feather|full_old/full_padj_orf.feather|R/.DS_Store|R/backup_app.R|R/debounce.R|app-cache
