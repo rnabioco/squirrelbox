@@ -139,8 +139,10 @@ ui <- fluidPage(
     "#ucscPlot img {max-width: 100%; width: 100%; height: auto}"
   )),
   titlePanel(div(
-    class = "header", img(src = "logo.png", style = "width : 4%;"),
+    class = "header", 
+    img(src = "chipmunk_1f43f_2.png", style = "width : 4%;"),
     apptitle,
+    img(src = "logo.png", style = "width : 4%;"),
     style = "font-size:23px; background:white;text-decoration: underline; background-clip: inherit;"
   )),
   fixedPanel(
