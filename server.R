@@ -2147,10 +2147,10 @@ server <- function(input, output, session) {
         "all utr5/3/cds sequences"
       )
     ) %>% mutate(download = str_c(url, "raw/master/", datapath,"/", file)) %>%
-      dplyr::mutate(download = paste0("<a href='", download, "'>link</a>"))
+      dplyr::mutate(download = paste0("<a href='", download, "', target = '_blank'>link</a>"))
     DT::datatable(dfreg3,
       escape = FALSE,
-      selection = "single",
+      selection = "none",
       rownames = FALSE,
       options = list(
         searchable = FALSE,
@@ -2160,24 +2160,29 @@ server <- function(input, output, session) {
     )
   })
 
-  observeEvent(input$explain3_rows_selected, {
-    checkfile <- c(
-      "brain_editing_site_proportions.bed",
-      "clusters.feather",
-      "combined2.feather",
-      "combined3.feather",
-      "fc.rds",
-      "MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz",
-      "MiPepid_pred.csv",
-      "novel_domains.csv",
-      "padj_orf.feather",
-      "seqs_precal_noG.rds",
-      "SmProt_blast.csv",
-      "utrs_sq_noG.feather",
-      "utrs_sq.feather"
-    )[input$explain3_rows_selected]
-    rv$data_prev <- data_prev[[checkfile]]
-    showModal(modalPrev)
+  observeEvent(input$explain3_cell_clicked, {
+    if (length(input$explain3_cell_clicked) != 0) {
+      sel <- input$explain3_cell_clicked
+      if (sel$col != 2) {
+        checkfile <- c(
+          "brain_editing_site_proportions.bed",
+          "clusters.feather",
+          "combined2.feather",
+          "combined3.feather",
+          "fc.rds",
+          "MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz",
+          "MiPepid_pred.csv",
+          "novel_domains.csv",
+          "padj_orf.feather",
+          "seqs_precal_noG.rds",
+          "SmProt_blast.csv",
+          "utrs_sq_noG.feather",
+          "utrs_sq.feather"
+        )[sel$row]
+        rv$data_prev <- data_prev[[checkfile]]
+        showModal(modalPrev)
+      }
+    }
   })
   
   output$preview <- DT::renderDataTable({
