@@ -332,7 +332,7 @@ ui <- fluidPage(
               style = "height:150px;"
             ),
             tabPanel(
-              span(icon("sort", class = NULL, lib = "font-awesome"), "Order", title = "Select and order box/line/heatplot"),
+              span(icon("sort", class = NULL, lib = "font-awesome"), "Order", title = "Select and order box/line/heatplot by dragging"),
               orderInput('bsshow', 'Drag Blocks Here to Show', items = region_main,
                          placeholder = 'Drag items here...',
                          connect = 'bshide', item_class = "primary"),
@@ -549,7 +549,9 @@ ui <- fluidPage(
           ),
           actionButton("loadtab", "to Genelist", icon("file-alt", class = NULL, lib = "font-awesome")) %>%
             bs_embed_tooltip("send filtered results to loaded Genelist in side panel", placement = "right"),
-          DT::dataTableOutput("genes")
+          DT::dataTableOutput("genes"),
+          br(),
+          br()
         ),
         tabPanel(
           introBox(
@@ -574,7 +576,9 @@ ui <- fluidPage(
           ),
           actionButton("loadtab2", "to Genelist", icon("file-alt", class = NULL, lib = "font-awesome")) %>%
             bs_embed_tooltip("send filtered results to loaded Genelist in side panel", placement = "right"),
-          DT::dataTableOutput("alt")
+          DT::dataTableOutput("alt"),
+          br(),
+          br()
         ),
         tabPanel(
           introBox(
@@ -881,16 +885,17 @@ ui <- fluidPage(
           ),
           value = "about",
           h5("About squirrelBox"),
+          uiOutput("GitHub"),
           uiOutput("intro"),
           uiOutput("track"),
           uiOutput("rawdata"),
           uiOutput("bsgenome"),
           uiOutput("GOversion"),
           uiOutput("version"),
-          uiOutput("GitHub"),
-          uiOutput("contact"),
+          #uiOutput("contact"),
           hr(),
-          h5("About Samples"),
+          h5("Sample Details"),
+          br(),
           fluidRow(
             #column(width = 1),
             div(
@@ -910,10 +915,16 @@ ui <- fluidPage(
           ),
           hr(),
           div(
-            style = "display: inline-block;vertical-align:bottom;", h5("Included Data Files")
-            ),p("click to preview"),
-          column(width = 1),
-          column(width = 9, DT::dataTableOutput("explain3"))
+            style = "display: inline-block;vertical-align:bottom;", 
+            h5("Included Data Files")
+            ),
+          p("click to preview"),
+          fluidRow(
+            column(width = 1),
+            column(width = 9, DT::dataTableOutput("explain3"))
+            ),
+          br(),
+          br()
         )
       )
     )

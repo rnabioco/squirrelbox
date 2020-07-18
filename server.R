@@ -2018,16 +2018,20 @@ server <- function(input, output, session) {
   })
 
   output$version <- renderUI({
-    clean <- a(versionN,
-      href = url
-    )
-    s3link <- a("S3",
+    s3link <- a("S3 bucket",
       href = s3
     )
-    docklink <- a("docker_hub",
+    docklink <- a("Docker hub",
       href = docker
     )
-    tagList(tags$h6(icon("github-square"), "squirrelBox version: ", clean, "; or available to download and run locally: ", s3link," and ", docklink))
+    tagList(tags$h6("Also available to download and run locally: ", s3link," and ", docklink))
+  })
+  
+  output$GitHub <- renderUI({
+    clean <- a(paste0("v", versionN),
+               href = url
+    )
+    tagList(tags$p(icon("github-square"), clean))
   })
   
   output$explain <- DT::renderDataTable({
