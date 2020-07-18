@@ -2034,6 +2034,13 @@ server <- function(input, output, session) {
     tagList(tags$p(icon("github-square"), clean))
   })
   
+  output$thanks <- renderUI({
+    tw <- a("Twemoji",
+            href = "https://twemoji.twitter.com/"
+    )
+    tagList(tags$p("Special thanks to ", tw, " for squirrel logo."))
+  })
+  
   output$explain <- DT::renderDataTable({
     dfreg <- data.frame(
       region = region_order,

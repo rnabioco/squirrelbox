@@ -140,9 +140,9 @@ ui <- fluidPage(
   )),
   titlePanel(div(
     class = "header", 
-    img(src = "chipmunk_1f43f_2.png", style = "width : 4%;"),
+    img(src = "chipmunk_1f43f.png", style = "width : 3.5%;"),
     apptitle,
-    img(src = "logo.png", style = "width : 4%;"),
+    img(src = "logo.png", style = "width : 3.5%;"),
     style = "font-size:23px; background:white;text-decoration: underline; background-clip: inherit;"
   )),
   fixedPanel(
@@ -926,7 +926,7 @@ ui <- fluidPage(
             column(width = 9, DT::dataTableOutput("explain3"))
             ),
           br(),
-          br()
+          uiOutput("thanks")
         )
       )
     )
