@@ -140,10 +140,18 @@ ui <- fluidPage(
   )),
   titlePanel(div(
     class = "header", 
-    img(src = "chipmunk_1f43f.png", style = "width : 3.5%;"),
-    apptitle,
-    img(src = "logo.png", style = "width : 3.5%;"),
-    style = "font-size:23px; background:white;text-decoration: underline; background-clip: inherit;"
+    a(
+      img(src = "chipmunk_1f43f.png", alt = "Ictidomys tridecemlineatus", style = "width : 3.5%;"),
+      href = "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=Info&id=43179&lvl=3&lin=f&keep=1&srchmode=1&unlock"
+    ) %>%
+      bs_embed_tooltip("Ictidomys tridecemlineatus", placement = "bottom"),
+    strong(apptitle),
+    a(
+      img(src = "logo.png", alt = "RNA Bioscience Initiative", style = "width : 3.5%;"),
+      href = "https://rockyrna.org/"
+    ) %>%
+      bs_embed_tooltip("The RNA Bioscience Initiative at the University of Colorado Anschutz Medical Campus", placement = "bottom"),
+    style = "font-size:23px; background:white;text-decoration:underline; background-clip:inherit;text-align:center;"
   )),
   fixedPanel(
     style = "z-index:100;",
