@@ -97,7 +97,7 @@ bed <- suppressWarnings(read_tsv(paste0(annotpath, "/final_tx_annotations_202002
 
 # read modules/clusters
 mod <- read_feather(paste0(datapath, "/full_clusters.feather")) %>% select(gene, any_of(str_c("cluster_", region_short)))
-mod <- mod[, c("gene", intersect(str_c("cluster_", region_short), colnames(mod)))]
+mod <- mod[, c("gene", intersect(str_c("cluster_", region_short_main), colnames(mod)))] # edit for full
 
 eigen <- suppressWarnings(read_tsv(paste0(datapath, "/cluster_patterns_matrices/reference_patterns.tsv"))) %>%
   rename(state = X1) %>%

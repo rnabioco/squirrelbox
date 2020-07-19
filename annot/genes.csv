@@ -1,7 +1,7 @@
 unique_gene_symbol,"unique to each gene_id, from ensemble/NCBI or newly assigned"
-cluster_f,gene clusters assigned by expression pattern for forebrain
-cluster_h,gene clusters assigned by expression pattern for hypothalamus
-cluster_m,gene clusters assigned by expression pattern for medulla
+cluster_fb,gene clusters assigned by expression pattern for forebrain
+cluster_hy,gene clusters assigned by expression pattern for hypothalamus
+cluster_med,gene clusters assigned by expression pattern for medulla
 fb_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
 hy_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
 med_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"

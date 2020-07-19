@@ -368,12 +368,15 @@ ui <- fluidPage(
             ),
             tabPanel(
               span(icon("sort", class = NULL, lib = "font-awesome"), "Order", title = "Select and order box/line/heatplot by dragging"),
-              orderInput('bsshow', 'Drag Blocks Here to Show', items = region_main,
+              div(
+                orderInput('bsshow', 'Drag Blocks Here to Show', items = region_main,
                          placeholder = 'Drag items here...',
                          connect = 'bshide', item_class = "success"),
-              orderInput('bshide', 'Drag Blocks Here to Hide', items = region_main2,
+                orderInput('bshide', 'Drag Blocks Here to Hide', items = region_main2,
                          placeholder = 'Drag items here...',
-                         connect = 'bsshow', item_class = "info"),
+                         connect = 'bsshow', item_class = "info")
+                ) %>% 
+                bs_embed_tooltip("drag and order the blocks to change plots; in purple are placeholders for other tissues to come", placement = "right"),
               tags$head(
                 tags$style(HTML(".btn-info{font-size:11px;margin:3px;padding:6px 6px;}"))
               ),
