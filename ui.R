@@ -44,7 +44,27 @@ jsResetCode <- "shinyjs.reset = function() {history.go(0)}"
 ui <- fluidPage(
   title = "squirrelBox",
   theme = shinytheme(set_shinytheme),
+  #shinythemes::themeSelector(),
   tags$style("
+# .btn-default, .btn-options{
+# display:inline-block;
+# padding:0.3em 1.2em;
+# margin:0 0.1em 0.1em 0;
+# border:0.16em solid rgba(255,255,255,0);
+# border-radius:2em;
+# box-sizing: border-box;
+# text-decoration:none;
+# font-family:'Roboto',sans-serif;
+# font-weight:300;
+# color:#FFFFFF;
+# text-shadow: 0 0.04em 0.04em rgba(0,0,0,0.35);
+# text-align:center;
+# transition: all 0.2s;
+# background-color:#4e9af1;
+# }
+# .btn-default:hover{
+# border-color: rgba(255,255,255,1);
+# }
       .checkbox {
         line-height: 20px;
         margin-top: -15px;
@@ -174,15 +194,15 @@ ui <- fluidPage(
   fixedPanel(
     style = "z-index:100;",
     actionButton("back_to_top", label = " to Top ", icon = icon("angle-double-up"), 
-                 style = "padding:3px 9px;float:left;border-radius:0px;") %>%
+                 style = "padding:3px 9px;float:left;border-radius:0px;margin:0px;") %>%
       bs_embed_tooltip("scroll back to the top of the page"),
     bsButton("showpanel", "Sidebar", type = "toggle", value = FALSE, icon = icon("bars")) %>%
       bs_embed_tooltip("turn sidebar on/off"),
     tags$head(
-      tags$style(HTML("#showpanel{padding:3px 9px;float:left;border-radius:0px;}"))
+      tags$style(HTML("#showpanel{padding:3px 9px;float:left;border-radius:0px;margin:0px;}"))
     ),
     actionButton("reset", " Reset ", icon = icon("redo"),
-                 style = "padding:3px 9px;float:left;border-radius:0px;") %>% 
+                 style = "padding:3px 9px;float:left;border-radius:0px;margin:0px;") %>% 
       bs_embed_tooltip("reset all settings"),
     #p(HTML("<A HREF=\"javascript:history.go(0)\">Reset</A>")),
     right = 10,
@@ -347,7 +367,7 @@ ui <- fluidPage(
               span(icon("sort", class = NULL, lib = "font-awesome"), "Order", title = "Select and order box/line/heatplot by dragging"),
               orderInput('bsshow', 'Drag Blocks Here to Show', items = region_main,
                          placeholder = 'Drag items here...',
-                         connect = 'bshide', item_class = "primary"),
+                         connect = 'bshide', item_class = "success"),
               orderInput('bshide', 'Drag Blocks Here to Hide', items = region_main2,
                          placeholder = 'Drag items here...',
                          connect = 'bsshow', item_class = "info"),
@@ -355,7 +375,7 @@ ui <- fluidPage(
                 tags$style(HTML(".btn-info{font-size:11px;margin:3px;padding:6px 6px;}"))
               ),
               tags$head(
-                tags$style(HTML(".btn-primary{font-size:11px;margin:3px;padding:6px 6px;}"))
+                tags$style(HTML(".btn-success{font-size:11px;margin:3px;padding:6px 6px;}"))
               ),
               br(.noWS = "outside"),
               actionButton("bsselectconfirm", "Update", icon = icon("refresh")) %>%
@@ -499,7 +519,7 @@ ui <- fluidPage(
                 bsCollapsePanel(
                   uiOutput("EigenPlot") %>% withLoader(),
                   title = "Cluster_assignments",
-                  style = "danger"
+                  style = "primary"
                 ) %>% bs_embed_tooltip("cluster assignment and model expression for each", placement = "top")
               ),
               data.step = 5,
@@ -510,7 +530,7 @@ ui <- fluidPage(
               id = "tabs2", multiple = TRUE, open = NULL, # open = "called_orfs",
               bsCollapsePanel(DT::dataTableOutput("orfinfo") %>% withLoader(),
                 title = "Called_orfs",
-                style = "primary"
+                style = "danger"
               ) %>% bs_embed_tooltip("all potential open read frames", placement = "top")
             ),
             bsCollapse(
