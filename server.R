@@ -444,6 +444,7 @@ server <- function(input, output, session) {
       selection = "none",
       rownames = FALSE,
       options = list(
+        ordering = FALSE,
         searchable = FALSE,
         dom = "t",
         paging = FALSE,

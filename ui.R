@@ -46,6 +46,9 @@ ui <- fluidPage(
   theme = shinytheme(set_shinytheme),
   #shinythemes::themeSelector(),
   tags$style("
+    .nav-tabs{
+      font-weight:bold;
+    }
 # .btn-default, .btn-options{
 # display:inline-block;
 # padding:0.3em 1.2em;
@@ -264,7 +267,7 @@ ui <- fluidPage(
                   )
                 ),
                 data.step = 6,
-                data.intro = "Other external links for the query gene.",
+                data.intro = "Other external links for the query gene, all open in new windows/tabs.",
                 data.position = "right"
               ),
               br(.noWS = "outside"),
@@ -486,10 +489,9 @@ ui <- fluidPage(
           value = "Gene_query",
           div(
             id = "sorted",
-            DT::dataTableOutput("results"),
             div(
               div(
-                style = "display: inline-block;vertical-align:top;",
+                style = "display:inline-block;vertical-align:top;",
                 introBox(
                   dropdownButton(
                     circle = FALSE, status = "options", icon = icon("gear"), width = "200px", size = "sm",
@@ -513,6 +515,8 @@ ui <- fluidPage(
                 uiOutput("boxPlotUI") %>% withLoader()
               )
             ),
+            DT::dataTableOutput("results"),
+            tags$style(HTML("#results{margin-top:2px;margin-bottom:2px;}")),
             introBox(
               bsCollapse(
                 id = "tabs", multiple = TRUE, open = NULL, # open = "cluster_assignments",
