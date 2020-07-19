@@ -489,6 +489,8 @@ ui <- fluidPage(
           value = "Gene_query",
           div(
             id = "sorted",
+            DT::dataTableOutput("results"),
+            tags$style(HTML("#results{margin-top:2px;margin-bottom:2px;}")),
             div(
               div(
                 style = "display:inline-block;vertical-align:top;",
@@ -515,8 +517,6 @@ ui <- fluidPage(
                 uiOutput("boxPlotUI") %>% withLoader()
               )
             ),
-            DT::dataTableOutput("results"),
-            tags$style(HTML("#results{margin-top:2px;margin-bottom:2px;}")),
             introBox(
               bsCollapse(
                 id = "tabs", multiple = TRUE, open = NULL, # open = "cluster_assignments",
