@@ -15,7 +15,8 @@ annotpath <- "annot"
 listpath <- "data/lists"
 
 ### general data settings
-apptitle <- "13-lined ground squirrel hibernating brain RNA-seq expression"
+apptitle_short <- "squirrelBox"
+apptitle <- "13-lined ground squirrel hibernating brain RNA-seq"
 url <- "https://github.com/rnabioco/squirrelbox/"
 s3 <- "https://s3.console.aws.amazon.com/s3/object/squirrelbox/"
 docker <- "https://hub.docker.com/r/raysinensis/squirrelbox"

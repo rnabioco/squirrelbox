@@ -618,4 +618,6 @@ layout_ggplotly <- function(gg, x = -0.06, y = -0.12){
   gg[['x']][['layout']][['annotations']][[1]][['y']] <- y
   gg[['x']][['layout']][['annotations']][[2]][['x']] <- x
   gg
-}                         
+}  
+
+proxy_height <- paste0(plot_height * 100 / 2, "px")

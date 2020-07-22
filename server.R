@@ -38,7 +38,7 @@ server <- function(input, output, session) {
   rv$region_short_main <- region_short_main
   rv$region_one <- region_one
   rv$data_prev <- data.frame()
-  
+    
   # hide some checkboxes
   removeModal()
   hide("doKegg")
@@ -64,6 +64,7 @@ server <- function(input, output, session) {
     rv$region_short_main <- region_short[match(rv$region_main, region_order)]
     rv$region_one <- region_one[match(rv$region_order, region_order)]
   })
+  
   observeEvent(input$bsselectdefault, {
     rv$region_main <- region_main
     rv$region_main2 <- region_main2
@@ -156,7 +157,7 @@ server <- function(input, output, session) {
     if (nrow(plot_temp) == 0) {
       return(ggplot())
     }
-
+    # proxy_height <<- paste0(as.numeric(input$ploth) * 100 * (input$doTis + input$doBr) / 2, "px")
     if (input$doTis & input$doBr) {
       mis <- setdiff(rv$region_order, plot_temp$region %>% unique() %>% as.character())
     } else if (!(input$doTis) & input$doBr) {
@@ -289,7 +290,8 @@ server <- function(input, output, session) {
     g <- boxPlot1()
     output$boxPlot2 <- renderPlotly(ggplotly(g + facet_wrap(~region, ncol = input$ncol), tooltip = "text") %>%
       layout(hovermode = "closest") %>% 
-        layout_ggplotly())
+        layout_ggplotly() %>%
+        config(displayModeBar = FALSE)) 
     if (input$doTis + input$doBr == 2) {
       plotlyOutput("boxPlot2", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100)
     } else {
@@ -299,11 +301,17 @@ server <- function(input, output, session) {
 
   # actually draw boxplot
   output$boxPlotUI <- renderUI({
-    if (rv$init != 0 & rv$run2 != 0) {
+    if (rv$init >= 1 & rv$run2 >= 1) {
       if (input$doPlotly == FALSE) {
         suppressWarnings(boxPlotr())
       } else {
         boxPlotlyr()
+      }
+    } else {
+      if (input$doTis + input$doBr == 2) {
+        plotlyOutput("boxPlot2", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100)
+      } else {
+        plotlyOutput("boxPlot2", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100 / 2)
       }
     }
   })
@@ -792,21 +800,24 @@ server <- function(input, output, session) {
             layout(
               autosize = FALSE,
               showlegend = TRUE
-            ), error = function(e) {
+            ) %>%
+            config(displayModeBar = FALSE), error = function(e) {
               ggplot() +
                 ggtitle("no genes loaded")
             }
         )
       } else {
         ggplotly(g, tooltip = "text", height = as.numeric(input$ploth) * 100 * fac / 2, width = as.numeric(input$plotw) * 100) %>%
-          layout_ggplotly()
+          layout_ggplotly() %>%
+          config(displayModeBar = FALSE)
       }
     } else {
       if (rv$go <= 0) {
         showModal(modalWarn_line)
       }
       ggplotly(ggplot() +
-        ggtitle("plotting cancelled"))
+        ggtitle("plotting cancelled")) %>%
+        config(displayModeBar = FALSE)
     }
   })
 
@@ -979,7 +990,8 @@ server <- function(input, output, session) {
       source = "richPlot", tooltip = "text", height = as.numeric(input$ploth) * 100, width = as.numeric(input$plotw) * 100
     ) %>%
       layout(autosize = F) %>%
-      highlight()
+      highlight() %>%
+      config(displayModeBar = FALSE)
     p
   })
 
@@ -1158,7 +1170,8 @@ server <- function(input, output, session) {
       source = "kmerPlotly",
       tooltip = "text", height = as.numeric(input$ploth) * 100, width = as.numeric(input$plotw) * 100
     )) %>%
-      layout(autosize = F)
+      layout(autosize = F) %>%
+      config(displayModeBar = FALSE)
     output$kmerPlot2 <- renderPlotly(g2)
     plotlyOutput("kmerPlot2", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100)
   })
@@ -1295,7 +1308,8 @@ server <- function(input, output, session) {
       tooltip = "text2", height = as.numeric(input$ploth) * 100, width = as.numeric(input$plotw) * 100
     ) %>%
       layout(autosize = F, showlegend = FALSE) %>%
-      highlight()
+      highlight() %>%
+      config(displayModeBar = FALSE)
     p
   })
 

@@ -48,6 +48,7 @@ ui <- fluidPage(
   tags$style("
     .nav-tabs{
       font-weight:bold;
+      font-size:13px;
     }
 # .btn-default, .btn-options{
 # display:inline-block;
@@ -164,19 +165,28 @@ ui <- fluidPage(
   titlePanel(div(
     class = "header", 
     a(
-      img(src = "chipmunk_1f43f.png", alt = "Ictidomys tridecemlineatus", style = "width : 3.5%;"),
-      href = "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=Info&id=43179&lvl=3&lin=f&keep=1&srchmode=1&unlock",
-      target="_blank"
-    ) %>%
-      bs_embed_tooltip("Ictidomys tridecemlineatus", placement = "bottom"),
-    strong(apptitle),
-    a(
-      img(src = "logo.png", alt = "RNA Bioscience Initiative", style = "width : 3.5%;"),
+      img(src = "logo.png", alt = "RNA Bioscience Initiative", style = "width:29px;"),
       href = "https://rockyrna.org/",
       target="_blank"
     ) %>%
       bs_embed_tooltip("The RNA Bioscience Initiative at the University of Colorado Anschutz Medical Campus", placement = "bottom"),
-    style = "font-size:23px; background:white;text-decoration:underline; background-clip:inherit;text-align:center;"
+    a(
+      img(src = "chipmunk_1f43f.png", alt = "Ictidomys tridecemlineatus", style = "width:29px;"),
+      href = "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=Info&id=43179&lvl=3&lin=f&keep=1&srchmode=1&unlock",
+      target="_blank"
+    ) %>%
+      bs_embed_tooltip("Ictidomys tridecemlineatus", placement = "bottom"),
+    span(a(
+      strong(apptitle_short),
+      href = url,
+      target="_blank"
+    ) %>%
+      bs_embed_tooltip("see GitHub page for help and code", placement = "bottom"),
+    div(
+      apptitle,
+      style = "font-size:15px;font-style:italic;margin-top:2px;display:inline"
+      )),
+    style = "font-size:30px;background-color:rgba(255,255,255,0.5);background-clip:inherit;text-align:center;margin:0px;padding:1px 1px;"
   )),
   fixedPanel(
     style = "z-index:100;",
@@ -186,7 +196,8 @@ ui <- fluidPage(
       tags$style(HTML("#tutorial{background-color:gold;z-index:100;}"))
     ),
     introBox(
-      actionButton("tutorial", "", icon = icon("question")) %>%
+      actionButton("tutorial", "", icon = icon("question"), 
+                   style = "padding:4px 10px;margin:0px;") %>%
         bs_embed_tooltip("Take a tour through the app!", placement = "bottom"),
       data.step = 1,
       data.intro = "Welcome to the squirrelBox.<br><br>
@@ -291,7 +302,8 @@ ui <- fluidPage(
                 data.intro = "For each section, results as table and/or plot can be saved to disk.",
                 data.position = "right"
               ),
-              br(.noWS = "outside"),
+              #br(.noWS = "outside"),
+              hr()
               # style = "height:150px;"
             ),
             tabPanel(
@@ -364,7 +376,8 @@ ui <- fluidPage(
                     bs_embed_tooltip("save current plot as .pdf", placement = "bottom")
                 )
               ),
-              style = "height:150px;"
+              hr()#,
+              #style = "height:180px;"
             ),
             tabPanel(
               span(icon("sort", class = NULL, lib = "font-awesome"), "Order", title = "Select and order box/line/heatplot by dragging"),
@@ -387,7 +400,8 @@ ui <- fluidPage(
               actionButton("bsselectconfirm", "Update", icon = icon("refresh")) %>%
                 bs_embed_tooltip("update with selection and order", placement = "bottom"),
               actionButton("bsselectdefault", "Default", icon = icon("times")) %>%
-                bs_embed_tooltip("restore default selection and order", placement = "bottom")
+                bs_embed_tooltip("restore default selection and order", placement = "bottom"),
+              hr()
             )
           ),
           tabsetPanel(
@@ -517,7 +531,7 @@ ui <- fluidPage(
               ),
               div(
                 style = "vertical-align:top;",
-                uiOutput("boxPlotUI") %>% withLoader()
+                uiOutput("boxPlotUI") %>% withLoader(proxy.height = proxy_height)
               )
             ),
             introBox(
@@ -847,7 +861,10 @@ ui <- fluidPage(
               bs_embed_tooltip("add all genes from all selected sets into `Cart` side panel", placement = "bottom"),
             style = "display: inline-block"
           ),
-          plotlyOutput("vennPlot") %>% withLoader()
+          div(
+            style = "margin-top:-50px",
+            plotlyOutput("vennPlot") %>% withLoader()
+          )
         ),
         tabPanel(
           introBox(
