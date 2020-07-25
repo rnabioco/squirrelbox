@@ -155,7 +155,7 @@ comb_fil_factor <- function(combined2, combined3, inid) {
 autocomplete_list <- str_sort(c(
   combined3$unique_gene_symbol,
   combined3$gene_id
-) %>% unique(), decreasing = T)
+) %>% unique(), decreasing = F)
 
 find_spelling <- function(entry, dict) {
   temp <- intersect(

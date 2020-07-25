@@ -9,10 +9,10 @@ stack_size <- getOption("pandoc.stack.size", default = "1000m")
 # options(repos = BiocManager::repositories()) # for pushing to shinyapps.io
 
 ### folders
-rpath <- "R"
-datapath <- "data"
-annotpath <- "annot"
-listpath <- "data/lists"
+rpath <- "R" # additional R code
+datapath <- "data" # data, previewed and for download
+annotpath <- "annot" # annotations from external sources
+listpath <- "data/lists" # csv and txt lists used by Venn and Circos
 
 ### general data settings
 apptitle_short <- "squirrelBox"
@@ -23,8 +23,8 @@ docker <- "https://hub.docker.com/r/raysinensis/squirrelbox"
 versionN <- "1.0.0"
 geoN <- "GSE106947"
 bsgenomeL <- "BSgenome.Itridecemlineatus.v???"
-pageN <- 10
-warningN <- 100
+pageN <- 10 # number of lines, for tables
+warningN <- 100 # number of genes, for throwing warnings in line and heat plots
 plot_width <- 8
 plot_height <- 6
 set_shinytheme <- "paper"
@@ -34,9 +34,10 @@ gmt_file <- "c5.all.v7.1.symbols.gmt"
 gmt_short <- "GO_"
 sig_cut <- 0.001
 ncore <- parallel::detectCores() - 1
-start_tutorial <- TRUE
+start_tutorial <- TRUE # whether to start loaded app with tutorial
+start_tabhint <- TRUE # whether to pop up message on first switch to tab
 verbose_bench <- FALSE
-chrlimit <- 20
+chrlimit <- 17
 
 ### choose and order columns
 table_cols <- c(

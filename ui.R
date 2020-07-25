@@ -264,17 +264,18 @@ ui <- fluidPage(
                 fluidRow(
                   column(
                     width = 4,
-                    uiOutput("tab"),
-                    uiOutput("blastlink")
+                    strong(uiOutput("tab")),
+                    strong(uiOutput("blastlink")),
+                    strong(uiOutput("tab5"))
                   ),
                   column(
                     width = 1
                   ),
                   column(
                     width = 4,
-                    uiOutput("tab2"),
-                    uiOutput("tab3"),
-                    uiOutput("tab4")
+                    strong(uiOutput("tab2")),
+                    strong(uiOutput("tab3")),
+                    strong(uiOutput("tab4"))
                   )
                 ),
                 data.step = 6,
@@ -507,7 +508,7 @@ ui <- fluidPage(
           div(
             id = "sorted",
             DT::dataTableOutput("results"),
-            tags$style(HTML("#results{margin-top:2px;margin-bottom:2px;}")),
+            tags$style(HTML("#results{margin-top:2px;margin-bottom:5px;}")),
             div(
               div(
                 style = "display:inline-block;vertical-align:top;",
@@ -534,6 +535,7 @@ ui <- fluidPage(
                 uiOutput("boxPlotUI") %>% withLoader(proxy.height = proxy_height)
               )
             ),
+            tags$style(HTML(".panel-group {margin-bottom:5px;margin-top:2px;}")),
             introBox(
               bsCollapse(
                 id = "tabs", multiple = TRUE, open = NULL, # open = "cluster_assignments",
@@ -862,7 +864,7 @@ ui <- fluidPage(
             style = "display: inline-block"
           ),
           div(
-            style = "margin-top:-50px",
+            style = "margin-top:-40px",
             plotlyOutput("vennPlot") %>% withLoader()
           )
         ),
@@ -870,7 +872,7 @@ ui <- fluidPage(
           introBox(
             span(icon("circle-notch", class = NULL, lib = "font-awesome"),
               "Genome",
-              title = "Visualize gene list on longest 20 contigs (slow)"
+              title = paste0("Visualize gene list on longest ", chrlimit, " contigs (slow)")
             ),
             data.step = 17,
             data.intro = "Circos-like visualization of genes on newly assembled genome and annotation.<br><br>

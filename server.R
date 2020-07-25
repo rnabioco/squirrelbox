@@ -25,8 +25,6 @@ server <- function(input, output, session) {
   rv$toolarge <- 0
   rv$go <- 0
   rv$tabinit_plot <- 0
-  rv$tabinit_data <- 0
-  rv$tabinit_as <- 0
   rv$tabinit_enrich <- 0
   rv$tabinit_kmer <- 0
   rv$tabinit_venn <- 0
@@ -38,7 +36,14 @@ server <- function(input, output, session) {
   rv$region_short_main <- region_short_main
   rv$region_one <- region_one
   rv$data_prev <- data.frame()
-    
+  
+  if (start_tabhint) {
+    rv$tabinit_data <- 0
+    rv$tabinit_as <- 0
+  } else {
+    rv$tabinit_data <- 1
+    rv$tabinit_as <- 1
+  }
   # hide some checkboxes
   removeModal()
   hide("doKegg")
@@ -652,6 +657,23 @@ server <- function(input, output, session) {
     tagList(clean)
   })
 
+  # link uniprot
+  output$tab5 <- renderUI({
+    outputtab <- outputtab()
+    if (nrow(outputtab) > 1) {
+      outputtab <- outputtab[1, ]
+    }
+    clean <- a("UniProt",
+               href = str_c(
+                 "https://www.uniprot.org/uniprot/",
+                 str_remove(outputtab$unique_gene_symbol, "_.+"),
+                 "_HUMAN"
+               ),
+               target="_blank"
+    )
+    tagList(clean)
+  })
+  
   # link blast
   output$blastlink <- renderUI({
     if (rv$blast != "" & !(is.na(rv$blast))) {
@@ -2227,6 +2249,7 @@ server <- function(input, output, session) {
           type = "message"
         )
         rv$tabinit_data <<- 1
+        start_tabhint <<- FALSE
       }
     } else if (input$tabMain == "table_AS") {
       disable("savePlot")
@@ -2240,6 +2263,7 @@ server <- function(input, output, session) {
           type = "message"
         )
         rv$tabinit_as <<- 1
+        start_tabhint <<- FALSE
       }
     } else if (input$tabMain == "line_plot") {
       enable("savePlot")

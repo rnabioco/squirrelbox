@@ -45,3 +45,13 @@ Note that clicking on a row in any table or any interactive element in the plots
 squirrelBox is developed and tested on only a handful of machine/OS combinations with common resolution settings. Please check the sidebar "Options" and "Order" options to tailor the presentation. Alternatively, settings can be edited in the `config.R` file.
 
 Libraries are up-to-date as of July 18 2020, however, in case of potential function-breaking updates, please check latest confirmed [sessionInfo](https://github.com/rnabioco/squirrelbox/issues/81).
+
+# BSgenome package (temporary)
+
+A BSgenome package for the new *Ictidomys tridecemlineatus* genome was forged to aid sequence query and manipulation. This is not directly required for squirrelBox browsing. However, for interested parties, a functional draft version is hosted here: [tar.gz on S3](https://squirrelbox.s3-us-west-2.amazonaws.com/BSgenome/BSgenome.SQ1_1.0.tar.gz). Installation as below:
+
+```
+install.packages(location to BSgenome.SQ1_1.0.tar.gz file,
+                 repo = NULL,
+                 type = "source")
+```
