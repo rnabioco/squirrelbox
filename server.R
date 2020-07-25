@@ -2429,4 +2429,13 @@ server <- function(input, output, session) {
     start_tutorial <<- FALSE
     session$reload()
     })  
+  
+  observeEvent(input$dimension, {
+    # print(input$dimension[1])
+    # print(input$dimension[2])
+    temp <- input$dimension[2]*0.39
+    runjs(paste0('$("#tabload").css("height","', temp, 'px")'))
+    runjs(paste0('$("#tabcart").css("height","', temp, 'px")'))
+    runjs(paste0('$("#tabhistory").css("height","', temp, 'px")'))
+  })
 }

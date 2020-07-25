@@ -183,8 +183,8 @@ ui <- fluidPage(
     ) %>%
       bs_embed_tooltip("see GitHub page for help and code", placement = "bottom"),
     div(
-      apptitle,
-      style = "font-size:15px;font-style:italic;margin-top:2px;display:inline"
+      code(apptitle),
+      style = "font-size:15px;margin-top:2px;display:inline"
       )),
     style = "font-size:30px;background-color:rgba(255,255,255,0.5);background-clip:inherit;text-align:center;margin:0px;padding:1px 1px;"
   )),
@@ -224,15 +224,32 @@ ui <- fluidPage(
   ),
   sidebarLayout(
     sidebarPanel(
+      tags$head(tags$script('
+                                var dimension = [0, 0];
+                                $(document).on("shiny:connected", function(e) {
+                                    dimension[0] = window.innerWidth;
+                                    dimension[1] = window.innerHeight;
+                                    Shiny.onInputChange("dimension", dimension);
+                                });
+                                $(window).resize(function(e) {
+                                    dimension[0] = window.innerWidth;
+                                    dimension[1] = window.innerHeight;
+                                    Shiny.onInputChange("dimension", dimension);
+                                });
+                            ')),
       id = "SIDE",
-      style = "position:fixed;width:23%;margin-top:60px;z-index:50;",
+      style = "position:fixed;width:23%;margin-top:60px;z-index:50;border:solid 2.3px; 
+        border-top-color: #4e9af1;
+        border-left-color: #4e9af1;
+        border-right-color: #9BE7FF;
+        border-bottom-color: #9BE7FF;",
       width = 3,
       div(
         id = "sideall",
         introBox(
           div(
             div(
-              style = "display: inline-block;vertical-align:top; width: 160px;",
+              style = "display:inline-block;vertical-align:top;width:160px;",
               tagAppendAttributes(selectizeInput("geneID",
                 label = NULL,
                 selected = "",
@@ -259,7 +276,8 @@ ui <- fluidPage(
               span(icon("link", class = NULL, lib = "font-awesome"), "Gene",
                 title = "additional external links for a specific query gene"
               ),
-              br(.noWS = "outside"),
+              div(br(.noWS = "outside"),
+                  style = "font-size:5px;"),
               introBox(
                 fluidRow(
                   column(
@@ -282,7 +300,8 @@ ui <- fluidPage(
                 data.intro = "Other external links for the query gene, all open in new windows/tabs.",
                 data.position = "right"
               ),
-              br(.noWS = "outside"),
+              div(br(.noWS = "outside"),
+                  style = "font-size:5px;"),
               introBox(
                 fluidRow(
                   column(
@@ -418,6 +437,7 @@ ui <- fluidPage(
                 data.position = "top"
               ),
               value = "load",
+              div(id = "tabload",
               div(id = "filediv", fileInput("file", label = NULL) %>%
                 bs_embed_tooltip("expects gene symbols (case-insensitive) as first column of tsv, or comma separated line")),
               div(
@@ -431,9 +451,8 @@ ui <- fluidPage(
                 disabled(actionButton("Next1", "Next", icon = icon("angle-down")) %>%
                   bs_embed_tooltip("query next gene on loaded list", placement = "bottom"))
               ),
-
               DT::dataTableOutput("tbllist"),
-              style = "height:300px; overflow-y: scroll;"
+              style = "height:309px;overflow-y:scroll;")
             ),
             tabPanel(
               value = "cart",
@@ -446,6 +465,7 @@ ui <- fluidPage(
                 Interactive clicking on the GO_enrich and Venn plots also put the corresponding genes into this cart.",
                 data.position = "top"
               ),
+              div(id = "tabcart",
               uiOutput("listn2"),
               fluidRow(
                 column(
@@ -472,7 +492,7 @@ ui <- fluidPage(
                 )
               ),
               DT::dataTableOutput("tbllist2"),
-              style = "height:300px; overflow-y: scroll;"
+              style = "height:309px;overflow-y:scroll;")
             ),
             tabPanel(
               introBox(
@@ -481,8 +501,9 @@ ui <- fluidPage(
                 data.intro = "A list of genes previously queried is also documented for review.",
                 data.position = "right"
               ),
+              div(id = "tabhistory",
               DT::dataTableOutput("historyl"),
-              style = "height:300px; overflow-y: scroll;"
+              style = "height:309px;overflow-y:scroll;")
             )
           )
         )
