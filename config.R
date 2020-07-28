@@ -22,7 +22,10 @@ s3 <- "https://s3.console.aws.amazon.com/s3/object/squirrelbox/"
 docker <- "https://hub.docker.com/r/raysinensis/squirrelbox"
 versionN <- "1.0.0"
 geoN <- "GSE106947"
-bsgenomeL <- "BSgenome.Itridecemlineatus.v???"
+genomeN <- "NCBI GenBank"
+genomeL <- "link_pending"
+bsgenomeN <- "BSgenome.Itridecemlineatus.HiC_Itri_2"
+bsgenomeL <- "https://squirrelbox.s3-us-west-2.amazonaws.com/BSgenome/BSgenome.SQ1_1.0.tar.gz"
 pageN <- 10 # number of lines, for tables
 warningN <- 100 # number of genes, for throwing warnings in line and heat plots
 plot_width <- 8

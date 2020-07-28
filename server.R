@@ -2044,14 +2044,15 @@ server <- function(input, output, session) {
   })
 
   output$bsgenome <- renderUI({
-    url <- str_c(
-      "https://bioconductor.org/packages/release/data/annotation/html/", bsgenomeL
+    ge <- a(genomeN,
+            href = genomeL,
+            target="_blank"
     )
-    clean <- a(bsgenomeL,
-      href = url,
+    bs <- a(bsgenomeN,
+      href = bsgenomeL,
       target="_blank"
     )
-    tagList(tags$h6("Full genome sequences are deposited to ___ and stored in Biostring/BSgenome format, ", clean))
+    tagList(tags$h6("Full genome sequences are deposited to ", ge, ", and stored in Biostring/BSgenome format, ", bs))
   })
 
   output$GOversion <- renderUI({
@@ -2428,7 +2429,7 @@ server <- function(input, output, session) {
   observeEvent(input$reset, {
     start_tutorial <<- FALSE
     session$reload()
-    })  
+  })  
   
   observeEvent(input$dimension, {
     # print(input$dimension[1])
