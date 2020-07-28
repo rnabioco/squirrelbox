@@ -978,7 +978,7 @@ ui <- fluidPage(
           fluidRow(
             #column(width = 1),
             div(
-              img(src = 'Fig1.jpg', height = "175",
+              img(src = 'Fig2.jpg', height = "200",
                   alt = "Body temperature and hibernation behavior in 13-lined ground squirrels."),
               style = "text-align: center;"
             )
