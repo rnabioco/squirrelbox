@@ -621,3 +621,8 @@ layout_ggplotly <- function(gg, x = -0.06, y = -0.12){
 }  
 
 proxy_height <- paste0(plot_height * 100 / 2, "px")
+
+# check for qc report
+if (!(file.exists(paste0("www/", qc_report)))) {
+  qc_report <- NULL
+}

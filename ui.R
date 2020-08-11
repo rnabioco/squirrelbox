@@ -978,10 +978,14 @@ ui <- fluidPage(
           br(),
           fluidRow(
             #column(width = 1),
-            div(
-              img(src = 'Fig2.jpg', height = "200",
-                  alt = "Body temperature and hibernation behavior in 13-lined ground squirrels."),
-              style = "text-align: center;"
+            tags$a(
+              href = qc_report,
+              target="_blank",
+              div(
+                img(src = 'Fig2.jpg', height = "200",
+                    alt = "Body temperature and hibernation behavior in 13-lined ground squirrels."),
+                style = "text-align: center;"
+              )
             )
           ),
           fluidRow(

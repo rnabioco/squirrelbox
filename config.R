@@ -41,6 +41,7 @@ start_tutorial <- TRUE # whether to start loaded app with tutorial
 start_tabhint <- TRUE # whether to pop up message on first switch to tab
 verbose_bench <- FALSE
 chrlimit <- 17
+qc_report <- "multiqc_report.html"
 
 ### choose and order columns
 table_cols <- c(
