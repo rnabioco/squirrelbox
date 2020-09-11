@@ -692,7 +692,7 @@ ui <- fluidPage(
               title = "Plot Z-Score of loaded Genelist as heat map"
             ),
             data.step = 13,
-            data.intro = "Similar to the lineplot, visualize loaded Genelist as heatmap (normalized as Z-scores).",
+            data.intro = "Similar to the lineplot, visualize loaded Genelist as heatmap (normalized as Z-scores). Clicking on a block loads the corresponding gene into query.",
             data.position = "top"
           ),
           value = "heat_plot",
@@ -748,11 +748,13 @@ ui <- fluidPage(
             data.step = 14,
             data.intro = "GO term enrichment of loaded Genelist by Fisher's exact test.<br><br>
             Top 15 results are plotted, while full table can be exported.<br><br>
-            Clicking on bar loads the corresponding genes into Cart.",
+            Clicking on bar loads the corresponding genes into Cart.<br><br>
+            Direct link is provided to loading GO terms into REVIGO for further summarization",
             data.position = "top"
           ),
           value = "enrichment_plot",
           dropdownButton(
+            inline = TRUE,
             circle = FALSE, status = "analysis options", icon = icon("gear"), width = "200px", size = "sm",
             tooltip = tooltipOptions(title = "boxplot options"), margin = "20px",
             br(),
@@ -772,6 +774,10 @@ ui <- fluidPage(
                 bs_embed_tooltip("subcollection of GO terms to test against", placement = "bottom")
             )
           ),
+          div(
+            style = "display: inline-block;vertical-align:bottom;", 
+            htmlOutput("revigo") %>% bs_embed_tooltip("direct link to REVIGO for GO term summary", placement = "right")
+            ),
           plotlyOutput("richPlot") %>% withLoader()
         ),
         tabPanel(

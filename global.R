@@ -57,9 +57,9 @@ if (file.exists(paste0(annotpath, "/alt.csv"))) {
 }
 
 # read database
-if (file.exists(paste0(datapath, "/combined2.feather"))) {
-  combined2 <- read_feather(paste0(datapath, "/combined2.feather"))
-  combined3 <- read_feather(paste0(datapath, "/combined3.feather"))
+if (file.exists(paste0(datapath, "/full_combined2.feather"))) {
+  combined2 <- read_feather(paste0(datapath, "/full_combined2.feather"))
+  combined3 <- read_feather(paste0(datapath, "/full_combined3.feather"))
 } else if (file.exists(paste0(datapath, "/combined2.csv"))) {
   combined2 <- fread(paste0(datapath, "/combined2.csv"), nThread = ncore)
   combined3 <- fread(paste0(datapath, "/combined3.csv"), nThread = ncore)
@@ -97,7 +97,7 @@ bed <- suppressWarnings(read_tsv(paste0(annotpath, "/final_tx_annotations_202002
 
 # read modules/clusters
 mod <- read_feather(paste0(datapath, "/full_clusters.feather")) %>% select(gene, any_of(str_c("cluster_", region_short)))
-mod <- mod[, c("gene", intersect(str_c("cluster_", region_short_main), colnames(mod)))] # edit for full
+mod <- mod[, c("gene", intersect(str_c("cluster_", region_short), colnames(mod)))] # edit for full
 
 eigen <- suppressWarnings(read_tsv(paste0(datapath, "/cluster_patterns_matrices/reference_patterns.tsv"))) %>%
   rename(state = X1) %>%
@@ -184,6 +184,7 @@ unique_to_clean <- function(genevec, namedvec, na_omit = T) {
 }
 
 # read go terms and TFs
+gmt_lookup <- read_csv(paste0(annotpath, "/","gmt_id.csv"))
 gmt_to_list <- function(path,
                         cutoff = 0,
                         sep = "\thttp://www\\..*?.org/gsea/msigdb/cards/.*?\t",
@@ -277,7 +278,7 @@ br_expr <- combined2 %>%
   unique()
 
 # load orf predictions
-orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
+orfs <- read_feather(paste0(datapath, "/full_padj_orf.feather")) %>%
   select(gene_id,
     orf_len = len,
     exons,
