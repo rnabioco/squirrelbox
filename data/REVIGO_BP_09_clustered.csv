@@ -1,0 +1,113 @@
+term_ID,description,plot_X,plot_Y,plot_size,log10 p-value,color
+GO:0001889,liver development,1.461,1.719,3.471,-2.9788,dev
+GO:0006364,rRNA processing,0.59,-6.821,5.087,-13.8297,RNA
+GO:0006888,ER to Golgi vesicle-mediated transport,2.396,-3.233,4.204,-3.6615,mem
+GO:0006986,response to unfolded protein,2.585,6.264,3.677,-5.3152,stress
+GO:0008152,metabolic process,0.082,0.093,6.986,-5.3107,meta
+GO:0042632,cholesterol homeostasis,4.012,2.671,3.381,-5.8539,meta
+GO:0098609,cell-cell adhesion,0.406,1.023,4.507,-3.7011,sig
+GO:0032259,methylation,0.299,0.791,5.6,-2.3747,sig
+GO:0009058,biosynthetic process,0.804,0.053,6.608,-4.8297,meta
+GO:0006457,protein folding,0.236,-0.086,5.064,-3.719,mem
+GO:0035338,long-chain fatty-acyl-CoA biosynthetic process,-1.722,-0.486,2.534,-4.7471,meta
+GO:0030212,hyaluronan metabolic process,-3.183,-0.465,3.006,-3.6861,meta
+GO:0006695,cholesterol biosynthetic process,-6.399,0.026,3.173,-8.3595,meta
+GO:0006629,lipid metabolic process,-4.817,1.247,5.655,-5.0726,meta
+GO:0006473,protein acetylation,1.555,-3.088,4.366,-3.0921,mem
+GO:0035562,negative regulation of chromatin binding,3.359,1.854,2.365,-2.0496,expr
+GO:0031325,positive regulation of cellular metabolic process,5.051,2.44,5.11,-3.6819,meta
+GO:0006569,tryptophan catabolic process,-7.008,-1.423,4.027,-5.719,meta
+GO:0000050,urea cycle,-6.063,0.383,2.624,-2.4034,meta
+GO:0006361,transcription initiation from RNA polymerase I promoter,-0.243,-5.375,3.015,-2.1385,RNA
+GO:0003333,amino acid transmembrane transport,1.832,-2.499,4.785,-3.2541,mem
+GO:0009411,response to UV,2.008,5.604,3.837,-2.384,stress
+GO:0040008,regulation of growth,3.757,2.182,4.343,-2.1296,dev
+GO:0050746,regulation of lipoprotein metabolic process,3.583,1.579,2.612,-2.6402,meta
+GO:0006383,transcription from RNA polymerase III promoter,-1.426,-5.617,4.005,-2.7747,RNA
+GO:0055114,oxidation-reduction process,-5.477,1.424,6.286,-18.2865,meta
+GO:0070221,"sulfide oxidation, using sulfide:quinone oxidoreductase",-1.733,0.75,0.903,-2.3468,meta
+GO:0000122,negative regulation of transcription from RNA polymerase II promoter,2.679,-2.209,4.408,-3.1746,expr
+GO:0006099,tricarboxylic acid cycle,-7.508,0.46,4.78,-3.8996,meta
+GO:0006094,gluconeogenesis,-7.007,0.756,4.527,-3.7011,meta
+GO:0042135,neurotransmitter catabolic process,-0.312,3.941,2.496,-2.9626,meta
+GO:0043488,regulation of mRNA stability,5.578,-0.817,3.366,-2.5572,expr
+GO:0006396,RNA processing,-1.286,-5.523,5.615,-3.0825,RNA
+GO:0007031,peroxisome organization,2.657,-6.978,4.02,-5.0878,mem
+GO:0010043,response to zinc ion,2.39,6.295,3.058,-3.3575,stress
+GO:0019805,quinolinate biosynthetic process,-6.895,-1.984,3.798,-2.6402,meta
+GO:0006810,transport,2.729,-2.837,6.354,-2.3585,mem
+GO:0016567,protein ubiquitination,2.122,-4.109,4.827,-2.1871,mem
+GO:0007040,lysosome organization,2.651,-6.873,3.389,-2.2807,mem
+GO:0001765,membrane raft assembly,0.903,-7.247,2.864,-2.1244,mem
+GO:0007584,response to nutrient,2.629,6.484,3.53,-3.6737,stress
+GO:0051289,protein homotetramerization,2.614,-7.164,3.297,-5.2472,mem
+GO:0007568,aging,1.595,1.04,4.052,-2.1733,dev
+GO:0006749,glutathione metabolic process,-2.949,-1.823,4.288,-3.8153,meta
+GO:0006631,fatty acid metabolic process,-7.269,0.836,5.052,-5.8386,meta
+GO:0019373,epoxygenase P450 pathway,-6.779,1.767,2.525,-2.8697,meta
+GO:0006544,glycine metabolic process,-7.884,0.016,4.452,-2.7959,meta
+GO:0042493,response to drug,2.858,6.614,4.534,-4.3233,stress
+GO:0042866,pyruvate biosynthetic process,-7.132,1.106,2.78,-3.3904,meta
+GO:0006805,xenobiotic metabolic process,2.993,6.646,3.82,-4.2197,stress
+GO:0030193,regulation of blood coagulation,4.001,4.732,3.36,-3.2118,stress
+GO:0045746,negative regulation of Notch signaling pathway,3.84,4.605,3.081,-2.3747,stress
+GO:0001561,fatty acid alpha-oxidation,-7.153,2.052,2.322,-3.1568,meta
+GO:0000132,establishment of mitotic spindle orientation,0.917,-6.609,3.207,-2.3335,mem
+GO:0001523,retinoid metabolic process,-5.068,2.64,3.234,-2.8239,meta
+GO:2000194,regulation of female gonad development,2.732,1.971,2.412,-2.0166,dev
+GO:0002576,platelet degranulation,0.518,-2.781,2.519,-2.4145,mem
+GO:0006355,"regulation of transcription, DNA-templated",0.206,-2.726,6.105,-2.9208,expr
+GO:0051384,response to glucocorticoid,2.187,6.141,3.19,-3.3605,stress
+GO:0006641,triglyceride metabolic process,-5.579,2.645,3.687,-5.3737,meta
+GO:0043277,apoptotic cell clearance,1.941,-2.546,3.064,-2.0329,mem
+GO:0045471,response to ethanol,2.095,5.967,3.312,-2.5702,stress
+GO:0006625,protein targeting to peroxisome,2.832,-6.506,3.744,-2.1543,mem
+GO:0008652,cellular amino acid biosynthetic process,-6.357,-1.236,5.575,-3.172,meta
+GO:0071400,cellular response to oleic acid,2.21,6.185,1.881,-2.6402,stress
+GO:0008202,steroid metabolic process,-5.138,-1.281,4.315,-3.767,meta
+GO:0046487,glyoxylate metabolic process,-7.179,0.655,3.794,-3.172,meta
+GO:0034612,response to tumor necrosis factor,2.441,6.292,3.615,-2.1694,stress
+GO:1904385,cellular response to angiotensin,2.163,6.012,2.785,-2.2941,stress
+GO:1900034,regulation of cellular response to heat,3.55,5.057,2.67,-2.8447,stress
+GO:0006768,biotin metabolic process,-6.04,-1.392,4.018,-2.2034,meta
+GO:2000781,positive regulation of double-strand break repair,4.782,2.222,2.73,-2.1543,repair
+GO:0042997,negative regulation of Golgi to plasma membrane protein transport,3.838,-4.168,1.978,-2.068,mem
+GO:0061621,canonical glycolysis,-6.938,-0.213,2.199,-2.2588,meta
+GO:0055088,lipid homeostasis,4.756,2.801,3.717,-5,meta
+GO:0043420,anthranilate metabolic process,-7.255,-1.117,3.482,-2.6402,meta
+GO:0008380,RNA splicing,-0.14,-5.753,4.725,-2.9066,RNA
+GO:0009083,branched-chain amino acid catabolic process,-7.066,1.418,3.636,-2.7773,meta
+GO:0045815,"positive regulation of gene expression, epigenetic",5.455,-1.412,3.258,-2.1739,expr
+GO:0006397,mRNA processing,-0.295,-5.74,4.857,-3.2741,RNA
+GO:0006554,lysine catabolic process,-7.474,1.815,3.599,-4.9508,meta
+GO:0006071,glycerol metabolic process,-6.901,0.344,4.151,-3.7696,meta
+GO:0042593,glucose homeostasis,4.46,2.703,3.937,-3.2832,meta
+GO:0006520,cellular amino acid metabolic process,-6.856,-1.68,5.856,-5.9172,meta
+GO:0008206,bile acid metabolic process,-7.54,0.885,2.99,-3.0773,meta
+GO:0010951,negative regulation of endopeptidase activity,5.288,0.683,4.304,-2.1203,mem
+GO:0033539,fatty acid beta-oxidation using acyl-CoA dehydrogenase,-7.18,1.865,3.073,-2.8697,meta
+GO:0006376,mRNA splice site selection,1.874,-7.018,3.455,-2.6576,RNA
+GO:0006084,acetyl-CoA metabolic process,-1.749,-0.414,4.343,-2.3468,meta
+GO:0006699,bile acid biosynthetic process,-6.823,0.264,2.802,-3.6308,meta
+GO:0006098,pentose-phosphate shunt,-5.653,-3.005,4.566,-2.52,meta
+GO:0000463,"maturation of LSU-rRNA from tricistronic rRNA transcript (SSU-rRNA, 5.8S rRNA, LSU-rRNA)",1.544,-6.615,3.676,-2.3054,RNA
+GO:0006633,fatty acid biosynthetic process,-7.087,0.441,4.899,-4.9172,meta
+GO:0048208,COPII vesicle coating,1.356,-6.102,3.151,-3.4353,mem
+GO:0005977,glycogen metabolic process,-4.342,-1.163,4.327,-3.8996,meta
+GO:0046208,spermine catabolic process,-3.816,1.27,2.083,-2.2941,meta
+GO:0008610,lipid biosynthetic process,-5.998,1.381,5.435,-2.2034,meta
+GO:0051262,protein tetramerization,2.663,-7.319,3.749,-2.3107,mem
+GO:0034354,'de novo' NAD biosynthetic process from tryptophan,-6.284,-2.23,3.524,-2.3468,meta
+GO:0000462,"maturation of SSU-rRNA from tricistronic rRNA transcript (SSU-rRNA, 5.8S rRNA, LSU-rRNA)",1.333,-6.629,3.928,-5.6946,RNA
+GO:0009967,positive regulation of signal transduction,3.784,4.716,4.625,-2.3028,stress
+GO:0070475,rRNA base methylation,1.392,-6.937,4.168,-2.3054,RNA
+GO:0008203,cholesterol metabolic process,-7.048,0.097,3.554,-7.384,meta
+GO:0055089,fatty acid homeostasis,4.31,2.866,2.481,-3.4547,meta
+GO:0010867,positive regulation of triglyceride biosynthetic process,-3.335,3.815,2.427,-2.2823,meta
+GO:0006635,fatty acid beta-oxidation,-7.031,1.48,4.011,-2.0088,meta
+GO:0006694,steroid biosynthetic process,-5.3,-1.242,4.196,-2.7447,meta
+GO:0070328,triglyceride homeostasis,3.548,2.571,3.013,-2.2588,meta
+GO:0000398,"mRNA splicing, via spliceosome",-0.048,-5.61,4.607,-3.1101,RNA
+GO:0006559,L-phenylalanine catabolic process,-7.118,-0.982,3.596,-5.1746,meta
+GO:0000154,rRNA modification,0.887,-6.478,4.658,-3.066,RNA
+GO:0019433,triglyceride catabolic process,-5.572,2.969,2.975,-4.2857,meta

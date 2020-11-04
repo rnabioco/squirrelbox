@@ -44,7 +44,6 @@ jsResetCode <- "shinyjs.reset = function() {history.go(0)}"
 ui <- fluidPage(
   title = "squirrelBox",
   theme = shinytheme(set_shinytheme),
-  #shinythemes::themeSelector(),
   tags$style("
     .nav-tabs{
       font-weight:bold;
@@ -219,7 +218,6 @@ ui <- fluidPage(
     actionButton("reset", " Reset ", icon = icon("redo"),
                  style = "padding:3px 9px;float:left;border-radius:0px;margin:0px;") %>% 
       bs_embed_tooltip("reset all settings"),
-    #p(HTML("<A HREF=\"javascript:history.go(0)\">Reset</A>")),
     right = 10,
     bottom = 10
   ),
@@ -323,9 +321,7 @@ ui <- fluidPage(
                 data.intro = "For each section, results as table and/or plot can be saved to disk.",
                 data.position = "right"
               ),
-              #br(.noWS = "outside"),
               hr()
-              # style = "height:150px;"
             ),
             tabPanel(
               span(icon("cogs", class = NULL, lib = "font-awesome"), "Options", title = "additional global options"),
@@ -397,8 +393,7 @@ ui <- fluidPage(
                     bs_embed_tooltip("save current plot as .pdf", placement = "bottom")
                 )
               ),
-              hr()#,
-              #style = "height:180px;"
+              hr()
             ),
             tabPanel(
               span(icon("sort", class = NULL, lib = "font-awesome"), "Order", title = "Select and order box/line/heatplot by dragging"),
@@ -544,7 +539,9 @@ ui <- fluidPage(
                     div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL) %>%
                       bs_embed_tooltip("label groups by nonsignificance", placement = "right")),
                     div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL) %>%
-                      bs_embed_tooltip("label points by sample", placement = "right"))
+                      bs_embed_tooltip("label points by sample", placement = "right")),
+                    div(id = "doRemove71div", checkboxInput("doRemove71", "remove GROseq LT 71", value = F, width = NULL) %>%
+                          bs_embed_tooltip("remove suspected outlier", placement = "right"))
                   ),
                   data.step = 4,
                   data.intro = "Additional plotting options, for interactivity and labels, can be accessed here.
@@ -594,7 +591,7 @@ ui <- fluidPage(
               ) %>% bs_embed_tooltip("click on plot to reach UCSC trackhub with RNAseq data", placement = "top")
             ),
             bsCollapse(
-              id = "tabs5", multiple = TRUE, open = NULL, # open = "go_terms/domains",
+              id = "tabs5", multiple = TRUE, open = NULL,
               bsCollapsePanel(DT::dataTableOutput("gotab") %>% withLoader(),
                 title = "GO_terms/domains",
                 style = "info"
@@ -692,7 +689,7 @@ ui <- fluidPage(
               title = "Plot Z-Score of loaded Genelist as heat map"
             ),
             data.step = 13,
-            data.intro = "Similar to the lineplot, visualize loaded Genelist as heatmap (normalized as Z-scores).",
+            data.intro = "Similar to the lineplot, visualize loaded Genelist as heatmap (normalized as Z-scores). Clicking on a block loads the corresponding gene into query.",
             data.position = "top"
           ),
           value = "heat_plot",
@@ -748,11 +745,13 @@ ui <- fluidPage(
             data.step = 14,
             data.intro = "GO term enrichment of loaded Genelist by Fisher's exact test.<br><br>
             Top 15 results are plotted, while full table can be exported.<br><br>
-            Clicking on bar loads the corresponding genes into Cart.",
+            Clicking on bar loads the corresponding genes into Cart.<br><br>
+            Direct link is provided to loading GO terms into REVIGO for further summarization, with REVIGO example from liver data at the bottom.",
             data.position = "top"
           ),
           value = "enrichment_plot",
           dropdownButton(
+            inline = TRUE,
             circle = FALSE, status = "analysis options", icon = icon("gear"), width = "200px", size = "sm",
             tooltip = tooltipOptions(title = "boxplot options"), margin = "20px",
             br(),
@@ -772,7 +771,21 @@ ui <- fluidPage(
                 bs_embed_tooltip("subcollection of GO terms to test against", placement = "bottom")
             )
           ),
-          plotlyOutput("richPlot") %>% withLoader()
+          div(
+            style = "display: inline-block;vertical-align:bottom;", 
+            htmlOutput("revigo") %>% bs_embed_tooltip("direct link to REVIGO for GO term summary", placement = "right")
+            ),
+          plotlyOutput("richPlot") %>% withLoader(),
+          div(
+            style = "display: padding-top:200px; margin-top:300px",
+            hr()
+          ),
+          hr(),
+          br(),
+          h5("liver_revigo_exploration") %>%
+            bs_embed_tooltip("example revigo results for liver RNAseq", placement = "top"),
+          DT::dataTableOutput("revigoTable"),
+          plotlyOutput("revigoPlot") %>% withLoader()
         ),
         tabPanel(
           introBox(
@@ -972,12 +985,10 @@ ui <- fluidPage(
           uiOutput("bsgenome"),
           uiOutput("GOversion"),
           uiOutput("version"),
-          #uiOutput("contact"),
           hr(),
           h5("Sample Details"),
           br(),
           fluidRow(
-            #column(width = 1),
             tags$a(
               href = qc_report,
               target="_blank",

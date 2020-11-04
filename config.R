@@ -20,7 +20,7 @@ apptitle <- "13-lined ground squirrel hibernating brain RNA-seq"
 url <- "https://github.com/rnabioco/squirrelbox/"
 s3 <- "https://s3.console.aws.amazon.com/s3/object/squirrelbox/"
 docker <- "https://hub.docker.com/r/raysinensis/squirrelbox"
-versionN <- "1.0.0"
+versionN <- "1.1.0"
 geoN <- "GSE106947"
 genomeN <- "NCBI GenBank"
 genomeL <- "link_pending"
@@ -31,8 +31,8 @@ warningN <- 100 # number of genes, for throwing warnings in line and heat plots
 plot_width <- 8
 plot_height <- 6
 set_shinytheme <- "paper"
-track_name <- "hub_2262371_KG_HiC"
-track_url <- "https://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub_brain.txt"
+track_name <- "hub_1512849_KG_HiC"
+track_url <- "https://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
 gmt_file <- "c5.all.v7.1.symbols.gmt"
 gmt_short <- "GO_"
 sig_cut <- 0.001
@@ -95,6 +95,7 @@ state_cols <- c(
   SA = rgb(255, 0, 0, maxColorValue = 255),
   IBA = rgb(67, 205, 128, maxColorValue = 255),
   Ent = rgb(155, 48, 255, maxColorValue = 255),
+  ET = rgb(120, 10, 130, maxColorValue = 255),
   LT = rgb(25, 25, 112, maxColorValue = 255),
   EAr = rgb(0, 0, 255, maxColorValue = 255),
   Ar = rgb(0, 0, 255, maxColorValue = 255),
@@ -105,6 +106,7 @@ state_order <- c(
   "SA",
   "IBA",
   "Ent",
+  "ET",
   "LT",
   "EAr",
   "Ar",
@@ -117,7 +119,8 @@ region_order <- c(
   "Medulla",
   "Adrenal",
   "Kidney",
-  "Liver"
+  "Liver",
+  "Liver_GROseq"
 )
 region_main <- c(
   "Forebrain",
@@ -127,7 +130,8 @@ region_main <- c(
 region_main2 <- c(
   "Adrenal",
   "Kidney",
-  "Liver"
+  "Liver",
+  "Liver_GROseq"
 )
 region_short <- c(
   "fb",
@@ -135,7 +139,8 @@ region_short <- c(
   "med",
   "adr",
   "kid",
-  "liv"
+  "liv",
+  "gro"
 )
 region_short_main <- c(
   "fb",
@@ -148,5 +153,6 @@ region_one <- c(
   "m",
   "a",
   "k",
-  "l"
+  "l",
+  "g"
 )
