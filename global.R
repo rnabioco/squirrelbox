@@ -325,7 +325,8 @@ fulltbl <- combined3 %>%
   left_join(orfs %>% select(any_of(orf_cols_join), any_of(str_c(region_short, "_LRT_padj")), min_padj), by = "gene_id") %>%
   left_join(mod, by = c("unique_gene_symbol" = "gene")) %>%
   mutate(source = factor(source)) %>%
-  mutate_at(vars(contains("cluster")), factor)
+  mutate_at(vars(contains("cluster")), factor) %>%
+  mutate_at(vars(contains("chrom")), factor)
 fulltbl_collapse <- fulltbl %>%
   group_by(gene_id) %>%
   arrange(desc(orf_len), .by_group = TRUE) %>%

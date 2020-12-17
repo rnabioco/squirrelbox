@@ -54,6 +54,7 @@ table_cols <- c(
 
 orf_cols_join <- c(
   "gene_id",
+  "chrom",
   "source",
   "orf_len",
   "micropeptide_pred",
