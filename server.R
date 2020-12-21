@@ -83,6 +83,16 @@ server <- function(input, output, session) {
     rv$region_one <- region_one
   })
   
+  observeEvent(input$bsselectflip, {
+    rv$region_main <- input$bshide_order
+    rv$region_main2 <- input$bsshow_order
+    rv$region_order <- c(rv$region_main, rv$region_main2)
+    print(rv$region_order)
+    rv$region_short <- region_short[match(rv$region_order, region_order)]
+    rv$region_short_main <- region_short[match(rv$region_main, region_order)]
+    rv$region_one <- region_one[match(rv$region_order, region_order)]
+  })
+  
   # init
   observeEvent(rv$init, {
     if (rv$init == 0) {
@@ -240,6 +250,8 @@ server <- function(input, output, session) {
       temp2 <- temp2[, !(names(temp2) %in% c("padj", "call")), drop = F]
 
       temp2$region <- rv$region_order[factor(temp2$region, level = rv$region_short) %>% as.numeric()]
+      
+      # tempout <<- temp2 # testing
       temp3 <- groups_to_letters_igraph(temp2) 
       temp3 <- temp3 %>%
         mutate(region = factor(region, level = rv$region_order))

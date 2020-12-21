@@ -67,6 +67,10 @@ if (file.exists(paste0(datapath, "/combined2.feather"))) {
   combined3 <- fread(paste0(datapath, "/combined3.csv"), nThread = ncore)
 }
 
+# use corrected
+combined2_cor <- read_feather(paste0(datapath, "/full_combined2_cor.feather"))
+combined2 <- bind_rows(combined2_cor, combined2 %>% filter(!(region %in% (combined2_cor$region %>% unique()))))
+
 # fix EAr
 combined2 <- combined2 %>% mutate(state = ifelse(state == "EAr", "Ar", as.character(state))) %>% filter(state != "ST")
 
@@ -286,7 +290,9 @@ br_expr <- combined2 %>%
 
 # load orf predictions
 gro_padj <- read_feather(paste0(datapath, "/padj_groseq.feather"))
-orfs <- read_feather(paste0(datapath, "/full_padj_orf.feather")) %>%
+orfs <- read_feather(paste0(datapath, "/full_padj_orf_cor.feather")) 
+colnames(orfs) <- str_replace(colnames(orfs), "EAr", "Ar") # fix
+orfs <- orfs %>%
   select(gene_id,
     orf_len = len,
     exons,

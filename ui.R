@@ -417,6 +417,8 @@ ui <- fluidPage(
                 bs_embed_tooltip("update with selection and order", placement = "bottom"),
               actionButton("bsselectdefault", "Default", icon = icon("times")) %>%
                 bs_embed_tooltip("restore default selection and order", placement = "bottom"),
+              actionButton("bsselectflip", "Flip", icon = icon("sort")) %>%
+                bs_embed_tooltip("flip shown and hidden", placement = "bottom"),
               hr()
             )
           ),
