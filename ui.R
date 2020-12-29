@@ -1,4 +1,11 @@
 # some other code for webpage functions
+jscodega <- '
+$(document).on("shiny:sessioninitialized",function(){
+$("#Find").on("click", function() {
+  ga("send", "event", "button", "Find", $("#geneID").val());
+});
+});
+'
 
 jscode <- '
 $(function() {
@@ -148,6 +155,7 @@ ui <- fluidPage(
 }"),
   tags$script(src = "shinyBS_mod.js"),
   tags$head(tags$script(HTML(jscode))),
+  tags$head(tags$script(HTML(jscodega))),
   tags$head(tags$script(HTML(jscode2))),
   tags$head(tags$script(HTML(jscode3))),
   tags$head(tags$script(HTML(jsResetCode))),

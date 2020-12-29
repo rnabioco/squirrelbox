@@ -5,13 +5,14 @@
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
   
-  $(document).on('click', 'button', function(e) {
-    ga('send', 'event', 'button', 'all', 'abc');
-  });
-  
-  $(document).on('change', '#geneID', function(e) {
-    ga('send', 'event', 'select', 'geneID', $('#geneID').selectize()[0].selectize.getValue());
-  }); 
-  
   gtag('config', 'UA-175126876-1');
 </script>
+
+<!-- Google Analytics -->
+<script>
+window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+ga('create', 'UA-175126876-1', 'auto');
+ga('send', 'pageview');
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+<!-- End Google Analytics -->
