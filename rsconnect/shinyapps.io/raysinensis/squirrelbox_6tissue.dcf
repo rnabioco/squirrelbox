@@ -5,9 +5,8 @@ account: raysinensis
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2757779
-bundleId: 3759918
+bundleId: 4039825
 url: https://raysinensis.shinyapps.io/squirrelbox_6tissue/
-when: 1603142902.13039
+when: 1609271515.03253
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: ml_rf.pdf|full_old/full_combined2.feather|full_old/full_combined3.feather|full_old/full_padj_orf.feather|R/.DS_Store|app-cache
