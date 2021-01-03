@@ -2106,12 +2106,11 @@ server <- function(input, output, session) {
 
   # ABOUT
   output$intro <- renderUI({
-    url <- str_c("manuscript link here")
-    clean <- a("manuscript",
-      href = url,
+    clean <- a(manuscriptN,
+      href = manuscriptL,
       target="_blank"
     )
-    tagList(tags$h6("RNA sequencing data and analysis for 13-lined ground squirrel brain samples from hibernation cycle. Please see ", clean, "for more details."))
+    tagList(tags$h6("RNA sequencing data and analysis for 13-lined ground squirrel brain samples from hibernation cycle. Please see ", clean, " for more details."))
   })
 
   output$track <- renderUI({
@@ -2265,7 +2264,7 @@ server <- function(input, output, session) {
         "utrs_sq_noG.feather",
         "utrs_sq.feather"
       ),
-      desc = c(
+      description = c(
         "RNA editing events found from seq data (Riemondy2018)",
         "cluster assignments to each tissue",
         "log expression values per gene per animal",

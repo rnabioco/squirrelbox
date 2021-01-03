@@ -1,7 +1,7 @@
 unique_gene_symbol,
 significant_90,whether confidence is over 0.9
 significant_99,whether confidence is over 0.99
-LSV_ID,id used by magic
+LSV_ID,id used by MAJIQ
 A5SS,alternative 5 splice site
 A3SS,alternative 3 splice site
 ES,exon skip

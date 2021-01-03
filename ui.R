@@ -209,7 +209,7 @@ ui <- fluidPage(
         bs_embed_tooltip("Take a tour through the app!", placement = "bottom"),
       data.step = 1,
       data.intro = "Welcome to the squirrelBox.<br><br>
-      Please note that most buttons, tabs, and table columns have hover-over tips/explanations.",
+      Please hover over buttons, tabs, and table columns for tips/explanations.",
       data.position = "left"
     )
   ),
@@ -272,7 +272,7 @@ ui <- fluidPage(
             )
           ),
           data.step = 2,
-          data.intro = "Query individual genes by id or symbol.",
+          data.intro = "Query individual gene by id or symbol.",
           data.position = "bottom"
         ),
         div(
@@ -413,7 +413,7 @@ ui <- fluidPage(
                          placeholder = 'Drag items here...',
                          connect = 'bsshow', item_class = "info")
                 ) %>% 
-                bs_embed_tooltip("drag and order the blocks to change plots; in purple are placeholders for other tissues to come", placement = "right"),
+                bs_embed_tooltip("drag and order the blocks to change plots; in purple are placeholders for other tissues to come", placement = "bottom"),
               tags$head(
                 tags$style(HTML(".btn-info{font-size:11px;margin:3px;padding:6px 6px;}"))
               ),
@@ -467,7 +467,7 @@ ui <- fluidPage(
                   title = "cart list of genes to save and export"
                 ),
                 data.step = 10,
-                data.intro = "A cart list stores query genes that were added (see button above), which can be exported to .txt file, or moved to the loaded Genelist.<br><br>
+                data.intro = "A cart list stores query genes that were added (see '+' button), which can be exported to .txt file, or moved to the loaded Genelist.<br><br>
                 Interactive clicking on the GO_enrich and Venn plots also put the corresponding genes into this cart.",
                 data.position = "top"
               ),
@@ -528,7 +528,7 @@ ui <- fluidPage(
               title = "Plot expression box plot and other info of query gene"
             ),
             data.step = 3,
-            data.intro = "For a query gene, this tab displays the log2 count expression boxplot (note that visualization may differ from DEseq2 fold changes reported after accounting for covariates), as well as other annotations and analyses.",
+            data.intro = "For a query gene, this tab displays the log2 count expression boxplot (note that visualization may differ from DEseq2 fold changes reported after accounting for covariates), and other annotations/analyses.",
             data.position = "top"
           ),
           value = "Gene_query",
@@ -783,7 +783,7 @@ ui <- fluidPage(
           ),
           div(
             style = "display: inline-block;vertical-align:bottom;", 
-            htmlOutput("revigo") %>% bs_embed_tooltip("direct link to REVIGO for GO term summary", placement = "right")
+            htmlOutput("revigo") %>% bs_embed_tooltip("direct link to REVIGO for GO term summary (note: REVIGO server is often offline", placement = "right")
             ),
           plotlyOutput("richPlot") %>% withLoader(),
           div(
@@ -989,6 +989,15 @@ ui <- fluidPage(
           value = "about",
           h5("About squirrelBox"),
           uiOutput("GitHub"),
+            tags$a(
+              href = manuscriptL,
+              target="_blank",
+              div(
+                img(src = 'FiPhys.png', height = "100",
+                    alt = "Dynamic RNA regulation in the brain underlies physiological plasticity in a hibernating mammal"),
+                style = "text-align: left;display: inline;"
+              )
+            ),
           uiOutput("intro"),
           uiOutput("track"),
           uiOutput("rawdata"),

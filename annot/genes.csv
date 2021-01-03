@@ -2,9 +2,13 @@ unique_gene_symbol,"unique to each gene_id, from ensemble/NCBI or newly assigned
 cluster_fb,gene clusters assigned by expression pattern for forebrain
 cluster_hy,gene clusters assigned by expression pattern for hypothalamus
 cluster_med,gene clusters assigned by expression pattern for medulla
+cluster_liv,gene clusters assigned by expression pattern for liver
 fb_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
 hy_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
 med_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
+adr_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
+kid_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
+liv_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
 min_sig,minimum adjusted pval across tissues
 gene_id,newly annotated genes start with G
 source,reference denotes carry-over from ensemble/NCBI
