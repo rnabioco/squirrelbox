@@ -79,6 +79,12 @@ combined_gro <- read_feather(paste0(datapath, "/combined_groseq.feather")) %>%
   mutate(region = "Liver_GROseq") %>% distinct()
 combined2 <- bind_rows(combined2, combined_gro)
 
+# name fix
+combined2 <- combined2 %>% mutate(region = ifelse(region == "Liver_GROseq", "Liver_GRO-seq", str_c(region, "_RNA-seq")))
+region_order <- ifelse(region_order == "Liver_GROseq", "Liver_GRO-seq", str_c(region_order, "_RNA-seq"))
+region_main <- ifelse(region_main == "Liver_GROseq", "Liver_GRO-seq", str_c(region_main, "_RNA-seq"))
+region_main2 <- ifelse(region_main2 == "Liver_GROseq", "Liver_GRO-seq", str_c(region_main2, "_RNA-seq"))
+
 # read annotation file to find ucsc track
 bed <- suppressWarnings(read_tsv(paste0(annotpath, "/final_tx_annotations_20200201.tsv.gz"),
   col_names = c(
@@ -250,7 +256,6 @@ construct_gmtlist <- function(gmt_file, genes, n) {
 
   temp
 }
-
 
 if (file.exists(paste0(annotpath, "/", gmt_file, "_br.rds"))) {
   gmtlist_br <- readRDS(paste0(annotpath, "/", gmt_file, "_br.rds"))
