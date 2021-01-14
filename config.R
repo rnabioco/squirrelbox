@@ -5,8 +5,8 @@ options(stringsAsFactors = FALSE)
 options(spinner.type = 6)
 theme_set(theme_cowplot())
 stack_size <- getOption("pandoc.stack.size", default = "1000m")
+options(repos = BiocManager::repositories()) # for pushing to shinyapps.io
 # options(shiny.reactlog = TRUE) # for checking shiny logic
-# options(repos = BiocManager::repositories()) # for pushing to shinyapps.io
 
 ### folders
 rpath <- "R" # additional R code
@@ -115,46 +115,39 @@ state_order <- c(
   "LAr",
   "SpD"
 )
-region_order <- c(
+
+region_main2 <- c(
   "Forebrain",
   "Hypothalamus",
   "Medulla",
   "Adrenal",
-  "Kidney",
-  "Liver",
-  "Liver_GROseq"
+  "Kidney"
 )
 region_main <- c(
-  "Forebrain",
-  "Hypothalamus",
-  "Medulla"
-)
-region_main2 <- c(
-  "Adrenal",
-  "Kidney",
   "Liver",
   "Liver_GROseq"
 )
+region_order <- c(region_main, region_main2)
 region_short <- c(
+  "liv",
+  "gro",
   "fb",
   "hy",
   "med",
   "adr",
-  "kid",
+  "kid"
+)
+region_short_main <- c(
   "liv",
   "gro"
 )
-region_short_main <- c(
-  "fb",
-  "hy",
-  "med"
-)
 region_one <- c(
+  "l",
+  "g",
   "f",
   "h",
   "m",
   "a",
-  "k",
-  "l",
-  "g"
+  "k"
 )
+hide_region <- c("Adrenal", "Kidney")

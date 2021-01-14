@@ -78,6 +78,11 @@ combined2 <- combined2 %>% mutate(state = ifelse(state == "EAr", "Ar", as.charac
 combined_gro <- read_feather(paste0(datapath, "/combined_groseq.feather")) %>%
   mutate(region = "Liver_GROseq") %>% distinct()
 combined2 <- bind_rows(combined2, combined_gro)
+combined3_gro <- read_feather(paste0(datapath, "/combined3_groseq.feather"))
+combined3 <- bind_rows(combined3, combined3_gro)
+
+# hiding data
+combined2 <- combined2 %>% filter(!(region %in% hide_region))
 
 # name fix
 combined2 <- combined2 %>% mutate(region = ifelse(region == "Liver_GROseq", "Liver_GRO-seq", str_c(region, "_RNA-seq")))
