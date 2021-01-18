@@ -76,19 +76,23 @@ combined2 <- combined2 %>% mutate(state = ifelse(state == "EAr", "Ar", as.charac
 
 # groseq 
 combined_gro <- read_feather(paste0(datapath, "/combined_groseq.feather")) %>%
-  mutate(region = "Liver_GROseq") %>% distinct()
+  mutate(region = "Liver_GRO-seq") %>% distinct()
 combined2 <- bind_rows(combined2, combined_gro)
 combined3_gro <- read_feather(paste0(datapath, "/combined3_groseq.feather"))
 combined3 <- bind_rows(combined3, combined3_gro)
+
+combined_gropro <- read_feather(paste0(datapath, "/combined_groseq_promoter.feather")) %>%
+  mutate(region = "Liver_GRO-seq_promoter") %>% distinct()
+combined2 <- bind_rows(combined2, combined_gropro)
 
 # hiding data
 combined2 <- combined2 %>% filter(!(region %in% hide_region))
 
 # name fix
-combined2 <- combined2 %>% mutate(region = ifelse(region == "Liver_GROseq", "Liver_GRO-seq", str_c(region, "_RNA-seq")))
-region_order <- ifelse(region_order == "Liver_GROseq", "Liver_GRO-seq", str_c(region_order, "_RNA-seq"))
-region_main <- ifelse(region_main == "Liver_GROseq", "Liver_GRO-seq", str_c(region_main, "_RNA-seq"))
-region_main2 <- ifelse(region_main2 == "Liver_GROseq", "Liver_GRO-seq", str_c(region_main2, "_RNA-seq"))
+combined2 <- combined2 %>% mutate(region = ifelse(str_detect(region, "GRO-seq"), region, str_c(region, "_RNA-seq")))
+region_order <- ifelse(str_detect(region_order, "GRO-seq"), region_order, str_c(region_order, "_RNA-seq"))
+region_main <- ifelse(str_detect(region_main, "GRO-seq"), region_main, str_c(region_main, "_RNA-seq"))
+region_main2 <- ifelse(str_detect(region_main2, "GRO-seq"), region_main2, str_c(region_main2, "_RNA-seq"))
 
 # read annotation file to find ucsc track
 bed <- suppressWarnings(read_tsv(paste0(annotpath, "/final_tx_annotations_20200201.tsv.gz"),
@@ -300,6 +304,7 @@ br_expr <- combined2 %>%
 
 # load orf predictions
 gro_padj <- read_feather(paste0(datapath, "/padj_groseq.feather"))
+gropro_padj <- read_feather(paste0(datapath, "/padj_groseq_promoter.feather"))
 orfs <- read_feather(paste0(datapath, "/full_padj_orf_cor.feather")) 
 colnames(orfs) <- str_replace(colnames(orfs), "EAr", "Ar") # fix
 orfs <- orfs %>%
@@ -312,10 +317,10 @@ orfs <- orfs %>%
     everything()
   ) %>%
   left_join(gro_padj) %>% 
+  left_join(gropro_padj) %>% 
   mutate(novel = factor(ifelse(str_detect(gene_id, "^G"), 1, 0))) %>%
   mutate(min_padj = select(., contains("LRT_padj")) %>% 
            reduce(pmin, na.rm = TRUE)) %>% 
-  #mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fb_LRT_padj, na.rm = T)) %>% # curently hardcoded
   mutate(domains = factor(ifelse(gene_id %in% domains$gene_id, 1, 0))) %>%
   mutate(
     br_expr = factor(ifelse(gene_id %in% br_expr, 1, 0))

@@ -125,12 +125,14 @@ region_main2 <- c(
 )
 region_main <- c(
   "Liver",
-  "Liver_GROseq"
+  "Liver_GRO-seq",
+  "Liver_GRO-seq_promoter"
 )
 region_order <- c(region_main, region_main2)
 region_short <- c(
   "liv",
   "gro",
+  "gropro",
   "fb",
   "hy",
   "med",
@@ -139,11 +141,13 @@ region_short <- c(
 )
 region_short_main <- c(
   "liv",
-  "gro"
+  "gro",
+  "gropro"
 )
 region_one <- c(
   "l",
   "g",
+  "p",
   "f",
   "h",
   "m",
