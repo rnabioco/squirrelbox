@@ -9,7 +9,7 @@ library(feather)
 library(ggplot2)
 library(ggrepel)
 library(cowplot)
-library(ComplexHeatmap) # github
+library(ComplexHeatmap) # bioconductor
 library(DT)
 library(igraph)
 library(valr)

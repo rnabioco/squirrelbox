@@ -6,7 +6,7 @@ options(spinner.type = 6)
 theme_set(theme_cowplot())
 stack_size <- getOption("pandoc.stack.size", default = "1000m")
 # options(shiny.reactlog = TRUE) # for checking shiny logic
-# options(repos = BiocManager::repositories()) # for pushing to shinyapps.io
+options(repos = BiocManager::repositories()) # for pushing to shinyapps.io
 
 ### folders
 rpath <- "R" # additional R code
@@ -18,12 +18,14 @@ listpath <- "data/lists" # csv and txt lists used by Venn and Circos
 apptitle_short <- "squirrelBox"
 apptitle <- "13-lined ground squirrel hibernating brain RNA-seq"
 url <- "https://github.com/rnabioco/squirrelbox/"
-s3 <- "https://s3.console.aws.amazon.com/s3/object/squirrelbox/"
+s3 <- "https://squirrelbox.s3-us-west-2.amazonaws.com/zip3/squirrelbox3.tar.gz"
 docker <- "https://hub.docker.com/r/raysinensis/squirrelbox"
-versionN <- "1.0.0"
+versionN <- "1.1.0"
 geoN <- "GSE106947"
 genomeN <- "NCBI GenBank"
 genomeL <- "link_pending"
+manuscriptN <- "publication in Frontiers in Physiology"
+manuscriptL <- "https://www.frontiersin.org/articles/10.3389/fphys.2020.624677"
 bsgenomeN <- "BSgenome.Itridecemlineatus.HiC_Itri_2"
 bsgenomeL <- "https://squirrelbox.s3-us-west-2.amazonaws.com/BSgenome/BSgenome.SQ1_1.0.tar.gz"
 pageN <- 10 # number of lines, for tables

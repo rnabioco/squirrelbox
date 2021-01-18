@@ -966,6 +966,15 @@ ui <- fluidPage(
           value = "about",
           h5("About squirrelBox"),
           uiOutput("GitHub"),
+          tags$a(
+            href = manuscriptL,
+            target="_blank",
+            div(
+              img(src = 'FiPhys.png', height = "100",
+                  alt = "Dynamic RNA regulation in the brain underlies physiological plasticity in a hibernating mammal"),
+              style = "text-align: left;display: inline;"
+            )
+          ),
           uiOutput("intro"),
           uiOutput("track"),
           uiOutput("rawdata"),
