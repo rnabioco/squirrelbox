@@ -334,6 +334,9 @@ sq_g <- data.frame(
   size = unlist(sq1)
 )
 bed_fc <- readRDS(paste0(datapath, "/fc.rds"))
+bed_fc_liv <- readRDS(paste0(datapath, "/fc_liv.rds")) 
+bed_fc <- bind_rows(bed_fc, bed_fc_liv) %>% 
+  bed_sort(by_chrom = T)
 
 # editing sites
 edits <- read_tsv(paste0(datapath, "/brain_editing_site_proportions.bed"))

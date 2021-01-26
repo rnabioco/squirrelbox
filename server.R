@@ -1583,7 +1583,7 @@ server <- function(input, output, session) {
       ends = temp3$end,
       values = temp3$fold,
       labels = temp3$unique_gene_symbol,
-      range = c(0, log2(ceiling(max(bed_fc$fold)))),
+      range = c(0, 2 * log2(ceiling(max(temp3$fold)))),
       color = "#000000",
       maxRadius = 0.87,
       minRadius = 0.7

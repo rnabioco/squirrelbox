@@ -869,7 +869,7 @@ ui <- fluidPage(
                 "_none", "_Gene_list", "_Cart_list",
                 names(gene_list)
               ),
-              selected = "fb_sig"
+              selected = "liv_sig"
             )
           ),
           div(
@@ -879,7 +879,7 @@ ui <- fluidPage(
                 "_none", "_Gene_list", "_Cart_list",
                 names(gene_list)
               ),
-              selected = "hy_sig"
+              selected = "liv_gro_sig"
             )
           ),
           div(
@@ -889,7 +889,7 @@ ui <- fluidPage(
                 "_none", "_Gene_list", "_Cart_list",
                 names(gene_list)
               ),
-              selected = "med_sig"
+              selected = "liv_gropro_sig"
             )
           ),
           div(
@@ -964,9 +964,9 @@ ui <- fluidPage(
             style = "display:inline-block;width: 160px;margin-top:6px",
             selectizeInput("guse3", NULL,
               choices = c(
-                "_none", "Forebrain", "Hypothalamus", "Medulla", "Editing_Riemondy2018"
+                "_none", "Liver", "Liver_Gro-seq", "Liver_Gro-seq(promoter)", "Forebrain", "Hypothalamus", "Medulla", "Editing_Riemondy2018"
               ),
-              selected = "Hypothalamus"
+              selected = "Liver"
             ) %>% bs_embed_tooltip("displays max log2FoldChange (or max proportions edited for RNA editing sites) between states for this tissue", placement = "right")
           ),
           div(
