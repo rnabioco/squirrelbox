@@ -16,7 +16,7 @@ listpath <- "data/lists" # csv and txt lists used by Venn and Circos
 
 ### general data settings
 apptitle_short <- "squirrelBox"
-apptitle <- "13-lined ground squirrel hibernating brain and other tissues RNA-seq"
+apptitle <- "13-lined ground squirrel hibernating liver and brain sequencing"
 url <- "https://github.com/rnabioco/squirrelbox/"
 s3 <- "https://squirrelbox.s3-us-west-2.amazonaws.com/zip6/squirrelbox6.tar.gz"
 docker <- "https://hub.docker.com/r/raysinensis/squirrelbox"

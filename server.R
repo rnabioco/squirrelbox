@@ -251,7 +251,7 @@ server <- function(input, output, session) {
 
       temp2$region <- rv$region_order[factor(temp2$region, level = rv$region_short) %>% as.numeric()]
       
-      # tempout <<- temp2 # testing
+      # tempout <<- temp2 # figure plotting
       temp3 <- groups_to_letters_igraph(temp2) 
       temp3 <- temp3 %>%
         mutate(region = factor(region, level = rv$region_order))
@@ -790,6 +790,7 @@ server <- function(input, output, session) {
   linePlot1 <- reactive({
     set.seed(1)
     temp <- linetemp()
+    # temp2 <<- temp # figure plotting
     if (length(historytablist) == 0) {
       return(ggplot() +
         ggtitle("no genes loaded"))
@@ -2110,7 +2111,7 @@ server <- function(input, output, session) {
       href = manuscriptL,
       target="_blank"
     )
-    tagList(tags$h6("RNA sequencing data and analysis for 13-lined ground squirrel brain samples from hibernation cycle. Please see ", clean, " for more details."))
+    tagList(tags$h6("RNA sequencing data and analysis for 13-lined ground squirrel liver and brain samples from hibernation cycle. Please see ", clean, " (for brain data) for more details."))
   })
 
   output$track <- renderUI({

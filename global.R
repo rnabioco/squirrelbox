@@ -316,8 +316,8 @@ orfs <- orfs %>%
     unique_gene_symbol,
     everything()
   ) %>%
-  left_join(gro_padj) %>% 
-  left_join(gropro_padj) %>% 
+  left_join(gro_padj, by = "unique_gene_symbol") %>% 
+  left_join(gropro_padj, by = "unique_gene_symbol") %>% 
   mutate(novel = factor(ifelse(str_detect(gene_id, "^G"), 1, 0))) %>%
   mutate(min_padj = select(., contains("LRT_padj")) %>% 
            reduce(pmin, na.rm = TRUE)) %>% 
