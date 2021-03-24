@@ -64,8 +64,8 @@ server <- function(input, output, session) {
   
   # reordering
   observeEvent(input$bsselectconfirm, {
-    rv$region_main <- input$bsshow_order
-    rv$region_main2 <- input$bshide_order
+    rv$region_main <- input$bsshow
+    rv$region_main2 <- input$bshide
     rv$region_order <- c(rv$region_main, rv$region_main2)
     print(rv$region_order)
     rv$region_short <- region_short[match(rv$region_order, region_order)]
@@ -81,16 +81,25 @@ server <- function(input, output, session) {
     rv$region_short <- region_short
     rv$region_short_main <- region_short_main
     rv$region_one <- region_one
+    updateOrderInput(session, 'bsshow', 'Drag Blocks Here to Show', items = rv$region_main,
+               connect = 'bshide', item_class = "success")
+    updateOrderInput(session, 'bshide', 'Drag Blocks Here to Hide', items = rv$region_main2,
+               connect = 'bsshow', item_class = "info")
+    print(input$bshide_order)
   })
   
   observeEvent(input$bsselectflip, {
-    rv$region_main <- input$bshide_order
-    rv$region_main2 <- input$bsshow_order
+    rv$region_main <- input$bshide
+    rv$region_main2 <- input$bsshow
     rv$region_order <- c(rv$region_main, rv$region_main2)
     print(rv$region_order)
     rv$region_short <- region_short[match(rv$region_order, region_order)]
     rv$region_short_main <- region_short[match(rv$region_main, region_order)]
     rv$region_one <- region_one[match(rv$region_order, region_order)]
+    updateOrderInput(session, 'bsshow', 'Drag Blocks Here to Show', items = rv$region_main,
+                     connect = 'bshide', item_class = "success")
+    updateOrderInput(session, 'bshide', 'Drag Blocks Here to Hide', items = rv$region_main2,
+                     connect = 'bsshow', item_class = "info")
   })
   
   # init

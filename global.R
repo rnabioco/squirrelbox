@@ -87,6 +87,11 @@ combined2 <- bind_rows(combined2, combined_gropro)
 
 # hiding data
 combined2 <- combined2 %>% filter(!(region %in% hide_region))
+hide_index <- !(region_order %in% hide_region)
+region_order <- region_order[hide_index]
+region_main2 <- region_main2[hide_index[-c(1:length(region_main))]]
+region_short <- region_short[hide_index]
+region_one <- region_one[hide_index]
 
 # name fix
 combined2 <- combined2 %>% mutate(region = ifelse(str_detect(region, "GRO-seq"), region, str_c(region, "_RNA-seq")))
