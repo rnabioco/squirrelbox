@@ -5,8 +5,8 @@ options(stringsAsFactors = FALSE)
 options(spinner.type = 6)
 theme_set(theme_cowplot())
 stack_size <- getOption("pandoc.stack.size", default = "1000m")
-# options(shiny.reactlog = TRUE) # for checking shiny logic
 options(repos = BiocManager::repositories()) # for pushing to shinyapps.io
+# options(shiny.reactlog = TRUE) # for checking shiny logic
 
 ### folders
 rpath <- "R" # additional R code
@@ -16,11 +16,11 @@ listpath <- "data/lists" # csv and txt lists used by Venn and Circos
 
 ### general data settings
 apptitle_short <- "squirrelBox"
-apptitle <- "13-lined ground squirrel hibernating brain RNA-seq"
+apptitle <- "13-lined ground squirrel hibernating liver and brain sequencing"
 url <- "https://github.com/rnabioco/squirrelbox/"
-s3 <- "https://squirrelbox.s3-us-west-2.amazonaws.com/zip3/squirrelbox3.tar.gz"
+s3 <- "https://squirrelbox.s3-us-west-2.amazonaws.com/zip6/squirrelbox6.tar.gz"
 docker <- "https://hub.docker.com/r/raysinensis/squirrelbox"
-versionN <- "1.1.0"
+versionN <- "1.2.0"
 geoN <- "GSE106947"
 genomeN <- "NCBI Assembly HiC_Itri_2"
 genomeL <- "https://www.ncbi.nlm.nih.gov/assembly/GCA_016881025.1"
@@ -35,8 +35,8 @@ warningN <- 100 # number of genes, for throwing warnings in line and heat plots
 plot_width <- 8
 plot_height <- 6
 set_shinytheme <- "paper"
-track_name <- "hub_2262371_KG_HiC"
-track_url <- "https://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub_brain.txt"
+track_name <- "hub_1512849_KG_HiC"
+track_url <- "https://squirrelhub.s3-us-west-1.amazonaws.com/hub/hub.txt"
 gmt_file <- "c5.all.v7.1.symbols.gmt"
 gmt_short <- "GO_"
 sig_cut <- 0.001
@@ -100,6 +100,7 @@ state_cols <- c(
   SA = rgb(255, 0, 0, maxColorValue = 255),
   IBA = rgb(67, 205, 128, maxColorValue = 255),
   Ent = rgb(155, 48, 255, maxColorValue = 255),
+  ET = rgb(120, 10, 130, maxColorValue = 255),
   LT = rgb(25, 25, 112, maxColorValue = 255),
   EAr = rgb(0, 0, 255, maxColorValue = 255),
   Ar = rgb(0, 0, 255, maxColorValue = 255),
@@ -110,48 +111,50 @@ state_order <- c(
   "SA",
   "IBA",
   "Ent",
+  "ET",
   "LT",
   "EAr",
   "Ar",
   "LAr",
   "SpD"
 )
-region_order <- c(
+
+region_main2 <- c(
   "Forebrain",
   "Hypothalamus",
   "Medulla",
   "Adrenal",
-  "Kidney",
-  "Liver"
+  "Kidney"
 )
 region_main <- c(
-  "Forebrain",
-  "Hypothalamus",
-  "Medulla"
+  "Liver",
+  "Liver_GRO-seq",
+  "Liver_GRO-seq_promoter"
 )
-region_main2 <- c(
-  "Adrenal",
-  "Kidney",
-  "Liver"
-)
+region_order <- c(region_main, region_main2)
 region_short <- c(
+  "liv",
+  "gro",
+  "gropro",
   "fb",
   "hy",
   "med",
   "adr",
-  "kid",
-  "liv"
+  "kid"
 )
 region_short_main <- c(
-  "fb",
-  "hy",
-  "med"
+  "liv",
+  "gro",
+  "gropro"
 )
 region_one <- c(
+  "l",
+  "g",
+  "p",
   "f",
   "h",
   "m",
   "a",
-  "k",
-  "l"
+  "k"
 )
+hide_region <- c("Adrenal", "Kidney")

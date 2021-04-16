@@ -1,4 +1,11 @@
 # some other code for webpage functions
+jscodega <- '
+$(document).on("shiny:sessioninitialized",function(){
+$("#Find").on("click", function() {
+  ga("send", "event", "button", "Find", $("#geneID").val());
+});
+});
+'
 
 jscode <- '
 $(function() {
@@ -44,7 +51,6 @@ jsResetCode <- "shinyjs.reset = function() {history.go(0)}"
 ui <- fluidPage(
   title = "squirrelBox",
   theme = shinytheme(set_shinytheme),
-  #shinythemes::themeSelector(),
   tags$style("
     .nav-tabs{
       font-weight:bold;
@@ -149,6 +155,7 @@ ui <- fluidPage(
 }"),
   tags$script(src = "shinyBS_mod.js"),
   tags$head(tags$script(HTML(jscode))),
+  tags$head(tags$script(HTML(jscodega))),
   tags$head(tags$script(HTML(jscode2))),
   tags$head(tags$script(HTML(jscode3))),
   tags$head(tags$script(HTML(jsResetCode))),
@@ -202,7 +209,7 @@ ui <- fluidPage(
         bs_embed_tooltip("Take a tour through the app!", placement = "bottom"),
       data.step = 1,
       data.intro = "Welcome to the squirrelBox.<br><br>
-      Please note that most buttons, tabs, and table columns have hover-over tips/explanations.",
+      Please hover over buttons, tabs, and table columns for tips/explanations.",
       data.position = "left"
     )
   ),
@@ -219,7 +226,6 @@ ui <- fluidPage(
     actionButton("reset", " Reset ", icon = icon("redo"),
                  style = "padding:3px 9px;float:left;border-radius:0px;margin:0px;") %>% 
       bs_embed_tooltip("reset all settings"),
-    #p(HTML("<A HREF=\"javascript:history.go(0)\">Reset</A>")),
     right = 10,
     bottom = 10
   ),
@@ -266,7 +272,7 @@ ui <- fluidPage(
             )
           ),
           data.step = 2,
-          data.intro = "Query individual genes by id or symbol.",
+          data.intro = "Query individual gene by id or symbol.",
           data.position = "bottom"
         ),
         div(
@@ -323,9 +329,7 @@ ui <- fluidPage(
                 data.intro = "For each section, results as table and/or plot can be saved to disk.",
                 data.position = "right"
               ),
-              #br(.noWS = "outside"),
               hr()
-              # style = "height:150px;"
             ),
             tabPanel(
               span(icon("cogs", class = NULL, lib = "font-awesome"), "Options", title = "additional global options"),
@@ -397,8 +401,7 @@ ui <- fluidPage(
                     bs_embed_tooltip("save current plot as .pdf", placement = "bottom")
                 )
               ),
-              hr()#,
-              #style = "height:180px;"
+              hr()
             ),
             tabPanel(
               span(icon("sort", class = NULL, lib = "font-awesome"), "Order", title = "Select and order box/line/heatplot by dragging"),
@@ -410,7 +413,7 @@ ui <- fluidPage(
                          placeholder = 'Drag items here...',
                          connect = 'bsshow', item_class = "info")
                 ) %>% 
-                bs_embed_tooltip("drag and order the blocks to change plots; in purple are placeholders for other tissues to come", placement = "right"),
+                bs_embed_tooltip("drag and order the blocks to change plots; in purple are placeholders for other tissues to come", placement = "bottom"),
               tags$head(
                 tags$style(HTML(".btn-info{font-size:11px;margin:3px;padding:6px 6px;}"))
               ),
@@ -422,6 +425,8 @@ ui <- fluidPage(
                 bs_embed_tooltip("update with selection and order", placement = "bottom"),
               actionButton("bsselectdefault", "Default", icon = icon("times")) %>%
                 bs_embed_tooltip("restore default selection and order", placement = "bottom"),
+              actionButton("bsselectflip", "Flip", icon = icon("sort")) %>%
+                bs_embed_tooltip("flip shown and hidden", placement = "bottom"),
               hr()
             )
           ),
@@ -462,7 +467,7 @@ ui <- fluidPage(
                   title = "cart list of genes to save and export"
                 ),
                 data.step = 10,
-                data.intro = "A cart list stores query genes that were added (see button above), which can be exported to .txt file, or moved to the loaded Genelist.<br><br>
+                data.intro = "A cart list stores query genes that were added (see '+' button), which can be exported to .txt file, or moved to the loaded Genelist.<br><br>
                 Interactive clicking on the GO_enrich and Venn plots also put the corresponding genes into this cart.",
                 data.position = "top"
               ),
@@ -523,7 +528,7 @@ ui <- fluidPage(
               title = "Plot expression box plot and other info of query gene"
             ),
             data.step = 3,
-            data.intro = "For a query gene, this tab displays the log2 count expression boxplot (note that visualization may differ from DEseq2 fold changes reported after accounting for covariates), as well as other annotations and analyses.",
+            data.intro = "For a query gene, this tab displays the log2 count expression boxplot (note that visualization may differ from DEseq2 fold changes reported after accounting for covariates), and other annotations/analyses.",
             data.position = "top"
           ),
           value = "Gene_query",
@@ -544,7 +549,9 @@ ui <- fluidPage(
                     div(id = "doPadjdiv", checkboxInput("doPadj", "indicate sig", value = T, width = NULL) %>%
                       bs_embed_tooltip("label groups by nonsignificance", placement = "right")),
                     div(id = "doNamediv", checkboxInput("doName", "additional labels", value = F, width = NULL) %>%
-                      bs_embed_tooltip("label points by sample", placement = "right"))
+                      bs_embed_tooltip("label points by sample", placement = "right")),
+                    div(id = "doRemove71div", checkboxInput("doRemove71", "remove GROseq LT 71", value = F, width = NULL) %>%
+                          bs_embed_tooltip("remove suspected outlier", placement = "right"))
                   ),
                   data.step = 4,
                   data.intro = "Additional plotting options, for interactivity and labels, can be accessed here.
@@ -594,7 +601,7 @@ ui <- fluidPage(
               ) %>% bs_embed_tooltip("click on plot to reach UCSC trackhub with RNAseq data", placement = "top")
             ),
             bsCollapse(
-              id = "tabs5", multiple = TRUE, open = NULL, # open = "go_terms/domains",
+              id = "tabs5", multiple = TRUE, open = NULL,
               bsCollapsePanel(DT::dataTableOutput("gotab") %>% withLoader(),
                 title = "GO_terms/domains",
                 style = "info"
@@ -692,7 +699,7 @@ ui <- fluidPage(
               title = "Plot Z-Score of loaded Genelist as heat map"
             ),
             data.step = 13,
-            data.intro = "Similar to the lineplot, visualize loaded Genelist as heatmap (normalized as Z-scores).",
+            data.intro = "Similar to the lineplot, visualize loaded Genelist as heatmap (normalized as Z-scores). Clicking on a block loads the corresponding gene into query.",
             data.position = "top"
           ),
           value = "heat_plot",
@@ -748,11 +755,13 @@ ui <- fluidPage(
             data.step = 14,
             data.intro = "GO term enrichment of loaded Genelist by Fisher's exact test.<br><br>
             Top 15 results are plotted, while full table can be exported.<br><br>
-            Clicking on bar loads the corresponding genes into Cart.",
+            Clicking on bar loads the corresponding genes into Cart.<br><br>
+            Direct link is provided to loading GO terms into REVIGO for further summarization, with REVIGO example from liver data at the bottom.",
             data.position = "top"
           ),
           value = "enrichment_plot",
           dropdownButton(
+            inline = TRUE,
             circle = FALSE, status = "analysis options", icon = icon("gear"), width = "200px", size = "sm",
             tooltip = tooltipOptions(title = "boxplot options"), margin = "20px",
             br(),
@@ -772,7 +781,21 @@ ui <- fluidPage(
                 bs_embed_tooltip("subcollection of GO terms to test against", placement = "bottom")
             )
           ),
-          plotlyOutput("richPlot") %>% withLoader()
+          div(
+            style = "display: inline-block;vertical-align:bottom;", 
+            htmlOutput("revigo") %>% bs_embed_tooltip("direct link to REVIGO for GO term summary (note: REVIGO server is often offline", placement = "right")
+            ),
+          plotlyOutput("richPlot") %>% withLoader(),
+          div(
+            style = "display: padding-top:200px; margin-top:300px",
+            hr()
+          ),
+          hr(),
+          br(),
+          h5("liver_revigo_exploration") %>%
+            bs_embed_tooltip("example revigo results for liver RNAseq", placement = "top"),
+          DT::dataTableOutput("revigoTable"),
+          plotlyOutput("revigoPlot") %>% withLoader()
         ),
         tabPanel(
           introBox(
@@ -846,7 +869,7 @@ ui <- fluidPage(
                 "_none", "_Gene_list", "_Cart_list",
                 names(gene_list)
               ),
-              selected = "fb_sig"
+              selected = "liv_sig"
             )
           ),
           div(
@@ -856,7 +879,7 @@ ui <- fluidPage(
                 "_none", "_Gene_list", "_Cart_list",
                 names(gene_list)
               ),
-              selected = "hy_sig"
+              selected = "liv_gro_sig"
             )
           ),
           div(
@@ -866,7 +889,7 @@ ui <- fluidPage(
                 "_none", "_Gene_list", "_Cart_list",
                 names(gene_list)
               ),
-              selected = "med_sig"
+              selected = "liv_gropro_sig"
             )
           ),
           div(
@@ -941,9 +964,9 @@ ui <- fluidPage(
             style = "display:inline-block;width: 160px;margin-top:6px",
             selectizeInput("guse3", NULL,
               choices = c(
-                "_none", "Forebrain", "Hypothalamus", "Medulla", "Editing_Riemondy2018"
+                "_none", "Liver", "Liver_Gro-seq", "Liver_Gro-seq(promoter)", "Forebrain", "Hypothalamus", "Medulla", "Editing_Riemondy2018"
               ),
-              selected = "Hypothalamus"
+              selected = "Liver"
             ) %>% bs_embed_tooltip("displays max log2FoldChange (or max proportions edited for RNA editing sites) between states for this tissue", placement = "right")
           ),
           div(
@@ -981,12 +1004,10 @@ ui <- fluidPage(
           uiOutput("bsgenome"),
           uiOutput("GOversion"),
           uiOutput("version"),
-          #uiOutput("contact"),
           hr(),
           h5("Sample Details"),
           br(),
           fluidRow(
-            #column(width = 1),
             tags$a(
               href = qc_report,
               target="_blank",

@@ -1,3 +1,5 @@
+shiny_env = new.env()
+
 # Define server logic required to draw the boxplot and render metadata table
 server <- function(input, output, session) {
   rv <- reactiveValues()
@@ -36,6 +38,7 @@ server <- function(input, output, session) {
   rv$region_short_main <- region_short_main
   rv$region_one <- region_one
   rv$data_prev <- data.frame()
+  rv$bp <- bp
   
   if (start_tabhint) {
     rv$tabinit_data <- 0
@@ -61,8 +64,8 @@ server <- function(input, output, session) {
   
   # reordering
   observeEvent(input$bsselectconfirm, {
-    rv$region_main <- input$bsshow_order
-    rv$region_main2 <- input$bshide_order
+    rv$region_main <- input$bsshow
+    rv$region_main2 <- input$bshide
     rv$region_order <- c(rv$region_main, rv$region_main2)
     print(rv$region_order)
     rv$region_short <- region_short[match(rv$region_order, region_order)]
@@ -78,8 +81,25 @@ server <- function(input, output, session) {
     rv$region_short <- region_short
     rv$region_short_main <- region_short_main
     rv$region_one <- region_one
-    # updateOrderInput(session, "bsshow", items = region_main)
-    # updateOrderInput(session, "bshide", items = region_main2)
+    updateOrderInput(session, 'bsshow', 'Drag Blocks Here to Show', items = rv$region_main,
+               connect = 'bshide', item_class = "success")
+    updateOrderInput(session, 'bshide', 'Drag Blocks Here to Hide', items = rv$region_main2,
+               connect = 'bsshow', item_class = "info")
+    print(input$bshide_order)
+  })
+  
+  observeEvent(input$bsselectflip, {
+    rv$region_main <- input$bshide
+    rv$region_main2 <- input$bsshow
+    rv$region_order <- c(rv$region_main, rv$region_main2)
+    print(rv$region_order)
+    rv$region_short <- region_short[match(rv$region_order, region_order)]
+    rv$region_short_main <- region_short[match(rv$region_main, region_order)]
+    rv$region_one <- region_one[match(rv$region_order, region_order)]
+    updateOrderInput(session, 'bsshow', 'Drag Blocks Here to Show', items = rv$region_main,
+                     connect = 'bshide', item_class = "success")
+    updateOrderInput(session, 'bshide', 'Drag Blocks Here to Hide', items = rv$region_main2,
+                     connect = 'bsshow', item_class = "info")
   })
   
   # init
@@ -158,11 +178,14 @@ server <- function(input, output, session) {
   boxPlot1 <- reactive({
     plot_temp <- rv$plot_temp
 
+    if (input$doRemove71) {
+      plot_temp <- plot_temp %>% filter(!(region == "Liver_GROseq" & sample == "71"))
+    }
+    
     t1 <- Sys.time()
     if (nrow(plot_temp) == 0) {
       return(ggplot())
     }
-    # proxy_height <<- paste0(as.numeric(input$ploth) * 100 * (input$doTis + input$doBr) / 2, "px")
     if (input$doTis & input$doBr) {
       mis <- setdiff(rv$region_order, plot_temp$region %>% unique() %>% as.character())
     } else if (!(input$doTis) & input$doBr) {
@@ -205,8 +228,7 @@ server <- function(input, output, session) {
       plot_temp <- plot_temp %>% mutate(text = "NA")
     }
     plot_temp <- plot_temp %>% mutate(region = factor(region, levels = rv$region_order))
-    # plot_temp2 <<- plot_temp
-
+    
     set.seed(1)
     g <- ggplot(plot_temp, aes(state, log2_counts, text = text)) +
       ylab("rlog(counts)") +
@@ -225,11 +247,10 @@ server <- function(input, output, session) {
         geom_point(position = position_jitter(seed = 1))
     }
 
-    if (input$doPadj == T & nrow(rv$pval) != 0) { #  & input$doPlotly == F
+    if (input$doPadj == T & nrow(rv$pval) != 0) {
       t2 <- Sys.time()
-      padj2 <<- padj
-      padj <- padj[str_detect(rownames(padj), paste(rv$region_short_main, collapse = "|")), , drop = FALSE]
-      sig_sym <- sig_sym[str_detect(rownames(sig_sym), paste(rv$region_short_main, collapse = "|")), , drop = FALSE]
+      padj <- padj[str_detect(rownames(padj), paste(rv$region_short, collapse = "|")), , drop = FALSE]
+      sig_sym <- sig_sym[str_detect(rownames(sig_sym), paste(rv$region_short, collapse = "|")), , drop = FALSE]
       temp2 <- calls_sig(padj, sig_sym, as.numeric(input$pval))
       temp2 <- temp2 %>%
         replace_na(list(call1 = list(0))) %>%
@@ -238,7 +259,10 @@ server <- function(input, output, session) {
       temp2 <- temp2[, !(names(temp2) %in% c("padj", "call")), drop = F]
 
       temp2$region <- rv$region_order[factor(temp2$region, level = rv$region_short) %>% as.numeric()]
-      temp3 <- groups_to_letters_igraph(temp2) %>%
+      
+      # tempout <<- temp2 # figure plotting
+      temp3 <- groups_to_letters_igraph(temp2) 
+      temp3 <- temp3 %>%
         mutate(region = factor(region, level = rv$region_order))
 
       if (verbose_bench) {
@@ -388,7 +412,9 @@ server <- function(input, output, session) {
     t1 <- Sys.time()
 
     rv$plot_temp <- comb_fil_factor(combined2, combined3, inid)
-
+    
+    test <<- rv$plot_temp
+    
     temp_orfs <- orfs %>% filter(unique_gene_symbol == rv$plot_temp$unique_gene_symbol[1])
     if (nrow(temp_orfs) > 0) {
       if (nrow(temp_orfs) == 0) {
@@ -773,6 +799,7 @@ server <- function(input, output, session) {
   linePlot1 <- reactive({
     set.seed(1)
     temp <- linetemp()
+    # temp2 <<- temp # figure plotting
     if (length(historytablist) == 0) {
       return(ggplot() +
         ggtitle("no genes loaded"))
@@ -926,11 +953,12 @@ server <- function(input, output, session) {
   })
 
   heatPlotr <- reactive({
-    output$heatPlot2 <- renderPlot(heatPlot())
+    output$heatPlot2 <- renderPlot({shiny_env$ht = draw(heatPlot())
+                                   shiny_env$ht_pos = ht_pos_on_device(shiny_env$ht)})
     if (input$doTis + input$doBr == 2) {
-      plotOutput("heatPlot2", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100 * 2)
+      plotOutput("heatPlot2", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100 * 2, click = "ht_click")
     } else {
-      plotOutput("heatPlot2", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100)
+      plotOutput("heatPlot2", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100, click = "ht_click")
     }
   })
 
@@ -952,6 +980,32 @@ server <- function(input, output, session) {
       dev.off()
     }
   )
+  
+  # interactive
+  observeEvent(input$ht_click, {
+    rv$run2 <- 1
+    pos1 <- ComplexHeatmap:::get_pos_from_click(input$ht_click)
+    ht <- shiny_env$ht
+    pos <- selectPosition(ht, mark = FALSE, pos = pos1, 
+                         verbose = FALSE, ht_pos = shiny_env$ht_pos)
+    row_index = pos[1, "row_index"]
+    column_index = pos[1, "column_index"]
+    
+    if (input$doPivot) {
+      sel1 <- ht@ht_list[[1]]@column_names_param$labels[column_index]
+      sel <- str_remove(sel1, ".+:")
+    } else {
+      sel1 <- ht@ht_list[[1]]@row_names_param$labels[row_index]
+      sel <- str_remove(sel1, ".+:")
+    }
+    sel <- find_spelling(sel, autocomplete_list)
+    updateSelectizeInput(session,
+                         inputId = "geneID",
+                         selected = sel,
+                         choices = autocomplete_list,
+                         server = T
+    )
+  })
 
   richtemp <- reactive({
     rv$line_refresh
@@ -1023,6 +1077,59 @@ server <- function(input, output, session) {
       ggplot2::ggsave(file, plot = richPlot1(), device = "pdf", width = as.numeric(input$plotw), height = as.numeric(input$ploth))
     }
   )
+  
+  output$revigoTable <- renderDT(
+    rv$bp,
+    selection = 'none', server = TRUE, editable = "cell"
+  )
+  
+  observeEvent(input$revigoTable_cell_edit, {
+    rv$bp <<- editData(rv$bp, input$revigoTable_cell_edit, 'revigoTable')
+    bp_out <<- rv$bp
+  })
+  
+  output$revigoPlot <- renderPlotly({
+    xmax = max(rv$bp$plot_X) + 1
+    xmin = min(rv$bp$plot_X) - 1
+    ymax = max(rv$bp$plot_Y) + 1
+    ymin = min(rv$bp$plot_Y) - 1
+    g1 <- ggplot(rv$bp, aes(x = plot_X, y = plot_Y, fill = color, label = description)) +
+      geom_point(shape = 21, size = 7, alpha = 0.77) +
+      scale_fill_manual(values = c("#999999", "#E69F00", "#56B4E9", "#009E73",
+                                   "#F0E442", "#0072B2", "#D55E00", "#CC79A7")) +
+      cowplot::theme_cowplot() +
+      xlim(xmin, xmax) +
+      ylim(ymin, ymax) +
+      labs(y = "semantic space y", x = "semantic space x") + 
+      theme(axis.title.x = element_blank(), axis.title.y = element_blank(),
+            )
+    p <- ggplotly(g1, tooltip = "label", 
+                  height = 7 * 100, width = 9 * 100
+    ) %>%
+      config(displayModeBar = FALSE) %>% 
+      highlight(
+        on = "plotly_selected",
+      ) %>%
+      layout(autosize = FALSE,
+             showlegend = TRUE,
+             xaxis = list(fixedrange = TRUE), yaxis = list(fixedrange = TRUE))
+    p
+  })
+  
+  go_post <- reactive({
+    go_df <- richtemp() %>% filter(padj <= 0.001) %>%
+      dplyr::select(pathway, padj) %>%
+      left_join(gmt_lookup)
+    formatted <- str_c(go_df$GO, go_df$padj, sep = "\t") %>% paste0(collapse = "\n")
+    paste0('<form action="http://revigo.irb.hr/" method="post" target="_blank">
+    <input type="hidden" name="inputGoList" value="', formatted, '"/>
+    <input type="hidden" name="isPValue" value="yes"/>
+    <button type="submit"
+    name="outputListSize" value="large" class="btn-link">Send to REVIGO</button>
+         </form>')
+  })
+  
+  output$revigo <- renderUI(HTML(go_post()))
 
   observeEvent(event_data("plotly_click", source = "richPlot"), {
     tops <- richtemp()
@@ -1133,7 +1240,6 @@ server <- function(input, output, session) {
 
   kmerPlot1_debounce <- reactive({
     de_rbpterm <- input$rbpterm
-    # de_rbpterm <- debounce(input$rbpterm, 100)
     topsk <- kmerPlot1_pre_debounce()
     if (nrow(topsk) == 0) {
       return(data.frame())
@@ -1444,7 +1550,7 @@ server <- function(input, output, session) {
     rv$bed <<- bed_f
     bed_f <- bed_f %>% bed_slop(sq_g, both = 2500000, trim = TRUE)
 
-    arcs_chromosomes <- str_remove(bed_f$chrom, "Itri") # Chromosomes on which the arcs should be displayed
+    arcs_chromosomes <- str_remove(bed_f$chrom, "Itri")
     arcs_begin <- bed_f$start
     arcs_end <- bed_f$end
     arcs_lab <- bed_f$unique_gene_symbol
@@ -1487,7 +1593,7 @@ server <- function(input, output, session) {
       ends = temp3$end,
       values = temp3$fold,
       labels = temp3$unique_gene_symbol,
-      range = c(0, log2(ceiling(max(bed_fc$fold)))),
+      range = c(0, 2 * log2(ceiling(max(temp3$fold)))),
       color = "#000000",
       maxRadius = 0.87,
       minRadius = 0.7
@@ -2010,12 +2116,11 @@ server <- function(input, output, session) {
 
   # ABOUT
   output$intro <- renderUI({
-    url <- str_c("manuscript link here")
-    clean <- a("manuscript",
-      href = url,
+    clean <- a(manuscriptN,
+      href = manuscriptL,
       target="_blank"
     )
-    tagList(tags$h6("RNA sequencing data and analysis for 13-lined ground squirrel brain samples from hibernation cycle. Please see ", clean, "for more details."))
+    tagList(tags$h6("RNA sequencing data and analysis for 13-lined ground squirrel liver and brain samples from hibernation cycle. Please see ", clean, " (for brain data) for more details."))
   })
 
   output$track <- renderUI({
@@ -2173,7 +2278,7 @@ server <- function(input, output, session) {
         "utrs_sq_noG.feather",
         "utrs_sq.feather"
       ),
-      desc = c(
+      description = c(
         "RNA editing events found from seq data (Riemondy2018)",
         "cluster assignments to each tissue",
         "log expression values per gene per animal",
@@ -2436,8 +2541,6 @@ server <- function(input, output, session) {
   })  
   
   observeEvent(input$dimension, {
-    # print(input$dimension[1])
-    # print(input$dimension[2])
     temp <- input$dimension[2]*0.39
     runjs(paste0('$("#tabload").css("height","', temp, 'px")'))
     runjs(paste0('$("#tabcart").css("height","', temp, 'px")'))

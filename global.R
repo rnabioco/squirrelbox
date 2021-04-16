@@ -59,14 +59,45 @@ if (file.exists(paste0(annotpath, "/alt.csv"))) {
 # read database
 if (file.exists(paste0(datapath, "/combined2.feather"))) {
   combined2 <- read_feather(paste0(datapath, "/combined2.feather"))
-  combined3 <- read_feather(paste0(datapath, "/combined3.feather"))
+  combined2_akl <- read_feather(paste0(datapath, "/combined2_akl.feather"))
+  combined2 <- bind_rows(combined2, combined2_akl)
+  combined3 <- read_feather(paste0(datapath, "/full_combined3.feather"))
 } else if (file.exists(paste0(datapath, "/combined2.csv"))) {
   combined2 <- fread(paste0(datapath, "/combined2.csv"), nThread = ncore)
   combined3 <- fread(paste0(datapath, "/combined3.csv"), nThread = ncore)
 }
 
+# use corrected
+combined2_cor <- read_feather(paste0(datapath, "/full_combined2_cor.feather"))
+combined2 <- bind_rows(combined2_cor, combined2 %>% filter(!(region %in% (combined2_cor$region %>% unique()))))
+
 # fix EAr
 combined2 <- combined2 %>% mutate(state = ifelse(state == "EAr", "Ar", as.character(state))) %>% filter(state != "ST")
+
+# groseq 
+combined_gro <- read_feather(paste0(datapath, "/combined_groseq.feather")) %>%
+  mutate(region = "Liver_GRO-seq") %>% distinct()
+combined2 <- bind_rows(combined2, combined_gro)
+combined3_gro <- read_feather(paste0(datapath, "/combined3_groseq.feather"))
+combined3 <- bind_rows(combined3, combined3_gro)
+
+combined_gropro <- read_feather(paste0(datapath, "/combined_groseq_promoter.feather")) %>%
+  mutate(region = "Liver_GRO-seq_promoter") %>% distinct()
+combined2 <- bind_rows(combined2, combined_gropro)
+
+# hiding data
+combined2 <- combined2 %>% filter(!(region %in% hide_region))
+hide_index <- !(region_order %in% hide_region)
+region_order <- region_order[hide_index]
+region_main2 <- region_main2[hide_index[-c(1:length(region_main))]]
+region_short <- region_short[hide_index]
+region_one <- region_one[hide_index]
+
+# name fix
+combined2 <- combined2 %>% mutate(region = ifelse(str_detect(region, "GRO-seq"), region, str_c(region, "_RNA-seq")))
+region_order <- ifelse(str_detect(region_order, "GRO-seq"), region_order, str_c(region_order, "_RNA-seq"))
+region_main <- ifelse(str_detect(region_main, "GRO-seq"), region_main, str_c(region_main, "_RNA-seq"))
+region_main2 <- ifelse(str_detect(region_main2, "GRO-seq"), region_main2, str_c(region_main2, "_RNA-seq"))
 
 # read annotation file to find ucsc track
 bed <- suppressWarnings(read_tsv(paste0(annotpath, "/final_tx_annotations_20200201.tsv.gz"),
@@ -97,7 +128,7 @@ bed <- suppressWarnings(read_tsv(paste0(annotpath, "/final_tx_annotations_202002
 
 # read modules/clusters
 mod <- read_feather(paste0(datapath, "/full_clusters.feather")) %>% select(gene, any_of(str_c("cluster_", region_short)))
-mod <- mod[, c("gene", intersect(str_c("cluster_", region_short_main), colnames(mod)))] # edit for full
+mod <- mod[, c("gene", intersect(str_c("cluster_", region_short), colnames(mod)))] # edit for full
 
 eigen <- suppressWarnings(read_tsv(paste0(datapath, "/cluster_patterns_matrices/reference_patterns.tsv"))) %>%
   rename(state = X1) %>%
@@ -184,6 +215,7 @@ unique_to_clean <- function(genevec, namedvec, na_omit = T) {
 }
 
 # read go terms and TFs
+gmt_lookup <- read_csv(paste0(annotpath, "/","gmt_id.csv"))
 gmt_to_list <- function(path,
                         cutoff = 0,
                         sep = "\thttp://www\\..*?.org/gsea/msigdb/cards/.*?\t",
@@ -239,7 +271,6 @@ construct_gmtlist <- function(gmt_file, genes, n) {
   temp
 }
 
-
 if (file.exists(paste0(annotpath, "/", gmt_file, "_br.rds"))) {
   gmtlist_br <- readRDS(paste0(annotpath, "/", gmt_file, "_br.rds"))
 } else {
@@ -277,7 +308,11 @@ br_expr <- combined2 %>%
   unique()
 
 # load orf predictions
-orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
+gro_padj <- read_feather(paste0(datapath, "/padj_groseq.feather"))
+gropro_padj <- read_feather(paste0(datapath, "/padj_groseq_promoter.feather"))
+orfs <- read_feather(paste0(datapath, "/full_padj_orf_cor.feather")) 
+colnames(orfs) <- str_replace(colnames(orfs), "EAr", "Ar") # fix
+orfs <- orfs %>%
   select(gene_id,
     orf_len = len,
     exons,
@@ -286,10 +321,11 @@ orfs <- read_feather(paste0(datapath, "/padj_orf.feather")) %>%
     unique_gene_symbol,
     everything()
   ) %>%
+  left_join(gro_padj, by = "unique_gene_symbol") %>% 
+  left_join(gropro_padj, by = "unique_gene_symbol") %>% 
   mutate(novel = factor(ifelse(str_detect(gene_id, "^G"), 1, 0))) %>%
   mutate(min_padj = select(., contains("LRT_padj")) %>% 
            reduce(pmin, na.rm = TRUE)) %>% 
-  #mutate(min_sig = pmin(hy_LRT_padj, med_LRT_padj, fb_LRT_padj, na.rm = T)) %>% # curently hardcoded
   mutate(domains = factor(ifelse(gene_id %in% domains$gene_id, 1, 0))) %>%
   mutate(
     br_expr = factor(ifelse(gene_id %in% br_expr, 1, 0))
@@ -303,6 +339,9 @@ sq_g <- data.frame(
   size = unlist(sq1)
 )
 bed_fc <- readRDS(paste0(datapath, "/fc.rds"))
+bed_fc_liv <- readRDS(paste0(datapath, "/fc_liv.rds")) 
+bed_fc <- bind_rows(bed_fc, bed_fc_liv) %>% 
+  bed_sort(by_chrom = T)
 
 # editing sites
 edits <- read_tsv(paste0(datapath, "/brain_editing_site_proportions.bed"))
@@ -353,7 +392,8 @@ orfs <- orfs %>% mutate(micropeptide_pred = ifelse(gene_id %in% fulltbl_sorf$gen
 
 # padj functions
 find_padj <- function(region, state, tbl) {
-  temp <- str_c(tbl[str_sub(tbl, 1, 1) == str_to_lower(str_sub(region, 1, 1)) &
+  region
+  temp <- str_c(tbl[str_remove(tbl, "_.+") == region_short[region_order == region] &
     str_detect(tbl, state)],
   collapse = "<br>"
   )
@@ -627,3 +667,10 @@ proxy_height <- paste0(plot_height * 100 / 2, "px")
 if (!(file.exists(paste0("www/", qc_report)))) {
   qc_report <- NULL
 }
+
+# revigo
+go <- read_tsv(paste0(datapath, "/ClusterGeneEnrichmentsLiver.txt")) %>% 
+  mutate(cutsig = ifelse(Benjamini <= 0.001, 1, 0)) %>% 
+  mutate(minuslogp = -log10(Benjamini))
+bpall <- read_csv(paste0(datapath, "/REVIGO_BP_09.csv") )
+bp <- read_csv(paste0(datapath, "/REVIGO_BP_09_clustered.csv") )

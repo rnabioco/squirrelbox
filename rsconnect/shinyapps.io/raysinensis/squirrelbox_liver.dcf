@@ -1,0 +1,13 @@
+name: squirrelbox_liver
+title: squirrelbox_liver
+username:
+account: raysinensis
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3522280
+bundleId: 4142857
+url: https://raysinensis.shinyapps.io/squirrelbox_liver/
+when: 1611625884.40803
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: app-cache/07f4028aa02d9ee1.rds

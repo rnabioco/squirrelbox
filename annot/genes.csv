@@ -1,13 +1,18 @@
 unique_gene_symbol,"unique to each gene_id, from ensemble/NCBI or newly assigned"
+cluster_liv,gene clusters assigned by expression pattern for liver
 cluster_fb,gene clusters assigned by expression pattern for forebrain
 cluster_hy,gene clusters assigned by expression pattern for hypothalamus
 cluster_med,gene clusters assigned by expression pattern for medulla
+liv_LRT_padj,"adjusted pval for liver RNA, type 0...0.001 to filter for sig"
+gro_LRT_padj,"adjusted pval for liver GRO-seq, type 0...0.001 to filter for sig"
+gropro_LRT_padj,"adjusted pval for liver GRO-seq around promoter, type 0...0.001 to filter for sig"
 fb_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
 hy_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
 med_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
+adr_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
+kid_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
 min_sig,minimum adjusted pval across tissues
 gene_id,newly annotated genes start with G
-chrom,contig number for the new genome assembly
 source,reference denotes carry-over from ensemble/NCBI
 orf_len,aa length of longest orf
 micropeptide_pred,"whether the transcript contains predicted micropeptide, by MiPepid"
