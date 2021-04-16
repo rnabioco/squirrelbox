@@ -21,11 +21,13 @@ url <- "https://github.com/rnabioco/squirrelbox/"
 s3 <- "https://squirrelbox.s3-us-west-2.amazonaws.com/zip6/squirrelbox6.tar.gz"
 docker <- "https://hub.docker.com/r/raysinensis/squirrelbox"
 versionN <- "1.2.0"
-manuscriptN <- "publication in Frontiers in Physiology"
-manuscriptL <- "https://www.frontiersin.org/articles/10.3389/fphys.2020.624677"
 geoN <- "GSE106947"
 genomeN <- "NCBI Assembly HiC_Itri_2"
 genomeL <- "https://www.ncbi.nlm.nih.gov/assembly/GCA_016881025.1"
+manuscriptN <- "publication in Frontiers in Physiology"
+manuscriptL <- "https://www.frontiersin.org/articles/10.3389/fphys.2020.624677"
+annotN <- "new annotation"
+annotL <- "ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/016/881/025/GCA_016881025.1_HiC_Itri_2/GCA_016881025.1_HiC_Itri_2_genomic.gtf.gz"
 bsgenomeN <- "BSgenome.Itridecemlineatus.HiC_Itri_2"
 bsgenomeL <- "https://squirrelbox.s3-us-west-2.amazonaws.com/BSgenome/BSgenome.SQ1_1.0.tar.gz"
 pageN <- 10 # number of lines, for tables
@@ -56,6 +58,7 @@ table_cols <- c(
 
 orf_cols_join <- c(
   "gene_id",
+  "chrom",
   "source",
   "orf_len",
   "micropeptide_pred",

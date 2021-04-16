@@ -2153,11 +2153,15 @@ server <- function(input, output, session) {
             href = genomeL,
             target="_blank"
     )
+    an <- a(annotN,
+            href = annotL,
+            target="_blank"
+    )
     bs <- a(bsgenomeN,
       href = bsgenomeL,
       target="_blank"
     )
-    tagList(tags$h6("Full genome sequences are deposited to ", ge, ", and stored in Biostring/BSgenome format, ", bs))
+    tagList(tags$h6("Full genome sequences are deposited to ", ge, ", and stored in Biostring/BSgenome format, ", bs, ". Annotations can be downloaded here: ", an))
   })
 
   output$GOversion <- renderUI({

@@ -11,3 +11,4 @@ when: 1609272525.19956
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: README.html|docker/Dockerfile|docker/shiny-server.conf|docker/shiny-server.sh|R/debounce.R
+
