@@ -2,9 +2,9 @@
 
 Shiny app to browse hibernating ground squirrel brain tissue RNA-seq data, new genome assembly and transcriptome annotation.
 
-Tested on macOS/Win10/Linux, with R3.6 and R4.0.
+Tested on macOS/Win10/Linux, with R3.6/4.0/4.1
 
-Please see manuscript published in [Frontiers in Physiology](https://www.frontiersin.org/articles/10.3389/fphys.2020.624677).
+Please see manuscripts published in Frontiers in Physiology for [brain](https://www.frontiersin.org/articles/10.3389/fphys.2020.624677) and [liver](https://www.frontiersin.org/articles/10.3389/fphys.2021.662132).
 
 # Getting squirrelBox
 
