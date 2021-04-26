@@ -1,6 +1,6 @@
 # squirrelBox
 
-Shiny app to browse hibernating ground squirrel brain tissue RNA-seq data, new genome assembly and transcriptome annotation.
+Shiny app to browse hibernating ground squirrel brain and liver tissue RNA-seq data (also GRO-seq for liver), new genome assembly and transcriptome annotation.
 
 Tested on macOS/Win10/Linux, with R3.6/4.0/4.1
 
