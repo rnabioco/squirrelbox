@@ -31,7 +31,7 @@ source("config.R")
 source(paste0(rpath, "/ggvenn.R"))
 
 if (file.exists(paste0(annotpath, "/genes.csv"))) {
-  genes_df <- read_csv(paste0(annotpath, "/genes.csv"), col_names = FALSE)
+  genes_df <- read_csv(paste0(annotpath, "/genes.csv"), col_names = FALSE, comment = "#")
   if (ncol(genes_df) > 1) {
     genes_df[[2]] <- ifelse(is.na(genes_df[[2]]), genes_df[[1]], genes_df[[2]])
     genes_tips <- genes_df %>%

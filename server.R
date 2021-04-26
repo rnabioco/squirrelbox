@@ -2120,7 +2120,15 @@ server <- function(input, output, session) {
       href = manuscriptL,
       target="_blank"
     )
-    tagList(tags$h6("RNA sequencing data and analysis for 13-lined ground squirrel liver and brain samples from hibernation cycle. Please see ", clean, " (for brain data) for more details."))
+    clean2 <- a(manuscriptN2,
+               href = manuscriptL2,
+               target="_blank"
+    )
+    tagList(tags$h6("RNA sequencing data and analysis for 13-lined ground squirrel liver and brain samples from hibernation cycle. Please see our 2 publications for more details.", 
+                    br(),
+                    clean,
+                    br(), 
+                    clean2))
   })
 
   output$track <- renderUI({

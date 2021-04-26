@@ -9,10 +9,11 @@ gropro_LRT_padj,"adjusted pval for liver GRO-seq around promoter, type 0...0.001
 fb_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
 hy_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
 med_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
-adr_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
-kid_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
+#adr_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
+#kid_LRT_padj,"adjusted pval for tissue, type 0...0.001 to filter for sig"
 min_sig,minimum adjusted pval across tissues
 gene_id,newly annotated genes start with G
+chrom,contig #
 source,reference denotes carry-over from ensemble/NCBI
 orf_len,aa length of longest orf
 micropeptide_pred,"whether the transcript contains predicted micropeptide, by MiPepid"
