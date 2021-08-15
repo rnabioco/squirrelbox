@@ -6,6 +6,8 @@ Tested on macOS/Win10/Linux, with R3.6/4.0/4.1
 
 Please see manuscripts published in Frontiers in Physiology for [brain](https://www.frontiersin.org/articles/10.3389/fphys.2020.624677) and [liver](https://www.frontiersin.org/articles/10.3389/fphys.2021.662132).
 
+Full genome sequences and annotations reported from these manuscripts are deposited to NCBI Assembly [HiC_Itri_2](https://www.ncbi.nlm.nih.gov/assembly/GCA_016881025.1). New Annotations can be downloaded [here](ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/016/881/025/GCA_016881025.1_HiC_Itri_2/GCA_016881025.1_HiC_Itri_2_genomic.gtf.gz).
+
 # Getting squirrelBox
 
 ## 1. web version
@@ -58,3 +60,7 @@ install.packages(location to BSgenome.SQ1_1.0.tar.gz file,
                  repo = NULL,
                  type = "source")
 ```
+
+# Other resources
+
+Other analyses, such as motif scanning and micro-peptide prediction, can be directly accessed in the `data` and `annot` folders on GitHub. Alternately, descriptions, preview, and links to each dataset are also included in the `About` tab of `Included Data Files` section of SquirrelBox.
