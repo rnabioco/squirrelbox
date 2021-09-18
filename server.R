@@ -179,7 +179,11 @@ server <- function(input, output, session) {
     plot_temp <- rv$plot_temp
 
     if (input$doRemove71) {
-      plot_temp <- plot_temp %>% filter(!(region == "Liver_GROseq" & sample == "71"))
+      plot_temp <- plot_temp %>% filter(!(region == "Liver_GRO-seq" & sample == "71"))
+    }
+    
+    if (input$doRemove136) {
+      plot_temp <- plot_temp %>% filter(!(region == "Kidney_RNA-seq" & sample == "136"))
     }
     
     t1 <- Sys.time()

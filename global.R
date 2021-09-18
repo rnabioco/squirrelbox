@@ -131,7 +131,7 @@ mod <- read_feather(paste0(datapath, "/full_clusters.feather")) %>% select(gene,
 mod <- mod[, c("gene", intersect(str_c("cluster_", region_short), colnames(mod)))] # edit for full
 
 eigen <- suppressWarnings(read_tsv(paste0(datapath, "/cluster_patterns_matrices/reference_patterns.tsv"))) %>%
-  rename(state = X1) %>%
+  rename(state = "...1") %>%
   mutate(state = factor(state, levels = state_order))
 
 eigen_gg <- list()

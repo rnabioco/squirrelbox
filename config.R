@@ -157,4 +157,4 @@ region_one <- c(
   "a",
   "k"
 )
-hide_region <- c("Adrenal", "Kidney")
+hide_region <- c()
