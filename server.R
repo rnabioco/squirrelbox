@@ -756,7 +756,11 @@ server <- function(input, output, session) {
     if (length(historytablist) == 0) {
       return(data.frame(unique_gene_symbol = "load data first"))
     }
-    plot_temp <- comb_fil_factor(combined2, combined3, historytablist) %>%
+    plot_temp <- comb_fil_factor(combined2, combined3, historytablist) 
+    if (input$doRemove136) {
+      plot_temp <- plot_temp %>% filter(!(region == "Kidney_RNA-seq" & sample == "136"))
+    }
+    plot_temp <- plot_temp %>%
       group_by(region, state, unique_gene_symbol) %>%
       summarize(counts = mean(2^log2_counts)) %>%
       ungroup() %>% 
