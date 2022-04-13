@@ -257,7 +257,7 @@ server <- function(input, output, session) {
       sig_sym <- sig_sym[str_detect(rownames(sig_sym), paste(rv$region_short, collapse = "|")), , drop = FALSE]
       temp2 <- calls_sig(padj, sig_sym, as.numeric(input$pval))
       temp2 <- temp2 %>%
-        replace_na(list(call1 = list(0))) %>%
+        replace_na(list(call1 = 0)) %>%
         separate(comp, into = c("region", "state1", NA, "state2"), extra = "drop") %>%
         mutate(call1 = as.numeric(call1))
       temp2 <- temp2[, !(names(temp2) %in% c("padj", "call")), drop = F]
@@ -288,7 +288,7 @@ server <- function(input, output, session) {
           ungroup()
         agg3 <- agg2 %>%
           left_join(temp3[, c("region", "state", "letter"), drop = F], by = c("state", "region")) %>%
-          replace_na(list(letter = list("")))
+          replace_na(list(letter = ""))
 
         g <- g +
           geom_text(data = agg3, aes(
