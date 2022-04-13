@@ -552,7 +552,7 @@ ui <- fluidPage(
                       bs_embed_tooltip("label points by sample", placement = "right")),
                     div(id = "doRemove71div", checkboxInput("doRemove71", "remove GROseq LT 71", value = F, width = NULL) %>%
                           bs_embed_tooltip("remove suspected outlier", placement = "right")),
-                    div(id = "doRemove71div", checkboxInput("doRemove136", "remove Kidney 136", value = F, width = NULL) %>%
+                    div(id = "doRemove71div", checkboxInput("doRemove136", "remove Kidney 136", value = T, width = NULL) %>%
                           bs_embed_tooltip("remove suspected outlier", placement = "right"))
                   ),
                   data.step = 4,
