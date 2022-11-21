@@ -310,7 +310,7 @@ br_expr <- combined2 %>%
 # load orf predictions
 gro_padj <- read_feather(paste0(datapath, "/padj_groseq.feather"))
 gropro_padj <- read_feather(paste0(datapath, "/padj_groseq_promoter.feather"))
-orfs <- read_feather(paste0(datapath, "/full_padj_orf_cor.feather")) 
+orfs <- read_feather(paste0(datapath, "/full_padj_orf_cor_rmk136.feather")) 
 colnames(orfs) <- str_replace(colnames(orfs), "EAr", "Ar") # fix
 orfs <- orfs %>%
   select(gene_id,

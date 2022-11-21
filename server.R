@@ -178,12 +178,14 @@ server <- function(input, output, session) {
   boxPlot1 <- reactive({
     plot_temp <- rv$plot_temp
 
-    if (input$doRemove71) {
-      plot_temp <- plot_temp %>% filter(!(region == "Liver_GRO-seq" & sample == "71"))
-    }
-    
-    if (input$doRemove136) {
-      plot_temp <- plot_temp %>% filter(!(region == "Kidney_RNA-seq" & sample == "136"))
+    if (nrow(plot_temp) > 0) {
+      if (input$doRemove71) {
+        plot_temp <- plot_temp %>% filter(!(region == "Liver_GRO-seq" & sample == "71"))
+      }
+      
+      if (input$doRemove136) {
+        plot_temp <- plot_temp %>% filter(!(region == "Kidney_RNA-seq" & sample == "136"))
+      }
     }
     
     t1 <- Sys.time()
@@ -236,7 +238,7 @@ server <- function(input, output, session) {
     set.seed(1)
     g <- ggplot(plot_temp, aes(state, log2_counts, text = text)) +
       ylab("rlog(counts)") +
-      facet_wrap(~region, scales = "free", ncol = input$ncol) +
+      facet_wrap(~region, scales = "free", ncol = as.numeric(input$ncol)) +
       theme(legend.position = "none")
 
     if (input$doName == T) {
@@ -321,7 +323,7 @@ server <- function(input, output, session) {
   # boxplot-plotly
   boxPlotlyr <- reactive({
     g <- boxPlot1()
-    output$boxPlot2 <- renderPlotly(ggplotly(g + facet_wrap(~region, ncol = input$ncol), tooltip = "text") %>%
+    output$boxPlot2 <- renderPlotly(ggplotly(g + facet_wrap(~region, ncol = as.numeric(input$ncol)), tooltip = "text") %>%
       layout(hovermode = "closest") %>% 
         layout_ggplotly() %>%
         config(displayModeBar = FALSE)) 
@@ -400,7 +402,7 @@ server <- function(input, output, session) {
       }
     },
     cacheKeyExpr = {
-      tryCatch(list(rv$mod_df %>% select(-1), rv$region_short_main, input$ncol),
+      tryCatch(list(rv$mod_df %>% select(-1), rv$region_short_main, as.numeric(input$ncol)),
         error = function(e) {
           "error"
         }
@@ -829,7 +831,7 @@ server <- function(input, output, session) {
         text = unique_gene_symbol
       )) +
         ylab("log2fold") +
-        facet_wrap(~region, ncol = input$ncol) +
+        facet_wrap(~region, ncol = as.numeric(input$ncol)) +
         geom_point(aes(color = unique_gene_symbol)) +
         geom_line(aes(color = unique_gene_symbol)) +
         geom_errorbar(aes(ymin = log2_counts - sem, ymax = log2_counts + sem), width = .05, size = 0.5)
@@ -839,7 +841,7 @@ server <- function(input, output, session) {
         text = unique_gene_symbol
       )) +
         ylab("log2fold") +
-        facet_wrap(~region, ncol = input$ncol) +
+        facet_wrap(~region, ncol = as.numeric(input$ncol)) +
         geom_point(aes(color = unique_gene_symbol)) +
         geom_line(aes(color = unique_gene_symbol))
     }
@@ -909,7 +911,9 @@ server <- function(input, output, session) {
     } else {
       temp2 <- t(scale(t(temp2)))
     }
-
+    temp2[is.nan(temp2)] <- 0
+    temp2[is.na(temp2)] <- 0
+    
     if (input$doSplit) {
       if (input$doPivot) {
         Heatmap(temp2,
@@ -961,8 +965,7 @@ server <- function(input, output, session) {
   })
 
   heatPlotr <- reactive({
-    output$heatPlot2 <- renderPlot({shiny_env$ht = draw(heatPlot())
-                                   shiny_env$ht_pos = ht_pos_on_device(shiny_env$ht)})
+    output$heatPlot2 <- renderPlot(heatPlot())
     if (input$doTis + input$doBr == 2) {
       plotOutput("heatPlot2", width = as.numeric(input$plotw) * 100, height = as.numeric(input$ploth) * 100 * 2, click = "ht_click")
     } else {
@@ -990,30 +993,30 @@ server <- function(input, output, session) {
   )
   
   # interactive
-  observeEvent(input$ht_click, {
-    rv$run2 <- 1
-    pos1 <- ComplexHeatmap:::get_pos_from_click(input$ht_click)
-    ht <- shiny_env$ht
-    pos <- selectPosition(ht, mark = FALSE, pos = pos1, 
-                         verbose = FALSE, ht_pos = shiny_env$ht_pos)
-    row_index = pos[1, "row_index"]
-    column_index = pos[1, "column_index"]
-    
-    if (input$doPivot) {
-      sel1 <- ht@ht_list[[1]]@column_names_param$labels[column_index]
-      sel <- str_remove(sel1, ".+:")
-    } else {
-      sel1 <- ht@ht_list[[1]]@row_names_param$labels[row_index]
-      sel <- str_remove(sel1, ".+:")
-    }
-    sel <- find_spelling(sel, autocomplete_list)
-    updateSelectizeInput(session,
-                         inputId = "geneID",
-                         selected = sel,
-                         choices = autocomplete_list,
-                         server = T
-    )
-  })
+  # observeEvent(input$ht_click, {
+  #   rv$run2 <- 1
+  #   pos1 <- ComplexHeatmap:::get_pos_from_click(input$ht_click)
+  #   ht <- shiny_env$ht
+  #   pos <- selectPosition(ht, mark = FALSE, pos = pos1, 
+  #                        verbose = FALSE, ht_pos = shiny_env$ht_pos)
+  #   row_index = pos[1, "row_index"]
+  #   column_index = pos[1, "column_index"]
+  #   
+  #   if (input$doPivot) {
+  #     sel1 <- ht@ht_list[[1]]@column_names_param$labels[column_index]
+  #     sel <- str_remove(sel1, ".+:")
+  #   } else {
+  #     sel1 <- ht@ht_list[[1]]@row_names_param$labels[row_index]
+  #     sel <- str_remove(sel1, ".+:")
+  #   }
+  #   sel <- find_spelling(sel, autocomplete_list)
+  #   updateSelectizeInput(session,
+  #                        inputId = "geneID",
+  #                        selected = sel,
+  #                        choices = autocomplete_list,
+  #                        server = T
+  #   )
+  # })
 
   richtemp <- reactive({
     rv$line_refresh
@@ -1363,6 +1366,7 @@ server <- function(input, output, session) {
   })
 
   vennPlot1 <- reactive({
+    aaa <<- venntemp()
     a <- venntemp()
     non_none <- !sapply(a, is.null) & !duplicated(c(input$seta, input$setb, input$setc)) & !(c(input$seta, input$setb, input$setc) == "_none")
     if (sum(non_none) > 1) {

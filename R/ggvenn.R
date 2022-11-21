@@ -73,10 +73,10 @@ ggvenn <- function(data, columns = NULL,
     geom_polygon(aes(x = x, y = y, group = group, fill = group),
       alpha = fill_alpha
     ) +
-    geom_polygon(aes(x = x, y = y, group = group, fill = NA),
+    geom_polygon(aes(x = x, y = y, group = group, fill = group),
       color = stroke_color,
       size = stroke_size,
-      alpha = stroke_alpha,
+      alpha = fill_alpha,
       linetype = stroke_linetype
     ) +
     geom_text(
