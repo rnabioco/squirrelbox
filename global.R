@@ -31,7 +31,7 @@ source("config.R")
 source(paste0(rpath, "/ggvenn.R"))
 
 if (file.exists(paste0(annotpath, "/genes.csv"))) {
-  genes_df <- read_csv(paste0(annotpath, "/genes.csv"), col_names = FALSE)
+  genes_df <- read_csv(paste0(annotpath, "/genes.csv"), col_names = FALSE, show_col_types = FALSE)
   if (ncol(genes_df) > 1) {
     genes_df[[2]] <- ifelse(is.na(genes_df[[2]]), genes_df[[1]], genes_df[[2]])
     genes_tips <- genes_df %>%
@@ -44,7 +44,7 @@ if (file.exists(paste0(annotpath, "/genes.csv"))) {
 }
 
 if (file.exists(paste0(annotpath, "/alt.csv"))) {
-  maj_df <- read_csv(paste0(annotpath, "/alt.csv"), col_names = FALSE)
+  maj_df <- read_csv(paste0(annotpath, "/alt.csv"), col_names = FALSE, show_col_types = FALSE)
   if (ncol(maj_df) > 1) {
     maj_df[[2]] <- ifelse(is.na(maj_df[[2]]), maj_df[[1]], maj_df[[2]])
     maj_tips <- maj_df %>%
@@ -121,7 +121,7 @@ bed <- suppressWarnings(read_tsv(paste0(annotpath, "/final_tx_annotations_202002
     NA,
     NA,
     "majiq_directed"
-  ), skip = 1
+  ), skip = 1, show_col_types = FALSE
 )) %>%
   select(-contains("X")) %>%
   mutate(majiq_directed = factor(ifelse(is.na(majiq_directed), 0, 1)))
@@ -130,7 +130,7 @@ bed <- suppressWarnings(read_tsv(paste0(annotpath, "/final_tx_annotations_202002
 mod <- read_feather(paste0(datapath, "/full_clusters.feather")) %>% select(gene, any_of(str_c("cluster_", region_short)))
 mod <- mod[, c("gene", intersect(str_c("cluster_", region_short), colnames(mod)))] # edit for full
 
-eigen <- suppressWarnings(read_tsv(paste0(datapath, "/cluster_patterns_matrices/reference_patterns.tsv"))) %>%
+eigen <- suppressWarnings(read_tsv(paste0(datapath, "/cluster_patterns_matrices/reference_patterns.tsv"), show_col_types = FALSE)) %>%
   rename(state = "...1") %>%
   mutate(state = factor(state, levels = state_order))
 
@@ -215,14 +215,14 @@ unique_to_clean <- function(genevec, namedvec, na_omit = T) {
 }
 
 # read go terms and TFs
-gmt_lookup <- read_csv(paste0(annotpath, "/","gmt_id.csv"))
+gmt_lookup <- read_csv(paste0(annotpath, "/","gmt_id.csv"), show_col_types = FALSE)
 gmt_to_list <- function(path,
                         cutoff = 0,
                         sep = "\thttp://www\\..*?.org/gsea/msigdb/cards/.*?\t",
                         rm = "REACTOME_",
                         per = TRUE) {
-  df <- readr::read_csv(path,
-    col_names = F, col_types = cols()
+  df <- read_csv(path,
+    col_names = F, col_types = cols(), show_col_types = FALSE
   )
   df <- tidyr::separate(df,
     X1,
@@ -300,7 +300,7 @@ if (file.exists(paste0(annotpath, "/", gmt_file, "_human.rds"))) {
   saveRDS(gmtlist_human, paste0(annotpath, "/", gmt_file, "_human.rds"))
 }
 
-domains <- read_csv(paste0(datapath, "/novel_domains.csv"), col_types = "cc")
+domains <- read_csv(paste0(datapath, "/novel_domains.csv"), col_types = "cc", show_col_types = FALSE)
 
 br_expr <- combined2 %>%
   filter(region %in% region_main) %>%
@@ -344,7 +344,7 @@ bed_fc <- bind_rows(bed_fc, bed_fc_liv) %>%
   bed_sort(by_chrom = T)
 
 # editing sites
-edits <- read_tsv(paste0(datapath, "/brain_editing_site_proportions.bed"))
+edits <- read_tsv(paste0(datapath, "/brain_editing_site_proportions.bed"), show_col_types = FALSE)
 edits$max <- apply(edits[, c(7:96)], 1, function(x) {
   max(x, na.rm = T)
 })
@@ -357,8 +357,8 @@ edited_genes <- edits$unique_gene_symbol %>% unique()
 orfs <- orfs %>% mutate(edited = ifelse(unique_gene_symbol %in% edited_genes, TRUE, FALSE))
 
 # load short orf predictions
-sorf <- read_csv(paste0(datapath, "/MiPepid_pred.csv"))
-sorf_blast <- read_csv(paste0(datapath, "/SmProt_blast.csv"))
+sorf <- read_csv(paste0(datapath, "/MiPepid_pred.csv"), show_col_types = FALSE)
+sorf_blast <- read_csv(paste0(datapath, "/SmProt_blast.csv"), show_col_types = FALSE)
 fulltbl <- combined3 %>%
   select(-c(gene_symbol, clean_gene_symbol, original_gene_name)) %>%
   left_join(orfs %>% select(any_of(orf_cols_join), any_of(str_c(region_short, "_LRT_padj")), min_padj), by = "gene_id") %>%
@@ -439,7 +439,7 @@ sort_groups <- function(groups, states, state_order) {
     full4 <- as.matrix(full) %>% t()
   } else {
     full4 <- sapply(full, function(x) x[order(match(x, state_order))])
-    if (class(full4) != "matrix") {
+    if (!("matrix" %in% class(full4))) {
       full4 <- sapply(full4, "length<-", max(lengths(full4)))
     }
   }
@@ -521,7 +521,7 @@ fisher <- function(genevec, gmtlist, length_detected_genes = NA, top = Inf) {
     select(pathway, pval, padj, minuslog10, pval, hits, len, go_len)
 }
 
-maj <- read_tsv(paste0(datapath, "/MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz")) %>%
+maj <- read_tsv(paste0(datapath, "/MAJIQ_dpsi_summary_sig_squirrelBox.tsv.gz"), show_col_types = FALSE) %>%
   mutate(
     region = factor(region),
     comp = factor(comp)
@@ -618,14 +618,14 @@ comp_kmer <- function(df = seqs,
   res[order(res$adj_p_value, method = "radix"), , drop = F]
 }
 
-fivemers <- read_csv(paste0(annotpath, "/RBP_5mer.csv"))
-sevenmers <- read_csv(paste0(annotpath, "/mir_7mer.csv"))
-sixmers <- read_csv(paste0(annotpath, "/RBP_6mer.csv"))
+fivemers <- read_csv(paste0(annotpath, "/RBP_5mer.csv"), show_col_types = FALSE)
+sevenmers <- read_csv(paste0(annotpath, "/mir_7mer.csv"), show_col_types = FALSE)
+sixmers <- read_csv(paste0(annotpath, "/RBP_6mer.csv"), show_col_types = FALSE)
 
 # load curated gene lists
 lists_vec <- list.files(listpath)
 gene_list <- sapply(lists_vec, function(x) {
-  read_csv(paste0(listpath, "/", x)) %>% pull(1)
+  read_csv(paste0(listpath, "/", x), show_col_types = FALSE) %>% pull(1)
 }, simplify = FALSE)
 names(gene_list) <- names(gene_list) %>% str_remove("\\..+")
 
@@ -633,13 +633,13 @@ names(gene_list) <- names(gene_list) %>% str_remove("\\..+")
 data_files <- list.files(path = datapath, full.names = T)
 generate_prev <- function(x, ncol = 5, nrow = 3) {
   if (str_detect(x, ".bed") | str_detect(x, ".tsv")) {
-    temp <- read_tsv(x, n_max = (nrow + 1))
+    temp <- read_tsv(x, n_max = (nrow + 1), show_col_types = FALSE)
     return(temp[1:min(nrow(temp), nrow), 1:min(ncol(temp), ncol), drop = FALSE])
   } else if (str_detect(x, ".feather")) {
     temp <- read_feather(x)
     return(temp[1:min(nrow(temp), nrow), 1:min(ncol(temp), ncol), drop = FALSE])
   } else if (str_detect(x, ".csv")) {
-    temp <- read_csv(x, n_max = (nrow + 1))
+    temp <- read_csv(x, n_max = (nrow + 1), show_col_types = FALSE)
     return(temp[1:min(nrow(temp), nrow), 1:min(ncol(temp), ncol), drop = FALSE])
   } else if (str_detect(x, ".rds")) {
     temp <- readRDS(x)
@@ -669,8 +669,8 @@ if (!(file.exists(paste0("www/", qc_report)))) {
 }
 
 # revigo
-go <- read_tsv(paste0(datapath, "/ClusterGeneEnrichmentsLiver.txt")) %>% 
+go <- read_tsv(paste0(datapath, "/ClusterGeneEnrichmentsLiver.txt"), show_col_types = FALSE) %>% 
   mutate(cutsig = ifelse(Benjamini <= 0.001, 1, 0)) %>% 
   mutate(minuslogp = -log10(Benjamini))
-bpall <- read_csv(paste0(datapath, "/REVIGO_BP_09.csv") )
-bp <- read_csv(paste0(datapath, "/REVIGO_BP_09_clustered.csv") )
+bpall <- read_csv(paste0(datapath, "/REVIGO_BP_09.csv"), show_col_types = FALSE)
+bp <- read_csv(paste0(datapath, "/REVIGO_BP_09_clustered.csv"), show_col_types = FALSE)
